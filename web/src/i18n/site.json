@@ -1,0 +1,55 @@
+{
+  "_": "Les slugs et les métadonnées de page, lus à la fois par l'application (src/i18n) et par le générateur de gabarits (scripts/prerender.mjs). Une seule source : la duplication entre les deux avait déjà commencé à dériver.",
+  "slugs": {
+    "fr": {
+      "home": "",
+      "terms": "conditions",
+      "privacy": "confidentialite",
+      "help": "aide"
+    },
+    "en": {
+      "home": "",
+      "terms": "terms",
+      "privacy": "privacy",
+      "help": "help"
+    },
+    "es": {
+      "home": "",
+      "terms": "condiciones",
+      "privacy": "privacidad",
+      "help": "ayuda"
+    }
+  },
+  "meta": {
+    "fr": {
+      "title": "Plum — Une photo, deux phrases",
+      "description": "Plum est une application de rencontres pour iOS. Une photo, deux phrases, et on verra bien.",
+      "pageTitles": {
+        "home": null,
+        "terms": "Conditions d'utilisation",
+        "privacy": "Confidentialité",
+        "help": "Aide et contact"
+      }
+    },
+    "en": {
+      "title": "Plum — One photo, two sentences",
+      "description": "Plum is a dating app for iOS. One photo, two sentences, and we'll see how it goes.",
+      "pageTitles": {
+        "home": null,
+        "terms": "Terms of use",
+        "privacy": "Privacy",
+        "help": "Help and contact"
+      }
+    },
+    "es": {
+      "title": "Plum — Una foto, dos frases",
+      "description": "Plum es una aplicación de citas para iOS. Una foto, dos frases, y ya veremos.",
+      "pageTitles": {
+        "home": null,
+        "terms": "Condiciones de uso",
+        "privacy": "Privacidad",
+        "help": "Ayuda y contacto"
+      }
+    }
+  }
+}
