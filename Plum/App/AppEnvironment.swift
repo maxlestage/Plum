@@ -9,6 +9,7 @@ struct AppEnvironment: Sendable {
     var discovery: any DiscoveryServicing
     var matches: any MatchServicing
     var chat: any ChatServicing
+    var location: any LocationProviding
 
     /// Wires the real API client, its socket and the keychain together.
     static func live(configuration: APIConfiguration = .fromEnvironment()) -> AppEnvironment {
@@ -19,7 +20,8 @@ struct AppEnvironment: Sendable {
             profiles: ProfileService(client: client),
             discovery: DiscoveryService(client: client),
             matches: MatchService(client: client),
-            chat: ChatService(client: client, socket: socket)
+            chat: ChatService(client: client, socket: socket),
+            location: SystemLocationProvider()
         )
     }
 
@@ -30,7 +32,8 @@ struct AppEnvironment: Sendable {
             profiles: DemoProfileService(),
             discovery: DemoDiscoveryService(),
             matches: DemoMatchService(),
-            chat: DemoChatService()
+            chat: DemoChatService(),
+            location: DemoLocationProvider()
         )
     }
 

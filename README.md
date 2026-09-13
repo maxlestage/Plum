@@ -34,7 +34,10 @@ Scheme… ▸ Run ▸ Arguments`) :
   décide du routage à chaque lancement.
 - **Découverte** — un deck de cartes que l'on balaie à droite (j'aime), à
   gauche (non) ou vers le haut (coup de cœur), avec annulation du dernier
-  passe, signalement et blocage depuis chaque carte.
+  passe, signalement et blocage depuis chaque carte. La position est demandée
+  pendant l'onboarding, à côté du réglage de distance, et repoussée à chaque
+  lancement : c'est elle qui fait exister les distances affichées. Un refus
+  masque les distances sans rien casser d'autre.
 - **Matchs** — l'écran de célébration, la rangée des matchs sans conversation
   entamée, puis la boîte de réception.
 - **Messagerie** — historique paginé, envoi optimiste (la bulle apparaît
@@ -42,8 +45,10 @@ Scheme… ▸ Run ▸ Arguments`) :
   reconnexion automatique du WebSocket. Signalement, blocage et retrait du
   match sont accessibles depuis la conversation elle-même, pas seulement
   depuis la carte.
-- **Profil et réglages** — photos, bio, centres d'intérêt, critères de
-  recherche, déconnexion et suppression de compte.
+- **Profil et réglages** — photos (dont le choix de la couverture), bio,
+  centres d'intérêt, critères de recherche, déconnexion et suppression de
+  compte. Modifier les critères rafraîchit le deck immédiatement, alors même
+  qu'il vit dans un autre onglet resté en mémoire.
 
 ## Architecture
 
@@ -81,7 +86,7 @@ Le client parle à une API REST en `snake_case` avec des dates ISO 8601 :
 ```
 POST   /auth/sign-up · /auth/sign-in · /auth/refresh · /auth/sign-out
 GET    /me · /me/profile · /me/preferences
-PATCH  /me/profile · /me/preferences · /me/photos/order
+PATCH  /me/profile · /me/preferences · /me/photos/order · /me/location
 POST   /me/photos                       (multipart)
 POST   /me/profile/complete             (fin de l'onboarding)
 GET    /discovery/deck?limit=&cursor=

@@ -42,6 +42,8 @@ private actor SinglePageChatService: ChatServicing {
 
     func markRead(conversationId: UUID) async throws {}
 
+    func notifyTyping(conversationId: UUID) async {}
+
     func eventStream() async throws -> AsyncStream<ChatEvent> {
         AsyncStream { $0.finish() }
     }

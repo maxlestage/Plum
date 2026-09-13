@@ -7,8 +7,10 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.services) private var services
     @Environment(SessionStore.self) private var session
+    @Environment(DeckRefreshSignal.self) private var deckRefresh
 
     @State private var draft = DiscoveryPreferences.default
+    @State private var locationSync: LocationSync?
     @State private var isConfirmingSignOut = false
     @State private var isConfirmingDeletion = false
 
@@ -43,6 +45,7 @@ struct SettingsView: View {
                 }
 
                 Section("Distance") {
+                    locationRow
                     VStack(alignment: .leading) {
                         Text("Jusqu'à \(draft.maxDistanceKm) km")
                             .font(.plumCallout)
@@ -75,12 +78,23 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("OK") {
-                        Task { await viewModel.updatePreferences(draft) }
+                        Task { @MainActor in
+                            await viewModel.updatePreferences(draft)
+                            // The deck lives in another tab and stays alive:
+                            // without this the new criteria wait for a relaunch.
+                            deckRefresh.invalidate()
+                        }
                         dismiss()
                     }
                 }
             }
             .onAppear { draft = viewModel.preferences }
+            .task {
+                if locationSync == nil {
+                    locationSync = LocationSync(provider: services.location, profiles: services.profiles)
+                }
+                await locationSync?.refreshAuthorization()
+            }
             .onChange(of: draft.minAge) { _, newValue in
                 // Keep the range coherent while it is being dragged.
                 if draft.maxAge < newValue { draft.maxAge = newValue }
@@ -119,6 +133,38 @@ struct SettingsView: View {
     }
 }
 
+extension SettingsView {
+    /// Without a position the distance filter is decorative; say so where the
+    /// slider is, rather than letting someone wonder why nobody is nearby.
+    @ViewBuilder
+    fileprivate var locationRow: some View {
+        if let locationSync {
+            if locationSync.isBlocked {
+                Text("Localisation refusée : le filtre de distance ne s'applique pas. Réactivez-la dans Réglages ▸ Plum.")
+                    .font(.plumCaption)
+                    .foregroundStyle(PlumTheme.Palette.pass)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if locationSync.needsPermission {
+                Button("Activer la localisation") {
+                    Task { await locationSync.requestPermissionAndSync() }
+                }
+                .font(.plumCallout)
+            } else if let lastError = locationSync.lastError {
+                VStack(alignment: .leading, spacing: PlumTheme.Spacing.xs) {
+                    Text("Dernière position non transmise : \(lastError)")
+                        .font(.plumCaption)
+                        .foregroundStyle(PlumTheme.Palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Réessayer") {
+                        Task { await locationSync.sync() }
+                    }
+                    .font(.plumCallout)
+                }
+            }
+        }
+    }
+}
+
 #Preview {
     SettingsView(
         viewModel: ProfileViewModel(
@@ -128,4 +174,5 @@ struct SettingsView: View {
     )
     .environment(SessionStore(auth: AppEnvironment.preview.auth))
     .environment(\.services, .preview)
+    .environment(DeckRefreshSignal())
 }

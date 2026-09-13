@@ -133,6 +133,12 @@ actor DemoProfileService: ProfileServicing {
         user.profileCompleted = true
         return user
     }
+
+    private(set) var lastPushedLocation: Coordinate?
+
+    func updateLocation(_ coordinate: Coordinate) async throws {
+        lastPushedLocation = coordinate
+    }
 }
 
 actor DemoDiscoveryService: DiscoveryServicing {
@@ -235,6 +241,12 @@ actor DemoChatService: ChatServicing {
     }
 
     func markRead(conversationId: UUID) async throws {}
+
+    private(set) var typingNotices = 0
+
+    func notifyTyping(conversationId: UUID) async {
+        typingNotices += 1
+    }
 
     func eventStream() async throws -> AsyncStream<ChatEvent> {
         let id = UUID()

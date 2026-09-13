@@ -6,6 +6,7 @@ struct OnboardingView: View {
     @Environment(\.services) private var services
     @Environment(SessionStore.self) private var session
     @State private var viewModel: OnboardingViewModel?
+    @State private var locationSync: LocationSync?
     @State private var pickedPhoto: PhotosPickerItem?
 
     var body: some View {
@@ -20,6 +21,10 @@ struct OnboardingView: View {
             if viewModel == nil {
                 viewModel = OnboardingViewModel(profiles: services.profiles, session: session)
             }
+            if locationSync == nil {
+                locationSync = LocationSync(provider: services.location, profiles: services.profiles)
+            }
+            await locationSync?.refreshAuthorization()
         }
         .onChange(of: pickedPhoto) { _, item in
             guard let item else { return }
@@ -207,6 +212,7 @@ struct OnboardingView: View {
 
             VStack(alignment: .leading, spacing: PlumTheme.Spacing.s) {
                 Text("Distance").plumSectionHeader()
+                locationRow
                 Text("Jusqu'à \(model.preferences.maxDistanceKm) km")
                     .font(.plumCallout)
                 Slider(
@@ -217,6 +223,33 @@ struct OnboardingView: View {
                     in: 1...300,
                     step: 1
                 )
+            }
+        }
+    }
+
+    /// Asking here, next to the distance slider, is the one place where the
+    /// reason for the permission is obvious. A refusal is not a dead end: the
+    /// app works, it just cannot sort by distance.
+    @ViewBuilder
+    private var locationRow: some View {
+        if let locationSync {
+            if locationSync.needsPermission {
+                Button {
+                    Task { await locationSync.requestPermissionAndSync() }
+                } label: {
+                    Label("Activer la localisation", systemImage: "location")
+                        .font(.plumCallout)
+                }
+                .buttonStyle(.borderless)
+            } else if locationSync.isBlocked {
+                Text("Localisation refusée : les distances resteront masquées. Vous pouvez la réactiver dans les réglages de l'iPhone.")
+                    .font(.plumCaption)
+                    .foregroundStyle(PlumTheme.Palette.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Label("Localisation active", systemImage: "checkmark.circle.fill")
+                    .font(.plumCaption)
+                    .foregroundStyle(PlumTheme.Palette.mint)
             }
         }
     }

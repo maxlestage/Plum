@@ -4,6 +4,7 @@ import SwiftUI
 struct PlumApp: App {
     @State private var services: AppEnvironment
     @State private var session: SessionStore
+    @State private var deckRefresh = DeckRefreshSignal()
 
     init() {
         // Demo mode keeps the app fully usable without the Rust API running,
@@ -18,6 +19,7 @@ struct PlumApp: App {
             RootView()
                 .environment(\.services, services)
                 .environment(session)
+                .environment(deckRefresh)
                 .tint(PlumTheme.Palette.plum)
         }
     }

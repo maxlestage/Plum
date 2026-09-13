@@ -86,8 +86,7 @@ enum SampleData {
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000C1")!,
             profile: deck[0],
             matchedAt: .now.addingTimeInterval(-4_000),
-            conversationId: conversations[0].id,
-            hasUnreadMessages: true
+            conversationId: conversations[0].id
         ),
         Match(
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000C2")!,
