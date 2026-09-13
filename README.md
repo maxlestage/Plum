@@ -59,6 +59,17 @@ Scheme… ▸ Run ▸ Arguments`) :
   compte. Modifier les critères rafraîchit le deck immédiatement, alors même
   qu'il vit dans un autre onglet resté en mémoire.
 
+## Le serveur
+
+Le dépôt contient désormais aussi l'API que cette application attend :
+[`server/`](server/README.md), en Rust (axum + SeaORM), déployée sur Heroku par
+image Docker construite en CI. La tranche d'authentification est faite et
+testée ; le reste est à écrire.
+
+[`docs/plan-heroku.md`](docs/plan-heroku.md) décrit comment tout cela se pilote
+depuis un téléphone, sans ordinateur — y compris ce qui ne peut pas l'être et
+comment on contourne.
+
 ## Architecture
 
 ```

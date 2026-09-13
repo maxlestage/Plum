@@ -1,0 +1,48 @@
+[package]
+name = "plum-server"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+
+[dependencies]
+axum = { version = "0.8", features = ["macros", "ws", "multipart"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+
+sea-orm = { version = "1", features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "macros",
+    "with-uuid",
+    "with-chrono",
+] }
+migration = { path = "migration" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+jsonwebtoken = "9"
+argon2 = "0.5"
+password-hash = { version = "0.5", features = ["rand_core"] }
+rand = "0.8"
+sha2 = "0.10"
+
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+sea-orm-migration = { version = "1", features = ["sqlx-postgres", "runtime-tokio-rustls"] }
+
+[profile.release]
+# Heroku charges for boot time, not build time — and the build happens in CI
+# anyway. Optimise for a small, fast binary.
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
