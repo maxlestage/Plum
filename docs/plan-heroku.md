@@ -52,12 +52,15 @@ Si les déploiements automatiques sont activés côté Heroku, il faut les
 **désactiver** : sinon chaque poussée sur `master` déclenche un build voué à
 échouer, et un courriel avec.
 
-### Pourquoi construire dans Actions
+### Le temps de build, mesuré et non estimé
 
-Heroku plafonne ses builds à 15 minutes. **Mesuré ici, une compilation Rust en
-release complète prend 1 min 45 s sur quatre cœurs** — donc plusieurs minutes
-sur un dyno de build, mais dans les clous. L'affirmation « ça dépasse les 15
-minutes sans peine », que j'ai d'abord écrite, était exagérée.
+Heroku plafonne ses builds à 15 minutes. **Mesuré sur le constructeur de
+Heroku lui-même, trois fois : 2 min 40 s à 3 min 13 s**, image Docker
+complète, étage Node compris. L'affirmation « ça dépasse les 15 minutes sans
+peine », que j'ai d'abord écrite, était fausse — d'un facteur cinq.
+
+Construire sur Heroku est donc parfaitement viable, et c'est ce que fait ce
+dépôt.
 
 Les vraies raisons tiennent quand même :
 
@@ -210,3 +213,42 @@ La tranche 2 avant tout le reste : un backend déployé qui répond à
 
 Le reste — le code, les workflows, le Dockerfile, les migrations — je peux
 l'écrire et le pousser d'ici.
+
+
+---
+
+## Ce que le premier déploiement réel a appris
+
+Trois bugs qu'aucun test ne pouvait attraper, parce qu'ils tenaient à
+l'environnement et non au code.
+
+### Un Redis injoignable empêchait le démarrage
+
+Les migrations passaient, puis Heroku tuait le dyno au bout de soixante
+secondes : le port n'avait jamais été ouvert. `ConnectionManager::new`
+réessaie en interne plutôt que d'échouer, et la construction du limiteur
+précède l'écoute — donc un add-on en panne rendait le service impossible à
+démarrer.
+
+Le code affirmait partout que « Redis reste facultatif, le service reste
+debout » et faisait l'inverse. L'attente est maintenant bornée à cinq
+secondes, et un test rejoue le cas contre une adresse qui ne répond pas.
+
+### L'erreur ne disait rien
+
+Le journal ne donnait qu'un « délai dépassé », ce qui ne distingue pas un
+certificat refusé d'un hôte injoignable ou d'un mot de passe faux. Un
+déploiement n'a servi qu'à rendre l'échec bavard : un seul essai, pas de
+réessai en arrière-plan, l'erreur remonte telle quelle.
+
+### La vraie cause : une feature de compilation
+
+`Cannot create insecure client without tls-rustls-insecure feature`.
+
+Le fragment `#insecure` était bien ajouté à l'URL, et bien lu par la
+bibliothèque à l'analyse — puis refusé à la connexion, faute d'une option de
+compilation. Une option manquante ne se voit dans aucun test qui ne parle pas
+à un vrai serveur TLS.
+
+La morale des trois : un échec qui ne nomme pas sa cause coûte un déploiement
+de plus que celui qui la nomme.
