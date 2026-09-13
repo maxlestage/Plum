@@ -18,6 +18,9 @@ protocol ProfileServicing: Sendable {
     /// Marks onboarding as done. Returns the updated account so the session
     /// stops routing to the onboarding flow.
     func completeProfile() async throws -> User
+    /// Pushes the current position. The server computes every distance from
+    /// it; without this call the deck has nothing to sort by.
+    func updateLocation(_ coordinate: Coordinate) async throws
 }
 
 struct ProfileService: ProfileServicing {
@@ -60,5 +63,9 @@ struct ProfileService: ProfileServicing {
 
     func completeProfile() async throws -> User {
         try await client.send(.post("me/profile/complete"), as: User.self)
+    }
+
+    func updateLocation(_ coordinate: Coordinate) async throws {
+        try await client.send(.patch("me/location", body: coordinate))
     }
 }

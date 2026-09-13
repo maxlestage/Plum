@@ -118,6 +118,30 @@ struct ProfileView: View {
                     RemoteImage(url: photo.url, seed: photo.id.uuidString)
                         .frame(width: 180, height: 240)
                         .clipShape(RoundedRectangle(cornerRadius: PlumTheme.Radius.medium, style: .continuous))
+                        .overlay(alignment: .topLeading) {
+                            if photo.id == profile.coverPhoto?.id {
+                                Text("Couverture")
+                                    .font(.plumCaption)
+                                    .padding(.horizontal, PlumTheme.Spacing.s)
+                                    .padding(.vertical, 4)
+                                    .background(.ultraThinMaterial, in: Capsule())
+                                    .padding(PlumTheme.Spacing.s)
+                            }
+                        }
+                        .contextMenu {
+                            if photo.id != profile.coverPhoto?.id {
+                                Button {
+                                    Task { await viewModel.makeCover(photo) }
+                                } label: {
+                                    Label("Mettre en couverture", systemImage: "star")
+                                }
+                            }
+                            Button(role: .destructive) {
+                                Task { await viewModel.deletePhoto(photo) }
+                            } label: {
+                                Label("Supprimer", systemImage: "trash")
+                            }
+                        }
                         .overlay(alignment: .topTrailing) {
                             Button {
                                 Task { await viewModel.deletePhoto(photo) }
@@ -159,4 +183,5 @@ struct ProfileView: View {
     ProfileView()
         .environment(\.services, .preview)
         .environment(SessionStore(auth: AppEnvironment.preview.auth))
+        .environment(DeckRefreshSignal())
 }

@@ -46,11 +46,19 @@ struct WelcomeView: View {
                             )
                     }
 
-                    Text("En continuant, vous acceptez nos conditions et confirmez avoir 18 ans ou plus.")
-                        .font(.plumCaption)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.white.opacity(0.75))
-                        .padding(.bottom, PlumTheme.Spacing.s)
+                    VStack(spacing: PlumTheme.Spacing.xs) {
+                        Text("En continuant, vous confirmez avoir 18 ans ou plus et acceptez :")
+                            .multilineTextAlignment(.center)
+                        HStack(spacing: PlumTheme.Spacing.m) {
+                            Link("Conditions d'utilisation", destination: LegalLinks.terms)
+                            Link("Confidentialité", destination: LegalLinks.privacy)
+                        }
+                        .underline()
+                    }
+                    .font(.plumCaption)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .tint(.white)
+                    .padding(.bottom, PlumTheme.Spacing.s)
                 }
                 .padding(.horizontal, PlumTheme.Spacing.l)
             }

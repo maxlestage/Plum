@@ -8,6 +8,9 @@ protocol AuthServicing: Sendable {
     func deleteAccount() async throws
     /// A session restored from the keychain at launch, or nil if there is none.
     func restoreSession() async -> User?
+    /// Emits when the server invalidates the session, so the UI can go back to
+    /// the sign-in screen instead of sitting on a dead one.
+    func sessionExpirations() async -> AsyncStream<Void>
 }
 
 struct AuthService: AuthServicing {
@@ -54,5 +57,9 @@ struct AuthService: AuthServicing {
     func restoreSession() async -> User? {
         guard await client.currentTokens() != nil else { return nil }
         return try? await currentUser()
+    }
+
+    func sessionExpirations() async -> AsyncStream<Void> {
+        await client.sessionExpirations()
     }
 }

@@ -57,6 +57,20 @@ actor DemoAuthService: AuthServicing {
         isSignedIn ? SampleData.currentUser : nil
     }
 
+    private var expiryContinuation: AsyncStream<Void>.Continuation?
+
+    func sessionExpirations() async -> AsyncStream<Void> {
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        expiryContinuation = continuation
+        return stream
+    }
+
+    /// Lets a test drive the expiry path without a server.
+    func simulateExpiry() {
+        isSignedIn = false
+        expiryContinuation?.yield(())
+    }
+
     private func session(email: String) -> AuthenticatedSession {
         var user = SampleData.currentUser
         user.email = email
@@ -132,6 +146,12 @@ actor DemoProfileService: ProfileServicing {
         var user = SampleData.currentUser
         user.profileCompleted = true
         return user
+    }
+
+    private(set) var lastPushedLocation: Coordinate?
+
+    func updateLocation(_ coordinate: Coordinate) async throws {
+        lastPushedLocation = coordinate
     }
 }
 
@@ -235,6 +255,12 @@ actor DemoChatService: ChatServicing {
     }
 
     func markRead(conversationId: UUID) async throws {}
+
+    private(set) var typingNotices = 0
+
+    func notifyTyping(conversationId: UUID) async {
+        typingNotices += 1
+    }
 
     func eventStream() async throws -> AsyncStream<ChatEvent> {
         let id = UUID()

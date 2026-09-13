@@ -10,6 +10,10 @@ protocol APIClientProtocol: Sendable {
     func currentTokens() async -> AuthTokens?
     func store(_ tokens: AuthTokens) async
     func signOutLocally() async
+    /// Emits when the server has invalidated the session — a refused refresh,
+    /// a revoked token. Without it the client signs itself out and the screen
+    /// never finds out, leaving someone stranded on a dead session.
+    func sessionExpirations() async -> AsyncStream<Void>
 }
 
 /// The one object that talks to the Rust API. An actor because the token pair
@@ -40,6 +44,7 @@ actor APIClient: APIClientProtocol {
     private let logger = Logger(subsystem: "app.plum", category: "api")
 
     private var tokens: AuthTokens?
+    private var expirySubscribers: [UUID: AsyncStream<Void>.Continuation] = [:]
     /// Holds the in-flight refresh so ten parallel 401s cause one refresh call
     /// rather than ten, and nine of them invalidating each other.
     private var refreshTask: Task<AuthTokens, Error>?
@@ -67,20 +72,43 @@ actor APIClient: APIClientProtocol {
     }
 
     func signOutLocally() async {
+        clearCredentials()
+    }
+
+    func sessionExpirations() async -> AsyncStream<Void> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        continuation.onTermination = { [weak self] _ in
+            Task { await self?.removeExpirySubscriber(id) }
+        }
+        expirySubscribers[id] = continuation
+        return stream
+    }
+
+    private func removeExpirySubscriber(_ id: UUID) {
+        expirySubscribers[id] = nil
+    }
+
+    private func clearCredentials() {
         tokens = nil
         refreshTask?.cancel()
         refreshTask = nil
         tokenStore.clear()
     }
 
+    /// Signing out because the server said so, rather than because someone
+    /// asked: the difference is that this one has to reach the UI.
+    private func expireSession() {
+        clearCredentials()
+        for continuation in expirySubscribers.values {
+            continuation.yield(())
+        }
+    }
+
     // MARK: - Requests
 
     func send<Response: Decodable>(_ endpoint: Endpoint, as type: Response.Type) async throws -> Response {
         let data = try await perform(endpoint, allowingRefresh: true)
-        if Response.self == EmptyResponse.self, data.isEmpty {
-            // A 204 has no body to decode, but callers still expect a value.
-            return EmptyResponse() as! Response
-        }
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {
@@ -146,7 +174,7 @@ actor APIClient: APIClientProtocol {
             return try await performOnce(endpoint, allowingRefresh: false)
 
         case 401:
-            await signOutLocally()
+            expireSession()
             throw APIError.unauthorized
 
         case 404:
@@ -205,7 +233,7 @@ actor APIClient: APIClientProtocol {
             return refreshed
         } catch {
             refreshTask = nil
-            await signOutLocally()
+            expireSession()
             throw APIError.unauthorized
         }
     }

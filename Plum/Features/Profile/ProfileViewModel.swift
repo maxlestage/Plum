@@ -118,6 +118,31 @@ final class ProfileViewModel {
         }
     }
 
+    /// Promotes a photo to the cover slot. It is the one picture that decides
+    /// whether anyone reads the rest of the profile, so it needs to be one
+    /// gesture away.
+    func makeCover(_ photo: Photo) async {
+        guard let profile, profile.coverPhoto?.id != photo.id else { return }
+
+        let reordered = [photo] + profile.orderedPhotos.filter { $0.id != photo.id }
+        // Optimistic: the grid reorders under the finger, not after a round
+        // trip.
+        self.profile?.photos = reordered.enumerated().map { index, photo in
+            var copy = photo
+            copy.position = index
+            return copy
+        }
+        Haptics.play(.light)
+
+        do {
+            let confirmed = try await profiles.reorderPhotos(reordered.map(\.id))
+            self.profile?.photos = confirmed
+            if let updated = self.profile { session.currentProfile = updated }
+        } catch {
+            state = .failed(error.asAPIError)
+        }
+    }
+
     func deletePhoto(_ photo: Photo) async {
         profile?.photos.removeAll { $0.id == photo.id }
         try? await profiles.deletePhoto(id: photo.id)
@@ -131,9 +156,5 @@ final class ProfileViewModel {
         } catch {
             state = .failed(error.asAPIError)
         }
-    }
-
-    func dismissError() {
-        state = .ready
     }
 }

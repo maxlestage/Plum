@@ -23,6 +23,7 @@ final class SessionStore {
     var currentProfile: Profile?
 
     private let auth: any AuthServicing
+    private var expiryTask: Task<Void, Never>?
 
     init(auth: any AuthServicing) {
         self.auth = auth
@@ -33,11 +34,31 @@ final class SessionStore {
     /// Called once at launch: restores a keychain session so returning users
     /// land straight on the deck.
     func restore() async {
+        watchForExpiry()
         if let user = await auth.restoreSession() {
             state = .signedIn(user)
         } else {
             state = .signedOut
         }
+    }
+
+    /// A refused refresh signs the client out on its own; without this the UI
+    /// stayed on a dead session, piling up errors until someone force-quit.
+    private func watchForExpiry() {
+        guard expiryTask == nil else { return }
+        expiryTask = Task { [weak self] in
+            guard let self else { return }
+            for await _ in await self.auth.sessionExpirations() {
+                self.expire()
+            }
+        }
+    }
+
+    /// Signed out by the server, not by the person: no network call to make,
+    /// the credentials are already gone.
+    func expire() {
+        currentProfile = nil
+        state = .signedOut
     }
 
     func adopt(_ session: AuthenticatedSession) {
