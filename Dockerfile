@@ -1,9 +1,16 @@
-# Built in GitHub Actions, never on Heroku: Heroku caps builds at 15 minutes
-# and a Rust release build of this blows through that. Heroku only ever
-# receives a finished image.
-
-# The presentation site is built here and copied into the final image: one
-# dyno serves the site and the API, on one domain, for one price.
+# Construit à deux endroits, et c'est voulu :
+#
+#   - sur chaque pull request par GitHub Actions, pour qu'un Dockerfile cassé
+#     échoue sur la PR plutôt qu'au moment du déploiement ;
+#   - par Heroku lui-même au déploiement, d'après `heroku.yml`.
+#
+# Il doit rester à la racine. Heroku fixe le contexte de build au dossier qui
+# contient le Dockerfile et ne permet pas de le configurer : rangé dans
+# `server/`, il ne pourrait pas copier `web/` et le site ne serait pas
+# construit.
+#
+# Le site de présentation est construit ici et copié dans l'image finale : un
+# seul dyno sert le site et l'API, sur un seul domaine, pour un seul prix.
 FROM node:22-slim AS site
 WORKDIR /site
 COPY web/package.json web/package-lock.json ./

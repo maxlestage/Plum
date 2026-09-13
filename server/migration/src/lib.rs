@@ -3,6 +3,7 @@ pub use sea_orm_migration::prelude::*;
 pub mod m20260101_000001_create_users;
 mod m20260101_000002_create_profiles;
 mod m20260101_000003_create_preferences;
+mod m20260101_000004_create_deck;
 
 pub struct Migrator;
 
@@ -13,6 +14,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260101_000001_create_users::Migration),
             Box::new(m20260101_000002_create_profiles::Migration),
             Box::new(m20260101_000003_create_preferences::Migration),
+            Box::new(m20260101_000004_create_deck::Migration),
         ]
     }
 }

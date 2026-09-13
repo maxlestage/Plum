@@ -1,0 +1,16 @@
+# Comment Heroku construit cette application.
+#
+# La racine du dépôt ne contient aucun manifeste détectable — le code est dans
+# `server/` et `web/` — donc la détection automatique de buildpack échoue avec
+# « No default language could be detected for this app ». Ce fichier lui dit
+# quoi faire à la place : construire l'image Docker.
+#
+# Le Dockerfile est à la racine, et il doit y rester : Heroku fixe le contexte
+# de build au dossier qui le contient, sans possibilité de le configurer. Rangé
+# dans `server/`, il n'aurait pas pu copier `web/` et le site n'aurait pas été
+# construit.
+#
+# Ceci exige que l'application soit sur le stack `container`.
+build:
+  docker:
+    web: Dockerfile

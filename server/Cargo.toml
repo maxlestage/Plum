@@ -32,7 +32,17 @@ password-hash = { version = "0.5", features = ["rand_core"] }
 rand = "0.8"
 sha2 = "0.10"
 
-redis = { version = "0.27", features = ["tokio-comp", "tokio-rustls-comp", "connection-manager"] }
+# `tls-rustls-insecure` n'est pas une facilité : sans elle, le fragment
+# `#insecure` est accepté puis refusé à la connexion avec « Cannot create
+# insecure client without tls-rustls-insecure feature ». Heroku présente un
+# certificat auto-signé sur ses add-ons Redis, et sa propre documentation
+# prescrit de ne pas le vérifier ; le trafic ne quitte pas son réseau privé.
+redis = { version = "0.27", features = [
+    "tokio-comp",
+    "tokio-rustls-comp",
+    "tls-rustls-insecure",
+    "connection-manager",
+] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

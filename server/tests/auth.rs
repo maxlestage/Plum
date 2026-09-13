@@ -402,3 +402,151 @@ async fn the_site_and_the_api_share_one_host_without_shadowing_each_other() {
 
     std::fs::remove_dir_all(&directory).ok();
 }
+
+/// Le droit d'effacement, et une promesse déjà publiée sur la page
+/// Confidentialité en trois langues. La route n'existait pas : le bouton du
+/// client renvoyait 404.
+///
+/// Le test suit toute la traînée, parce qu'une suppression qui laisse des
+/// morceaux est pire qu'un refus franc — elle a l'air d'avoir marché.
+#[tokio::test]
+async fn deleting_an_account_takes_everything_that_depends_on_it() {
+    let Some(db) = database().await else { return };
+    let reader = db.clone();
+    let app = plum_server::app(state(db));
+
+    let (token, user) = sign_up_and_token(&app, "effacement").await;
+    let id: uuid::Uuid = user["id"].as_str().unwrap().parse().unwrap();
+    let (other, other_id) = sign_up_and_token(&app, "effacement-autre").await;
+    let other_id: uuid::Uuid = other_id["id"].as_str().unwrap().parse().unwrap();
+
+    // De quoi laisser des traces dans chaque table.
+    call(
+        &app,
+        request(
+            "PATCH",
+            "/api/v1/me/preferences",
+            Some(&token),
+            Some(json!({
+                "interested_in": "everyone", "min_age": 25, "max_age": 35,
+                "max_distance_km": 30, "show_me_on_plum": true
+            })),
+        ),
+    )
+    .await;
+    call(
+        &app,
+        request(
+            "POST",
+            "/api/v1/discovery/swipes",
+            Some(&token),
+            Some(json!({ "target_profile_id": other_id, "decision": "like" })),
+        ),
+    )
+    .await;
+    call(
+        &app,
+        request(
+            "POST",
+            &format!("/api/v1/profiles/{other_id}/report"),
+            Some(&token),
+            Some(json!({ "reason": "Un motif qui doit survivre au compte." })),
+        ),
+    )
+    .await;
+    // L'autre aime en retour : un match existe désormais.
+    call(
+        &app,
+        request(
+            "POST",
+            "/api/v1/discovery/swipes",
+            Some(&other),
+            Some(json!({ "target_profile_id": id, "decision": "like" })),
+        ),
+    )
+    .await;
+
+    let (status, _) = call(&app, request("DELETE", "/api/v1/me", Some(&token), None)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    use plum_server::entities::{match_pair, preferences, profile, refresh_token, swipe, user};
+    use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+
+    assert!(
+        user::Entity::find_by_id(id)
+            .one(&reader)
+            .await
+            .unwrap()
+            .is_none(),
+        "le compte doit être parti"
+    );
+    assert!(
+        profile::Entity::find_by_id(id)
+            .one(&reader)
+            .await
+            .unwrap()
+            .is_none(),
+        "le profil part avec le compte"
+    );
+    assert!(
+        preferences::Entity::find_by_id(id)
+            .one(&reader)
+            .await
+            .unwrap()
+            .is_none(),
+        "les préférences partent avec le compte"
+    );
+    assert_eq!(
+        refresh_token::Entity::find()
+            .filter(refresh_token::Column::UserId.eq(id))
+            .count(&reader)
+            .await
+            .unwrap(),
+        0,
+        "aucune session ne doit survivre"
+    );
+    assert_eq!(
+        swipe::Entity::find()
+            .filter(swipe::Column::ViewerId.eq(id))
+            .count(&reader)
+            .await
+            .unwrap(),
+        0,
+        "les verdicts partent avec le compte"
+    );
+    assert_eq!(
+        match_pair::Entity::find()
+            .filter(
+                match_pair::Column::LowerId
+                    .eq(id)
+                    .or(match_pair::Column::UpperId.eq(id))
+            )
+            .count(&reader)
+            .await
+            .unwrap(),
+        0,
+        "les matchs partent avec le compte"
+    );
+
+    // Mais le signalement reste, avec sa référence vidée : c'est la trace
+    // d'une décision, et la laisser disparaître avec le compte reviendrait à
+    // permettre d'effacer ce qu'on a fait en partant.
+    use plum_server::entities::report;
+    let reports = report::Entity::find()
+        .filter(report::Column::ReportedId.eq(other_id))
+        .all(&reader)
+        .await
+        .unwrap();
+    let survivor = reports
+        .iter()
+        .find(|r| r.reason == "Un motif qui doit survivre au compte.")
+        .expect("le signalement doit survivre au compte qui l'a émis");
+    assert!(
+        survivor.reporter_id.is_none(),
+        "mais sans plus désigner le compte supprimé"
+    );
+
+    // Et le jeton ne rouvre plus rien.
+    let (after, _) = call(&app, request("GET", "/api/v1/me", Some(&token), None)).await;
+    assert_eq!(after, StatusCode::UNAUTHORIZED);
+}
