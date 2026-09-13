@@ -37,7 +37,10 @@ Scheme… ▸ Run ▸ Arguments`) :
   décide du routage à chaque lancement.
 - **Découverte** — un deck de cartes que l'on balaie à droite (j'aime), à
   gauche (non) ou vers le haut (coup de cœur), avec annulation du dernier
-  passe, signalement et blocage depuis chaque carte. La position est demandée
+  passe, signalement et blocage depuis chaque carte. Un chevron ouvre le
+  profil complet — toutes les photos, la bio entière, tous les centres
+  d'intérêt — avec les trois mêmes verdicts à portée, pour décider sur autre
+  chose que trois lignes. La position est demandée
   pendant l'onboarding, à côté du réglage de distance, et repoussée à chaque
   lancement : c'est elle qui fait exister les distances affichées. Un refus
   masque les distances sans rien casser d'autre.

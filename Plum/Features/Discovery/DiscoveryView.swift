@@ -9,6 +9,7 @@ struct DiscoveryView: View {
     @State private var drag: CGSize = .zero
     @State private var isCommitting = false
     @State private var reportTarget: Profile?
+    @State private var detailProfile: Profile?
     @State private var locationSync: LocationSync?
 
     var body: some View {
@@ -49,6 +50,16 @@ struct DiscoveryView: View {
         }
         .onChange(of: deckRefresh.token) { _, _ in
             Task { await viewModel?.refresh() }
+        }
+        .sheet(item: $detailProfile) { profile in
+            ProfileDetailView(
+                profile: profile,
+                onDecision: { decision in
+                    guard let viewModel else { return }
+                    commit(decision, viewModel: viewModel)
+                },
+                onReport: { reportTarget = profile }
+            )
         }
         .sheet(item: $reportTarget) { profile in
             ReportSheet(profile: profile) { reason in
@@ -139,7 +150,8 @@ struct DiscoveryView: View {
                 SwipeCardView(
                     profile: profile,
                     dragTranslation: isTop ? drag : .zero,
-                    isTopCard: isTop
+                    isTopCard: isTop,
+                    onOpenDetail: isTop ? { detailProfile = profile } : nil
                 )
                 .scaleEffect(scale(forDepth: index))
                 .offset(y: CGFloat(index) * 12)
@@ -171,6 +183,9 @@ struct DiscoveryView: View {
                 }
                 .accessibilityAction(named: Text("Coup de cœur")) {
                     commit(.superLike, viewModel: viewModel)
+                }
+                .accessibilityAction(named: Text("Voir le profil complet")) {
+                    detailProfile = profile
                 }
                 .accessibilityAction(named: Text("Signaler ou bloquer")) {
                     reportTarget = profile

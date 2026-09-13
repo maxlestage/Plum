@@ -6,6 +6,9 @@ struct SwipeCardView: View {
     let profile: Profile
     var dragTranslation: CGSize = .zero
     var isTopCard = false
+    /// Opens the full profile. A separate control because tapping the card
+    /// already means "next photo".
+    var onOpenDetail: (() -> Void)?
 
     @State private var photoIndex = 0
 
@@ -23,6 +26,20 @@ struct SwipeCardView: View {
                 if photos.count > 1 {
                     photoIndicators
                         .frame(maxHeight: .infinity, alignment: .top)
+                }
+                if let onOpenDetail {
+                    Button(action: onOpenDetail) {
+                        Image(systemName: "chevron.up.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(.white, .black.opacity(0.35))
+                    }
+                    .buttonStyle(.plain)
+                    // En haut à droite : en bas, il passerait par-dessus la
+                    // bande des centres d'intérêt, qui occupe toute la largeur.
+                    .padding(.trailing, PlumTheme.Spacing.m)
+                    .padding(.top, PlumTheme.Spacing.xl)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .accessibilityLabel(Text("Voir le profil complet"))
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)

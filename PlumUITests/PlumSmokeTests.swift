@@ -122,3 +122,31 @@ final class PlumSmokeTests: XCTestCase {
         )
     }
 }
+
+extension PlumSmokeTests {
+    /// The card shows three lines of bio; without this screen people swipe on
+    /// photographs alone. The sheet has to open from the deck and carry the
+    /// whole profile.
+    func testTheFullProfileOpensFromTheDeck() {
+        signIn()
+
+        let openDetail = app.buttons["Voir le profil complet"]
+        XCTAssertTrue(
+            openDetail.waitForExistence(timeout: timeout),
+            "La carte du dessus doit proposer d'ouvrir le profil complet"
+        )
+        openDetail.tap()
+
+        XCTAssertTrue(
+            app.staticTexts["À propos"].waitForExistence(timeout: timeout),
+            "La feuille de profil ne s'est pas ouverte"
+        )
+        XCTAssertTrue(app.buttons["Fermer"].exists)
+
+        app.buttons["Fermer"].tap()
+        XCTAssertTrue(
+            app.buttons["J'aime"].waitForExistence(timeout: timeout),
+            "Fermer doit ramener au deck"
+        )
+    }
+}

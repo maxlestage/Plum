@@ -26,6 +26,7 @@
 		7ED096F5A0D050B961762316 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6CBDAFBC48035944D9F8BF /* DiscoveryView.swift */; };
 		0C07FE98182F5B570DBA222A /* DiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21393935DDC4E66693B377E /* DiscoveryViewModel.swift */; };
 		08F138BF0B30E65F2338025D /* MatchCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5518A18C70E9017272210D6 /* MatchCelebrationView.swift */; };
+		A824F1C0005EB1E8F0FD87A5 /* ProfileDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2351D48ADABF6ACFD93846A1 /* ProfileDetailView.swift */; };
 		5DAFAC5159E5B0190A1D88F8 /* SwipeCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6373544A030525149FFD8962 /* SwipeCardView.swift */; };
 		E8C98D29A6A346CFF60B5776 /* MatchesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111AECEEAAEDF807D9B00368 /* MatchesView.swift */; };
 		48FA884E09ED0175EC0C4F67 /* MatchesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54280A92066F6529C0B5401E /* MatchesViewModel.swift */; };
@@ -123,6 +124,7 @@
 		BA6CBDAFBC48035944D9F8BF /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
 		F21393935DDC4E66693B377E /* DiscoveryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryViewModel.swift; sourceTree = "<group>"; };
 		A5518A18C70E9017272210D6 /* MatchCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchCelebrationView.swift; sourceTree = "<group>"; };
+		2351D48ADABF6ACFD93846A1 /* ProfileDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDetailView.swift; sourceTree = "<group>"; };
 		6373544A030525149FFD8962 /* SwipeCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeCardView.swift; sourceTree = "<group>"; };
 		111AECEEAAEDF807D9B00368 /* MatchesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchesView.swift; sourceTree = "<group>"; };
 		54280A92066F6529C0B5401E /* MatchesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchesViewModel.swift; sourceTree = "<group>"; };
@@ -286,6 +288,7 @@
 				BA6CBDAFBC48035944D9F8BF /* DiscoveryView.swift */,
 				F21393935DDC4E66693B377E /* DiscoveryViewModel.swift */,
 				A5518A18C70E9017272210D6 /* MatchCelebrationView.swift */,
+				2351D48ADABF6ACFD93846A1 /* ProfileDetailView.swift */,
 				6373544A030525149FFD8962 /* SwipeCardView.swift */,
 			);
 			path = Discovery;
@@ -571,6 +574,7 @@
 				7ED096F5A0D050B961762316 /* DiscoveryView.swift in Sources */,
 				0C07FE98182F5B570DBA222A /* DiscoveryViewModel.swift in Sources */,
 				08F138BF0B30E65F2338025D /* MatchCelebrationView.swift in Sources */,
+				A824F1C0005EB1E8F0FD87A5 /* ProfileDetailView.swift in Sources */,
 				5DAFAC5159E5B0190A1D88F8 /* SwipeCardView.swift in Sources */,
 				E8C98D29A6A346CFF60B5776 /* MatchesView.swift in Sources */,
 				48FA884E09ED0175EC0C4F67 /* MatchesViewModel.swift in Sources */,
