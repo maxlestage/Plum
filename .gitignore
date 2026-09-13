@@ -32,3 +32,8 @@ fastlane/test_output
 
 ## Rust
 server/target/
+
+## Site
+web/node_modules/
+web/dist/
+web/.vite/

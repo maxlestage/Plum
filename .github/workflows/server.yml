@@ -3,9 +3,9 @@ name: Serveur
 on:
   push:
     branches: [master]
-    paths: ["server/**", ".github/workflows/server.yml"]
+    paths: ["server/**", "web/**", ".github/workflows/server.yml"]
   pull_request:
-    paths: ["server/**", ".github/workflows/server.yml"]
+    paths: ["server/**", "web/**", ".github/workflows/server.yml"]
   workflow_dispatch:
 
 concurrency:
@@ -81,7 +81,8 @@ jobs:
       - name: Construire
         uses: docker/build-push-action@v6
         with:
-          context: server
+          context: .
+          file: server/Dockerfile
           push: false
           load: true
           tags: plum-server:ci
@@ -134,7 +135,9 @@ jobs:
         run: |
           echo "$HEROKU_API_KEY" | docker login --username=_ --password-stdin registry.heroku.com
           image="registry.heroku.com/$HEROKU_APP_NAME/web"
-          docker build -t "$image" .
+          # This step runs from server/ (job default), so the context is the
+          # repository root one level up and the Dockerfile sits right here.
+          docker build -f Dockerfile -t "$image" "$GITHUB_WORKSPACE"
           docker push "$image"
 
           # `container:release` needs the image digest, which the registry

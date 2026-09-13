@@ -16,6 +16,9 @@ pub struct Config {
     /// Optional. Without it the rate limiter falls back to this process, which
     /// counts per dyno instead of per account.
     pub redis_url: Option<String>,
+    /// Where the built presentation site lives. Absent in a plain `cargo run`,
+    /// present in the image.
+    pub site_dir: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -57,6 +60,7 @@ impl Config {
             // more and fail in a way that names neither the plan nor the cap.
             database_max_connections: parse_or("DATABASE_MAX_CONNECTIONS", 10)? as u32,
             redis_url: env::var("REDIS_URL").ok().filter(|url| !url.is_empty()),
+            site_dir: env::var("SITE_DIR").ok().filter(|path| !path.is_empty()),
         })
     }
 }

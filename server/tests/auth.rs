@@ -89,6 +89,7 @@ fn state(db: DatabaseConnection) -> AppState {
             refresh_token_ttl_days: 60,
             database_max_connections: 10,
             redis_url: None,
+            site_dir: None,
         },
         // Each test builds its own app, so each gets a fresh limiter and one
         // test's attempts cannot exhaust another's quota.
@@ -452,4 +453,65 @@ async fn throttling_is_per_account() {
         StatusCode::OK,
         "le voisin doit pouvoir se connecter"
     );
+}
+
+/// One dyno serves the site and the API. The point of the arrangement is that
+/// neither shadows the other: an unknown path must reach the single-page site
+/// rather than 404, and `/health` must keep answering JSON rather than being
+/// swallowed by the static handler.
+#[tokio::test]
+async fn the_site_and_the_api_share_one_host_without_shadowing_each_other() {
+    let Some(db) = database().await else { return };
+
+    let directory = std::env::temp_dir().join(format!("plum-site-{}", uuid_like()));
+    std::fs::create_dir_all(&directory).unwrap();
+    std::fs::write(
+        directory.join("index.html"),
+        "<!doctype html><title>Plum</title>",
+    )
+    .unwrap();
+
+    let app = plum_server::app_with_site(state(db), Some(&directory));
+
+    let (root, _) = call(
+        &app,
+        Request::builder().uri("/").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(root, StatusCode::OK, "la racine doit servir le site");
+
+    // A route of the single-page site, typed straight into the address bar.
+    let (deep, _) = call(
+        &app,
+        Request::builder()
+            .uri("/confidentialite")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(deep, StatusCode::OK, "une route du site ne doit pas 404");
+
+    let (health, body) = call(
+        &app,
+        Request::builder()
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(health, StatusCode::OK);
+    assert_eq!(body["status"], "ok", "l'API ne doit pas être masquée");
+
+    // And the API's own 401 must survive too, rather than becoming the site.
+    let (unauthorised, _) = call(
+        &app,
+        Request::builder()
+            .uri("/api/v1/me")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(unauthorised, StatusCode::UNAUTHORIZED);
+
+    std::fs::remove_dir_all(&directory).ok();
 }

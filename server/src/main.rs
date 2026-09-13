@@ -47,8 +47,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let limiter = build_limiter(config.redis_url.as_deref()).await;
     tracing::info!("limitation de débit : {}", limiter.describe());
 
+    let site = config.site_dir.clone().map(std::path::PathBuf::from);
+    match site.as_deref().filter(|path| path.is_dir()) {
+        Some(path) => tracing::info!("site servi depuis {}", path.display()),
+        None => tracing::info!("aucun site statique, API seule"),
+    }
+
     let state = AppState::new(db, config, limiter);
-    let app = plum_server::app(state);
+    let app = plum_server::app_with_site(state, site.as_deref());
 
     let address = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = tokio::net::TcpListener::bind(address).await?;

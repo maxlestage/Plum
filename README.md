@@ -59,6 +59,12 @@ Scheme… ▸ Run ▸ Arguments`) :
   compte. Modifier les critères rafraîchit le deck immédiatement, alors même
   qu'il vit dans un autre onglet resté en mémoire.
 
+## Le site
+
+[`web/`](web/README.md) — React + TypeScript + Vite. Servi par le même dyno que
+l'API, à la racine, avec les pages légales que l'App Store réclame. Un second
+dyno coûterait plus cher que le premier pour quelques fichiers statiques.
+
 ## Le serveur
 
 Le dépôt contient désormais aussi l'API que cette application attend :
