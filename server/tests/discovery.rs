@@ -84,9 +84,16 @@ async fn a_viewer_without_a_position_sees_everyone() {
     let (_, located) = candidate(&app, "situe-nomade", NOMAD, "man", Some(here)).await;
     let (_, nowhere) = candidate(&app, "sans-nomade", NOMAD, "man", None).await;
 
-    let ids = deck_ids(&app, &viewer, "").await;
-    assert!(ids.contains(&located), "un viewer sans position voit tout");
-    assert!(ids.contains(&nowhere));
+    // Parcouru page par page : sans position, l'isolation par distance ne joue
+    // plus, et les candidats des exécutions précédentes occupent la première.
+    assert!(
+        deck_contains(&app, &viewer, located).await,
+        "un viewer sans position voit aussi ceux qui en ont une"
+    );
+    assert!(
+        deck_contains(&app, &viewer, nowhere).await,
+        "et ceux qui n'en ont pas"
+    );
 
     let (_, body) = call(
         &app,
