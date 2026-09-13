@@ -29,6 +29,19 @@ struct MatchesView: View {
                 )
             }
             await viewModel?.load()
+            await watchForIncomingMessages()
+        }
+    }
+
+    /// A message arriving while this tab is open has to move its row: the
+    /// preview, the unread count and the order all come from it. The socket
+    /// is multicast, so listening here costs nothing that the badge is not
+    /// already paying.
+    private func watchForIncomingMessages() async {
+        guard let stream = try? await services.chat.eventStream() else { return }
+        for await event in stream {
+            guard case let .messageReceived(message) = event else { continue }
+            viewModel?.apply(message)
         }
     }
 

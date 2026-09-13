@@ -152,3 +152,79 @@ final class MatchesRemovalTests: XCTestCase {
         XCTAssertEqual(viewModel.conversations.count, before)
     }
 }
+
+@MainActor
+final class MatchesLiveUpdateTests: XCTestCase {
+    private func makeViewModel() -> MatchesViewModel {
+        MatchesViewModel(
+            matchService: PagingMatchService(pages: [Page(items: [], nextCursor: nil)]),
+            chatService: SinglePageChatService()
+        )
+    }
+
+    private func message(in conversation: Conversation, from senderId: UUID) -> Message {
+        Message(
+            id: UUID(),
+            conversationId: conversation.id,
+            senderId: senderId,
+            body: "tout juste arrivé",
+            sentAt: .now
+        )
+    }
+
+    /// A message arriving while the inbox is on screen has to move its row:
+    /// preview, unread count and order all come from it.
+    func testAnIncomingMessageMovesItsRowToTheTop() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+
+        let older = SampleData.conversations[1]
+        XCTAssertEqual(viewModel.conversations.last?.id, older.id)
+
+        viewModel.apply(message(in: older, from: older.participant.id))
+
+        XCTAssertEqual(viewModel.conversations.first?.id, older.id)
+        XCTAssertEqual(viewModel.conversations.first?.preview, "tout juste arrivé")
+    }
+
+    func testAMessageFromThemCountsAsUnread() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+        let conversation = SampleData.conversations[1]
+
+        viewModel.apply(message(in: conversation, from: conversation.participant.id))
+
+        let updated = viewModel.conversations.first { $0.id == conversation.id }
+        XCTAssertEqual(updated?.unreadCount, 1)
+    }
+
+    /// Our own message echoing back is not something to badge ourselves about.
+    func testOurOwnMessageClearsTheUnreadCount() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+        let conversation = SampleData.conversations[0]
+        XCTAssertGreaterThan(conversation.unreadCount, 0)
+
+        viewModel.apply(message(in: conversation, from: SampleData.currentUser.id))
+
+        let updated = viewModel.conversations.first { $0.id == conversation.id }
+        XCTAssertEqual(updated?.unreadCount, 0)
+    }
+
+    func testAMessageForAnUnknownConversationIsIgnored() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+        let before = viewModel.conversations.map(\.id)
+
+        let stray = Message(
+            id: UUID(),
+            conversationId: UUID(),
+            senderId: UUID(),
+            body: "pour quelqu'un d'autre",
+            sentAt: .now
+        )
+        viewModel.apply(stray)
+
+        XCTAssertEqual(viewModel.conversations.map(\.id), before)
+    }
+}
