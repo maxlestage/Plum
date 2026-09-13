@@ -12,31 +12,46 @@ use plum_server::state::AppState;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use serde_json::{json, Value};
+use tokio::sync::OnceCell;
 use tower::ServiceExt;
 
+/// The connection and the migrations, once for the whole binary.
+///
+/// Cargo runs these tests in parallel threads of one process. Each one calling
+/// `Migrator::up` meant several racing to create `seaql_migrations`, and
+/// Postgres rejecting all but the first — a failure that only ever appears
+/// under real concurrency, which is to say only in CI.
+static SHARED: OnceCell<Option<DatabaseConnection>> = OnceCell::const_new();
+
 async fn database() -> Option<DatabaseConnection> {
-    let url = match std::env::var("TEST_DATABASE_URL") {
-        Ok(url) => url,
-        Err(_) => {
-            // Ten green tests that executed nothing is worse than one red one.
-            // CI sets REQUIRE_TEST_DATABASE so a Postgres service that failed
-            // to start cannot pass for a clean run.
-            assert!(
-                std::env::var("REQUIRE_TEST_DATABASE").is_err(),
-                "REQUIRE_TEST_DATABASE est posé mais TEST_DATABASE_URL manque : \
-                 les tests d'intégration auraient été sautés en silence"
-            );
-            eprintln!("· sauté : TEST_DATABASE_URL non défini");
-            return None;
-        }
-    };
-    let db = Database::connect(plum_server::config::normalise_database_url(&url))
+    SHARED
+        .get_or_init(|| async {
+            let url = match std::env::var("TEST_DATABASE_URL") {
+                Ok(url) => url,
+                Err(_) => {
+                    // Ten green tests that executed nothing is worse than one
+                    // red one. CI sets REQUIRE_TEST_DATABASE so a Postgres
+                    // service that failed to start cannot pass for a clean run.
+                    assert!(
+                        std::env::var("REQUIRE_TEST_DATABASE").is_err(),
+                        "REQUIRE_TEST_DATABASE est posé mais TEST_DATABASE_URL manque : \
+                         les tests d'intégration auraient été sautés en silence"
+                    );
+                    eprintln!("· sauté : TEST_DATABASE_URL non défini");
+                    return None;
+                }
+            };
+
+            let db = Database::connect(plum_server::config::normalise_database_url(&url))
+                .await
+                .expect("connexion à la base de test");
+            migration::Migrator::up(&db, None)
+                .await
+                .expect("migrations");
+            Some(db)
+        })
         .await
-        .expect("connexion à la base de test");
-    migration::Migrator::up(&db, None)
-        .await
-        .expect("migrations");
-    Some(db)
+        .clone()
 }
 
 fn state(db: DatabaseConnection) -> AppState {
