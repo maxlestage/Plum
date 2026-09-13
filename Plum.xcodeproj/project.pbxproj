@@ -26,6 +26,7 @@
 		7ED096F5A0D050B961762316 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6CBDAFBC48035944D9F8BF /* DiscoveryView.swift */; };
 		0C07FE98182F5B570DBA222A /* DiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21393935DDC4E66693B377E /* DiscoveryViewModel.swift */; };
 		08F138BF0B30E65F2338025D /* MatchCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5518A18C70E9017272210D6 /* MatchCelebrationView.swift */; };
+		A824F1C0005EB1E8F0FD87A5 /* ProfileDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2351D48ADABF6ACFD93846A1 /* ProfileDetailView.swift */; };
 		5DAFAC5159E5B0190A1D88F8 /* SwipeCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6373544A030525149FFD8962 /* SwipeCardView.swift */; };
 		E8C98D29A6A346CFF60B5776 /* MatchesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111AECEEAAEDF807D9B00368 /* MatchesView.swift */; };
 		48FA884E09ED0175EC0C4F67 /* MatchesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54280A92066F6529C0B5401E /* MatchesViewModel.swift */; };
@@ -74,6 +75,7 @@
 		CF32278B0C15DCF9005017D4 /* Profile+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408BA7B9D546D175615A5F7A /* Profile+Presentation.swift */; };
 		B770BABDBF7352B28E7409A5 /* RelativeDateFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F15EA39F5171BABA582F1DF /* RelativeDateFormatting.swift */; };
 		5596DE1262582002B27C2DA8 /* APIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */; };
+		4421507A7B2D117CB3F6F5D0 /* ChatHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F642214FB5A179F889DAA562 /* ChatHistoryTests.swift */; };
 		8CB1C0F207FA2CD546CF067F /* EndpointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01531848C731B692C9ADFC1E /* EndpointTests.swift */; };
 		C1081F77A62E094A554A1FF0 /* LocationSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C6AB5E02FDA840EDD7EC79 /* LocationSyncTests.swift */; };
 		482BD5C22F1310CA6A0CE491 /* MatchesPaginationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B882D1EE1CB274586FD8BF /* MatchesPaginationTests.swift */; };
@@ -123,6 +125,7 @@
 		BA6CBDAFBC48035944D9F8BF /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
 		F21393935DDC4E66693B377E /* DiscoveryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryViewModel.swift; sourceTree = "<group>"; };
 		A5518A18C70E9017272210D6 /* MatchCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchCelebrationView.swift; sourceTree = "<group>"; };
+		2351D48ADABF6ACFD93846A1 /* ProfileDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDetailView.swift; sourceTree = "<group>"; };
 		6373544A030525149FFD8962 /* SwipeCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeCardView.swift; sourceTree = "<group>"; };
 		111AECEEAAEDF807D9B00368 /* MatchesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchesView.swift; sourceTree = "<group>"; };
 		54280A92066F6529C0B5401E /* MatchesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchesViewModel.swift; sourceTree = "<group>"; };
@@ -171,6 +174,7 @@
 		408BA7B9D546D175615A5F7A /* Profile+Presentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile+Presentation.swift"; sourceTree = "<group>"; };
 		3F15EA39F5171BABA582F1DF /* RelativeDateFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeDateFormatting.swift; sourceTree = "<group>"; };
 		F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTests.swift; sourceTree = "<group>"; };
+		F642214FB5A179F889DAA562 /* ChatHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryTests.swift; sourceTree = "<group>"; };
 		01531848C731B692C9ADFC1E /* EndpointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndpointTests.swift; sourceTree = "<group>"; };
 		C1C6AB5E02FDA840EDD7EC79 /* LocationSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSyncTests.swift; sourceTree = "<group>"; };
 		C5B882D1EE1CB274586FD8BF /* MatchesPaginationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchesPaginationTests.swift; sourceTree = "<group>"; };
@@ -286,6 +290,7 @@
 				BA6CBDAFBC48035944D9F8BF /* DiscoveryView.swift */,
 				F21393935DDC4E66693B377E /* DiscoveryViewModel.swift */,
 				A5518A18C70E9017272210D6 /* MatchCelebrationView.swift */,
+				2351D48ADABF6ACFD93846A1 /* ProfileDetailView.swift */,
 				6373544A030525149FFD8962 /* SwipeCardView.swift */,
 			);
 			path = Discovery;
@@ -404,6 +409,7 @@
 			isa = PBXGroup;
 			children = (
 				F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */,
+				F642214FB5A179F889DAA562 /* ChatHistoryTests.swift */,
 				01531848C731B692C9ADFC1E /* EndpointTests.swift */,
 				C1C6AB5E02FDA840EDD7EC79 /* LocationSyncTests.swift */,
 				C5B882D1EE1CB274586FD8BF /* MatchesPaginationTests.swift */,
@@ -571,6 +577,7 @@
 				7ED096F5A0D050B961762316 /* DiscoveryView.swift in Sources */,
 				0C07FE98182F5B570DBA222A /* DiscoveryViewModel.swift in Sources */,
 				08F138BF0B30E65F2338025D /* MatchCelebrationView.swift in Sources */,
+				A824F1C0005EB1E8F0FD87A5 /* ProfileDetailView.swift in Sources */,
 				5DAFAC5159E5B0190A1D88F8 /* SwipeCardView.swift in Sources */,
 				E8C98D29A6A346CFF60B5776 /* MatchesView.swift in Sources */,
 				48FA884E09ED0175EC0C4F67 /* MatchesViewModel.swift in Sources */,
@@ -625,6 +632,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5596DE1262582002B27C2DA8 /* APIClientTests.swift in Sources */,
+				4421507A7B2D117CB3F6F5D0 /* ChatHistoryTests.swift in Sources */,
 				8CB1C0F207FA2CD546CF067F /* EndpointTests.swift in Sources */,
 				C1081F77A62E094A554A1FF0 /* LocationSyncTests.swift in Sources */,
 				482BD5C22F1310CA6A0CE491 /* MatchesPaginationTests.swift in Sources */,
@@ -790,8 +798,7 @@
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pour choisir vos photos de profil.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -800,7 +807,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.plum.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -820,8 +827,7 @@
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pour choisir vos photos de profil.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -830,7 +836,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.plum.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -845,7 +851,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.plum.ios.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Plum.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Plum";
 			};
 			name = Debug;
@@ -861,7 +867,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.plum.ios.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Plum.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Plum";
 			};
 			name = Release;
@@ -876,7 +882,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.plum.ios.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_TARGET_NAME = Plum;
 			};
 			name = Debug;
@@ -891,7 +897,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.plum.ios.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_TARGET_NAME = Plum;
 			};
 			name = Release;

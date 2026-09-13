@@ -512,17 +512,15 @@ class ProjectWriter:
             "INFOPLIST_KEY_NSPhotoLibraryUsageDescription": '"Pour choisir vos photos de profil."',
             "INFOPLIST_KEY_UIApplicationSceneManifest_Generation": "YES",
             "INFOPLIST_KEY_UILaunchScreen_Generation": "YES",
-            "INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad": (
-                '"UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown '
-                'UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"'
-            ),
-            "INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone": '"UIInterfaceOrientationPortrait"',
+            "INFOPLIST_KEY_UISupportedInterfaceOrientations": '"UIInterfaceOrientationPortrait"',
             "LD_RUNPATH_SEARCH_PATHS": '(\n\t\t\t\t\t"$(inherited)",\n\t\t\t\t\t"@executable_path/Frameworks",\n\t\t\t\t)',
             "MARKETING_VERSION": "1.0",
             "PRODUCT_BUNDLE_IDENTIFIER": BUNDLE_ID,
             "PRODUCT_NAME": '"$(TARGET_NAME)"',
             "SWIFT_VERSION": SWIFT_VERSION,
-            "TARGETED_DEVICE_FAMILY": '"1,2"',
+            # iPhone only: the deck and the tab bar are a phone design, and
+            # claiming iPad without an iPad layout is a known rejection.
+            "TARGETED_DEVICE_FAMILY": "1",
         }
 
     def test_settings(self, name: str, kind: str) -> dict[str, str]:
@@ -535,7 +533,7 @@ class ProjectWriter:
             "PRODUCT_BUNDLE_IDENTIFIER": f"{BUNDLE_ID}.{suffix}",
             "PRODUCT_NAME": '"$(TARGET_NAME)"',
             "SWIFT_VERSION": SWIFT_VERSION,
-            "TARGETED_DEVICE_FAMILY": '"1,2"',
+            "TARGETED_DEVICE_FAMILY": "1",
         }
         if kind == "ui":
             # A UI bundle launches the app rather than being loaded into it,
