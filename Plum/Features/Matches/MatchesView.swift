@@ -58,6 +58,7 @@ struct MatchesView: View {
                                 ConversationRow(conversation: conversation)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("ligne-conversation")
                             .listRowBackground(PlumTheme.Palette.surface)
                             .swipeActions(edge: .trailing) {
                                 Button("Retirer", role: .destructive) {

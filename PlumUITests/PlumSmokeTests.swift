@@ -71,28 +71,42 @@ final class PlumSmokeTests: XCTestCase {
         XCTAssertTrue(matchesTab.waitForExistence(timeout: timeout), "La barre d'onglets est absente")
         matchesTab.tap()
 
-        let firstConversation = app.cells.firstMatch
+        // Tapping the cell is not enough: the row is a Button inside the cell,
+        // and the tap does not always reach it. Aim at the button.
+        let firstConversation = app.buttons["ligne-conversation"].firstMatch
         XCTAssertTrue(
             firstConversation.waitForExistence(timeout: timeout),
             "Aucune conversation dans la boîte de réception de démonstration"
         )
         firstConversation.tap()
 
+        // Assert the thread actually opened before hunting for the composer,
+        // so a navigation failure reports itself rather than looking like a
+        // missing text field.
+        let sendButton = app.buttons["bouton-envoyer"]
+        XCTAssertTrue(
+            sendButton.waitForExistence(timeout: timeout),
+            "La conversation ne s'est pas ouverte"
+        )
+
         // A vertical-axis TextField surfaces as a text view on some OS
-        // versions and a text field on others; match on the identifier alone.
-        let composer = app.descendants(matching: .any)
-            .matching(identifier: "champ-message")
-            .firstMatch
+        // versions and a text field on others.
+        let composer = composerField()
         XCTAssertTrue(composer.waitForExistence(timeout: timeout), "Le champ de saisie est absent")
         composer.tap()
         composer.typeText("On boit un truc ?")
 
-        app.buttons["bouton-envoyer"].tap()
+        sendButton.tap()
 
         XCTAssertTrue(
             app.staticTexts["On boit un truc ?"].waitForExistence(timeout: timeout),
             "Le message envoyé doit apparaître dans le fil"
         )
+    }
+
+    private func composerField() -> XCUIElement {
+        let textView = app.textViews["champ-message"]
+        return textView.exists ? textView : app.textFields["champ-message"]
     }
 
     func testProfileTabShowsTheAccount() {
