@@ -43,6 +43,17 @@ pose `REQUIRE_TEST_DATABASE=1`, ce qui les fait échouer plutôt que sauter si l
 service Postgres n'a pas démarré : dix tests verts qui n'ont rien exécuté sont
 pires qu'un rouge.
 
+Chaque test ouvre son propre pool, et ce n'est pas du gaspillage :
+`#[tokio::test]` donne à chacun son propre runtime, et une connexion sqlx
+attache sa socket au pilote d'E/S du runtime qui l'a ouverte. Un pool partagé
+distribue donc aux tests suivants des connexions dont le pilote est mort avec
+le premier runtime — elles n'aboutissent jamais et l'acquisition expire au bout
+de vingt secondes.
+
+Les migrations, elles, ne doivent tourner qu'une fois : un verrou consultatif
+Postgres les sérialise. Le verrou vaut mieux qu'une cellule locale au processus
+parce qu'il tient aussi entre deux `cargo test` lancés en même temps.
+
 ## Déploiement
 
 L'image est construite dans GitHub Actions, jamais sur Heroku — qui plafonne
