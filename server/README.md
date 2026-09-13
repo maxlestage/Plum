@@ -93,9 +93,35 @@ rafraîchissement stockés en empreinte seulement, barrière 18+ vérifiée côt
 serveur, et énumération des comptes fermée — une adresse inconnue et un
 mauvais mot de passe répondent exactement la même chose.
 
-**Pas fait** : profils, photos, deck, matchs, messagerie. Les photos
-demanderont un stockage objet : le système de fichiers d'un dyno est éphémère
-et ne peut pas les garder.
+**Fait aussi** : le profil et ses préférences — `GET`/`PATCH /me/profile`,
+`GET`/`PATCH /me/preferences`, `POST /me/profile/complete`,
+`PATCH /me/location`.
+
+Quelques points qui ne se devinent pas à la lecture des routes :
+
+- Un `PATCH` de profil ne porte que ce qui a changé. Une clé absente veut dire
+  « laisse ce champ tranquille », jamais « efface-le » — sans quoi modifier sa
+  ville effacerait sa description.
+- Les centres d'intérêt sont coupés, vidés de leurs blancs et dédupliqués sans
+  tenir compte de la casse, en gardant l'ordre choisi. « Cinéma » deux fois sur
+  une carte ressemble à un bug parce que c'en est un.
+- Les bornes des préférences (18 ≤ âge ≤ 99, distance 1..300) sont appliquées
+  **trois fois** : par le client, par le serveur, et par une contrainte `CHECK`.
+  Le contrôle client est une courtoisie ; celui de la base est là pour la
+  prochaine route qui écrira dans cette table en oubliant la règle. Un test
+  d'intégration insère des lignes illégales en SQL direct et vérifie que c'est
+  bien la contrainte nommée qui les refuse.
+- `POST /me/profile/complete` est idempotent : l'app peut le rejouer après une
+  connexion coupée sans savoir si le premier essai a abouti.
+- `PATCH /me/location` rafraîchit aussi l'horodatage d'activité, qui est ce qui
+  allume la pastille verte.
+
+**Pas fait** : photos, deck, matchs, messagerie. `photos` est donc toujours un
+tableau vide dans les réponses — présent parce que le modèle Swift le déclare
+non optionnel, vide parce que les photos demandent un stockage objet : le
+système de fichiers d'un dyno est éphémère et ne peut pas les garder. Servir
+des téléversements qui disparaissent au prochain redémarrage serait pire que
+de ne pas les servir.
 
 **À revoir avec plusieurs dynos** : les migrations tournent au démarrage. Avec
 une seule dyno c'est correct ; avec plusieurs, deux se marcheraient dessus et

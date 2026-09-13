@@ -2,6 +2,7 @@ pub mod auth;
 pub mod config;
 pub mod entities;
 pub mod error;
+pub mod profile;
 pub mod rate_limit;
 pub mod state;
 
@@ -52,7 +53,9 @@ pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
             // An unknown path under /api must not fall through to the site:
             // a client asking for JSON would get 200 and a page of HTML, and
             // would report the decoding failure rather than the typo.
-            auth::routes::router().fallback(unknown_api_route),
+            auth::routes::router()
+                .merge(profile::routes::router())
+                .fallback(unknown_api_route),
         )
         .layer(TraceLayer::new_for_http())
         .with_state(state);
