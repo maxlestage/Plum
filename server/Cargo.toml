@@ -15,6 +15,9 @@ sea-orm = { version = "1", features = [
     "macros",
     "with-uuid",
     "with-chrono",
+    # `profiles.interests` is a text[]; without this the insert fails at run
+    # time while compiling perfectly well.
+    "postgres-array",
 ] }
 migration = { path = "migration" }
 

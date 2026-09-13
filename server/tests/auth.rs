@@ -23,7 +23,18 @@ use tower::ServiceExt;
 /// under real concurrency, which is to say only in CI.
 static SHARED: OnceCell<Option<DatabaseConnection>> = OnceCell::const_new();
 
+/// Routes the server's own logs into the test output. Without this an
+/// internal failure reaches the assertion as a bare 500 with a polite message
+/// and nothing to act on.
+fn capture_server_logs() {
+    let _ = tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_env_filter("plum_server=debug,sqlx=warn")
+        .try_init();
+}
+
 async fn database() -> Option<DatabaseConnection> {
+    capture_server_logs();
     SHARED
         .get_or_init(|| async {
             let url = match std::env::var("TEST_DATABASE_URL") {
