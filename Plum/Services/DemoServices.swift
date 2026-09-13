@@ -57,6 +57,20 @@ actor DemoAuthService: AuthServicing {
         isSignedIn ? SampleData.currentUser : nil
     }
 
+    private var expiryContinuation: AsyncStream<Void>.Continuation?
+
+    func sessionExpirations() async -> AsyncStream<Void> {
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        expiryContinuation = continuation
+        return stream
+    }
+
+    /// Lets a test drive the expiry path without a server.
+    func simulateExpiry() {
+        isSignedIn = false
+        expiryContinuation?.yield(())
+    }
+
     private func session(email: String) -> AuthenticatedSession {
         var user = SampleData.currentUser
         user.email = email

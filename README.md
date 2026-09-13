@@ -24,11 +24,14 @@ Scheme… ▸ Run ▸ Arguments`) :
 | `PLUM_DEMO_MODE`    | `1` pour les données en mémoire. Décochez-la pour viser le réseau. |
 | `PLUM_API_BASE_URL` | Racine REST, par défaut `http://127.0.0.1:8080/api/v1`. |
 | `PLUM_WS_BASE_URL`  | Socket de messagerie, par défaut `ws://127.0.0.1:8080/ws`. |
+| `PLUM_TERMS_URL` · `PLUM_PRIVACY_URL` · `PLUM_SUPPORT_URL` | Pages légales, pour pointer une préproduction. |
 
 ## Ce que fait l'application
 
 - **Inscription et connexion** — jetons JWT, rafraîchissement automatique,
-  stockage dans le trousseau, et une barrière 18+ vérifiée côté client.
+  stockage dans le trousseau, et une barrière 18+ vérifiée côté client. Une
+  session invalidée par le serveur ramène l'interface à l'écran d'accueil au
+  lieu de la laisser empiler des erreurs.
 - **Onboarding** — un compte neuf passe par trois étapes (photo obligatoire,
   ville et bio, critères) avant d'atteindre le deck. `User.profileCompleted`
   décide du routage à chaque lancement.

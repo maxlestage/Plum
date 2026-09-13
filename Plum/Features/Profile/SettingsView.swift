@@ -66,6 +66,12 @@ struct SettingsView: View {
                     Text("Désactivé, votre profil n'apparaît plus dans les decks. Vos conversations restent.")
                 }
 
+                Section("À propos") {
+                    Link("Conditions d'utilisation", destination: LegalLinks.terms)
+                    Link("Confidentialité", destination: LegalLinks.privacy)
+                    Link("Aide et contact", destination: LegalLinks.support)
+                }
+
                 Section {
                     Button("Se déconnecter") { isConfirmingSignOut = true }
                     Button("Supprimer mon compte", role: .destructive) {
