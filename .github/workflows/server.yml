@@ -3,9 +3,11 @@ name: Serveur
 on:
   push:
     branches: [master]
-    paths: ["server/**", "web/**", ".github/workflows/server.yml"]
+    paths:
+      ["server/**", "web/**", "Dockerfile", "heroku.yml", ".github/workflows/server.yml"]
   pull_request:
-    paths: ["server/**", "web/**", ".github/workflows/server.yml"]
+    paths:
+      ["server/**", "web/**", "Dockerfile", "heroku.yml", ".github/workflows/server.yml"]
   workflow_dispatch:
 
 concurrency:
@@ -82,7 +84,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: server/Dockerfile
+          file: Dockerfile
           push: false
           load: true
           tags: plum-server:ci
@@ -105,6 +107,14 @@ jobs:
             exit 1
           }
 
+  # Chaîne de déploiement *alternative*, dormante tant que les deux secrets
+  # sont absents.
+  #
+  # Le dépôt déploie par `heroku.yml` : Heroku construit l'image lui-même
+  # depuis GitHub. Les deux mécanismes s'excluent — le registre de conteneurs
+  # et `heroku.yml` sont incompatibles — donc n'armer celui-ci qu'après avoir
+  # coupé le déploiement automatique côté Heroku. Il existe comme repli si un
+  # build Heroku venait à dépasser les 15 minutes qu'il s'accorde.
   deploy:
     name: Déployer sur Heroku
     needs: image
@@ -165,9 +175,9 @@ jobs:
         run: |
           echo "$HEROKU_API_KEY" | docker login --username=_ --password-stdin registry.heroku.com
           image="registry.heroku.com/$HEROKU_APP_NAME/web"
-          # This step runs from server/ (job default), so the context is the
-          # repository root one level up and the Dockerfile sits right here.
-          docker build -f Dockerfile -t "$image" "$GITHUB_WORKSPACE"
+          # Le Dockerfile et le contexte sont tous deux à la racine, quel que
+          # soit le dossier d'où tourne cette étape.
+          docker build -f "$GITHUB_WORKSPACE/Dockerfile" -t "$image" "$GITHUB_WORKSPACE"
           docker push "$image"
 
           # `container:release` needs the image digest, which the registry
