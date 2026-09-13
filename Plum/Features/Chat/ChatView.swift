@@ -118,6 +118,7 @@ struct ChatView: View {
 
         return HStack(alignment: .bottom, spacing: PlumTheme.Spacing.s) {
             TextField("Un message…", text: $viewModel.draft, axis: .vertical)
+                .accessibilityIdentifier("champ-message")
                 .lineLimit(1...5)
                 .font(.plumBody)
                 .padding(.horizontal, PlumTheme.Spacing.m)
@@ -134,6 +135,8 @@ struct ChatView: View {
                     .frame(width: 42, height: 42)
                     .background(PlumTheme.Palette.warmGradient, in: Circle())
             }
+            .accessibilityIdentifier("bouton-envoyer")
+            .accessibilityLabel(Text("Envoyer"))
             .disabled(!viewModel.canSend)
             .opacity(viewModel.canSend ? 1 : 0.4)
         }

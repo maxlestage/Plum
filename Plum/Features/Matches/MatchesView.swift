@@ -64,6 +64,20 @@ struct MatchesView: View {
                                     Task { await unmatch(conversation, viewModel: viewModel) }
                                 }
                             }
+                            .onAppear {
+                                // Reaching the last row is the signal to page.
+                                guard conversation.id == viewModel.conversations.last?.id else { return }
+                                Task { await viewModel.loadNextPage() }
+                            }
+                        }
+
+                        if viewModel.hasMoreToLoad {
+                            HStack {
+                                Spacer()
+                                ProgressView().tint(PlumTheme.Palette.plum)
+                                Spacer()
+                            }
+                            .listRowBackground(Color.clear)
                         }
                     } header: {
                         if !viewModel.conversations.isEmpty {

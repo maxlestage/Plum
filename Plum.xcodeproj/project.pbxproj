@@ -70,12 +70,21 @@
 		B770BABDBF7352B28E7409A5 /* RelativeDateFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F15EA39F5171BABA582F1DF /* RelativeDateFormatting.swift */; };
 		5596DE1262582002B27C2DA8 /* APIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */; };
 		8CB1C0F207FA2CD546CF067F /* EndpointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01531848C731B692C9ADFC1E /* EndpointTests.swift */; };
+		482BD5C22F1310CA6A0CE491 /* MatchesPaginationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B882D1EE1CB274586FD8BF /* MatchesPaginationTests.swift */; };
 		4222EE5F9E440941A32917B3 /* ModelDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC10F166FAF03CCB60E3878 /* ModelDecodingTests.swift */; };
 		5785D2349686DF8F2A863C2A /* ViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6421CF9FF952488D98882615 /* ViewModelTests.swift */; };
+		63FC223EFF6EBB10CA1F0D8E /* PlumSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F774E93889FAA62A3EE34B5A /* PlumSmokeTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		271A3D7966711A268FFCE279 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 22A027C6A78AADEE3219B8FD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 24EFFD2CE50B35985E470F12;
+			remoteInfo = Plum;
+		};
+		CC0A233629C202C9B5AD55F9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 22A027C6A78AADEE3219B8FD /* Project object */;
 			proxyType = 1;
@@ -87,6 +96,7 @@
 /* Begin PBXFileReference section */
 		874EAA5235B922C63CEBAB17 /* Plum.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Plum.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6198C84E75AE51518F3EB56 /* PlumTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PlumTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD8FC059059C87E65831603D /* PlumUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PlumUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		52D492CDB71F0ED6D9AAEB49 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		AA4A47D512D802569CBD89B6 /* PlumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlumApp.swift; sourceTree = "<group>"; };
 		D96309AD54F47A2400FA6F4F /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -150,13 +160,16 @@
 		3F15EA39F5171BABA582F1DF /* RelativeDateFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeDateFormatting.swift; sourceTree = "<group>"; };
 		F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTests.swift; sourceTree = "<group>"; };
 		01531848C731B692C9ADFC1E /* EndpointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndpointTests.swift; sourceTree = "<group>"; };
+		C5B882D1EE1CB274586FD8BF /* MatchesPaginationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchesPaginationTests.swift; sourceTree = "<group>"; };
 		FBC10F166FAF03CCB60E3878 /* ModelDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDecodingTests.swift; sourceTree = "<group>"; };
 		6421CF9FF952488D98882615 /* ViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelTests.swift; sourceTree = "<group>"; };
+		F774E93889FAA62A3EE34B5A /* PlumSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlumSmokeTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		852684BB368426EA84E9155D /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ( ); runOnlyForDeploymentPostprocessing = 0; };
 		930F74F5A396200C39A9F0E5 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ( ); runOnlyForDeploymentPostprocessing = 0; };
+		2735E7196C1D0000F5F6786A /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ( ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -165,6 +178,7 @@
 			children = (
 				32D9631B8078C74469F4CB47 /* Plum */,
 				BC63056CDBBF3CF0E53ABC9B /* PlumTests */,
+				C89DC8D37E311F197D62DAB2 /* PlumUITests */,
 				C863DA5204F95EC573510473 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -174,6 +188,7 @@
 			children = (
 				874EAA5235B922C63CEBAB17 /* Plum.app */,
 				F6198C84E75AE51518F3EB56 /* PlumTests.xctest */,
+				FD8FC059059C87E65831603D /* PlumUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -371,10 +386,19 @@
 			children = (
 				F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */,
 				01531848C731B692C9ADFC1E /* EndpointTests.swift */,
+				C5B882D1EE1CB274586FD8BF /* MatchesPaginationTests.swift */,
 				FBC10F166FAF03CCB60E3878 /* ModelDecodingTests.swift */,
 				6421CF9FF952488D98882615 /* ViewModelTests.swift */,
 			);
 			path = PlumTests;
+			sourceTree = "<group>";
+		};
+		C89DC8D37E311F197D62DAB2 /* PlumUITests */ = {
+			isa = PBXGroup;
+			children = (
+				F774E93889FAA62A3EE34B5A /* PlumSmokeTests.swift */,
+			);
+			path = PlumUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -415,6 +439,24 @@
 			productReference = F6198C84E75AE51518F3EB56 /* PlumTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		C5A4606E23595B4A082162F5 /* PlumUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3C648ABCB51EDEED9FA33C23 /* Build configuration list for PBXNativeTarget "PlumUITests" */;
+			buildPhases = (
+				C301C4C2235EC34B748D8263 /* Sources */,
+				2735E7196C1D0000F5F6786A /* Frameworks */,
+				2E6788BBBBC545513A4F2EC7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E03508BC38ED0068C6AF9E7D /* PBXTargetDependency */,
+			);
+			name = PlumUITests;
+			productName = PlumUITests;
+			productReference = FD8FC059059C87E65831603D /* PlumUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -429,6 +471,10 @@
 						CreatedOnToolsVersion = 15.0;
 					};
 					145C1F40256F7F81E95738F5 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = 24EFFD2CE50B35985E470F12;
+					};
+					C5A4606E23595B4A082162F5 = {
 						CreatedOnToolsVersion = 15.0;
 						TestTargetID = 24EFFD2CE50B35985E470F12;
 					};
@@ -450,6 +496,7 @@
 			targets = (
 				24EFFD2CE50B35985E470F12 /* Plum */,
 				145C1F40256F7F81E95738F5 /* PlumTests */,
+				C5A4606E23595B4A082162F5 /* PlumUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -464,6 +511,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9344DF0520C3F3CC2A6A6C06 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E6788BBBBC545513A4F2EC7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -546,8 +600,17 @@
 			files = (
 				5596DE1262582002B27C2DA8 /* APIClientTests.swift in Sources */,
 				8CB1C0F207FA2CD546CF067F /* EndpointTests.swift in Sources */,
+				482BD5C22F1310CA6A0CE491 /* MatchesPaginationTests.swift in Sources */,
 				4222EE5F9E440941A32917B3 /* ModelDecodingTests.swift in Sources */,
 				5785D2349686DF8F2A863C2A /* ViewModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C301C4C2235EC34B748D8263 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63FC223EFF6EBB10CA1F0D8E /* PlumSmokeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -558,6 +621,11 @@
 			isa = PBXTargetDependency;
 			target = 24EFFD2CE50B35985E470F12 /* Plum */;
 			targetProxy = 271A3D7966711A268FFCE279 /* PBXContainerItemProxy */;
+		};
+		E03508BC38ED0068C6AF9E7D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 24EFFD2CE50B35985E470F12 /* Plum */;
+			targetProxy = CC0A233629C202C9B5AD55F9 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -770,6 +838,36 @@
 			};
 			name = Release;
 		};
+		4C6D09A2904DE7EB5434F969 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.plum.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Plum;
+			};
+			name = Debug;
+		};
+		4689E84A79680E3050264E26 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.plum.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Plum;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -796,6 +894,15 @@
 			buildConfigurations = (
 				804465DA7E3FA8BBD8614E13 /* Debug */,
 				F85FDB1C2E642F37D19311A4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3C648ABCB51EDEED9FA33C23 /* Build configuration list for PBXNativeTarget "PlumUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C6D09A2904DE7EB5434F969 /* Debug */,
+				4689E84A79680E3050264E26 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
