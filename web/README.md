@@ -37,6 +37,25 @@ Pour la même raison, les pages anglaise et espagnole disent explicitement que
 l'application n'est pour l'instant qu'en français. Traduire le site sans le dire
 serait un appât.
 
+### Des gabarits statiques par langue
+
+`npm run build` termine par `scripts/prerender.mjs`, qui écrit un `index.html`
+par langue **et par page** — douze en tout — avec le bon `lang`, le bon titre,
+la bonne description et les liens `hreflang` déjà dedans.
+
+Sans ça, le site reste une application monopage : le HTML livré porte un seul
+titre, en français, et l'application le corrige une fois React démarré. C'est
+suffisant pour une personne et inutile pour les robots qui fabriquent les
+aperçus de liens — aucun n'exécute de JavaScript. Partager `/es` dans WhatsApp
+ou iMessage aurait affiché le titre français.
+
+`ServeDir` sert `/es/privacidad/index.html` tout seul pour `/es/privacidad`, et
+l'application prend le relais ensuite.
+
+Corollaire attrapé par les tests : le composant qui pose les `hreflang` à
+l'exécution doit **remplacer** ceux du gabarit, pas s'ajouter à eux, sinon
+chaque page en porte deux jeux contradictoires.
+
 ### Pas de bibliothèque i18n
 
 Un dictionnaire typé (`src/i18n/types.ts`) plutôt que `react-i18next`. Pour

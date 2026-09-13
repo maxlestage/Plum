@@ -36,9 +36,12 @@ export function DocumentHead({ page }: { page: PageKey }) {
   useEffect(() => {
     // Alternates tell a search engine these are the same page in another
     // language rather than three pages competing with each other.
-    const previous = document.head.querySelectorAll(
-      "link[data-i18n-alternate]",
-    );
+    // Every `rel=alternate` goes, not just the ones added here: the
+    // pre-rendered shell ships its own set for the URL that was fetched, and
+    // after a client-side navigation those describe the page you came from.
+    // Appending alongside them leaves two conflicting sets — which is exactly
+    // what the browser test caught.
+    const previous = document.head.querySelectorAll("link[rel=alternate]");
     previous.forEach((node) => node.remove());
 
     const added = [...languages, "x-default" as const].map((entry) => {
