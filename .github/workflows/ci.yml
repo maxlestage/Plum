@@ -20,6 +20,12 @@ jobs:
       - name: Le projet est valide
         run: python3 Scripts/validate_pbxproj.py
 
+      - name: La palette est cohérente
+        run: python3 Scripts/check_palette.py
+
+      - name: L'icône d'application est soumettable
+        run: python3 Scripts/check_appicon.py
+
       - name: Le projet est à jour vis-à-vis des sources
         # Le pbxproj est généré : s'il diverge de l'arborescence, c'est qu'un
         # fichier a été ajouté ou supprimé sans régénérer.
@@ -46,12 +52,23 @@ jobs:
       - name: Build et tests
         run: ./Scripts/ci_test.sh
 
-      - name: Journal de compilation
-        if: failure()
+      - name: Avertissements du compilateur
+        # Toujours, pas seulement en cas d'échec : un build vert qui accumule
+        # des avertissements finit par en cacher un vrai.
+        if: always()
         run: |
+          if [ ! -f build.log ]; then
+            echo "Pas de journal : la compilation n'a pas démarré."
+            exit 0
+          fi
           echo "::group::Erreurs"
-          grep -E 'error:|warning: .*deprecated' build.log | head -n 100 || true
+          grep -E 'error:' build.log | sort -u | head -n 100 || true
           echo "::endgroup::"
+          echo "::group::Avertissements (dédoublonnés)"
+          grep -oE '[^ /]+\.swift:[0-9]+:[0-9]+: warning: .*' build.log | sort -u | head -n 100 || true
+          echo "::endgroup::"
+          count=$(grep -oE '[^ /]+\.swift:[0-9]+:[0-9]+: warning: .*' build.log | sort -u | wc -l | tr -d ' ')
+          echo "Avertissements Swift uniques : ${count}"
 
       - name: Artefacts
         if: failure()

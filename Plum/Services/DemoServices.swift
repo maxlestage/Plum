@@ -33,7 +33,11 @@ actor DemoAuthService: AuthServicing {
     func signUp(_ request: SignUpRequest) async throws -> AuthenticatedSession {
         await DemoMode.pause()
         isSignedIn = true
-        return session(email: request.email)
+        // A fresh account has not been through onboarding: this is what makes
+        // the demo exercise that flow rather than skipping it.
+        var authenticated = session(email: request.email)
+        authenticated.user.profileCompleted = false
+        return authenticated
     }
 
     func currentUser() async throws -> User {
@@ -68,8 +72,12 @@ actor DemoAuthService: AuthServicing {
 }
 
 actor DemoProfileService: ProfileServicing {
-    private var profile = SampleData.myProfile
+    private var profile: Profile
     private var prefs = DiscoveryPreferences.default
+
+    init(profile: Profile = SampleData.myProfile) {
+        self.profile = profile
+    }
 
     func myProfile() async throws -> Profile {
         await DemoMode.pause()
@@ -118,6 +126,12 @@ actor DemoProfileService: ProfileServicing {
     func updatePreferences(_ preferences: DiscoveryPreferences) async throws -> DiscoveryPreferences {
         prefs = preferences.sanitized
         return prefs
+    }
+
+    func completeProfile() async throws -> User {
+        var user = SampleData.currentUser
+        user.profileCompleted = true
+        return user
     }
 }
 

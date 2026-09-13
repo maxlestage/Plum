@@ -34,8 +34,16 @@ struct RemoteImage: View {
 
     /// Derives a stable pair of brand-adjacent colours from the seed, so two
     /// profiles never share a placeholder by accident.
+    ///
+    /// `hashValue` would be wrong twice over here: it is seeded per process,
+    /// so the same profile would change colour between launches, and
+    /// `abs(Int.min)` traps. This is a plain FNV-1a instead.
     static func gradientColors(for seed: String) -> [Color] {
-        let hash = abs(seed.hashValue)
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in seed.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 0x1000_0000_01b3
+        }
         let hue = Double(hash % 360) / 360
         return [
             Color(hue: hue, saturation: 0.35, brightness: 0.75),

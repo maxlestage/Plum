@@ -41,7 +41,19 @@ final class SessionStore {
     }
 
     func adopt(_ session: AuthenticatedSession) {
-        state = .signedIn(session.user)
+        adopt(session.user)
+    }
+
+    /// Re-reads the account, which is how finishing onboarding switches the
+    /// root view over to the tabs.
+    func adopt(_ user: User) {
+        state = .signedIn(user)
+    }
+
+    /// A signed-in account that has not been through onboarding yet.
+    var needsOnboarding: Bool {
+        guard let user = state.user else { return false }
+        return !user.profileCompleted
     }
 
     func signOut() async {

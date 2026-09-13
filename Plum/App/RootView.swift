@@ -13,8 +13,15 @@ struct RootView: View {
                 WelcomeView()
                     .transition(.opacity)
             case .signedIn:
-                MainTabView()
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                // A brand-new account has no photo and no bio; sending it
+                // straight to the deck wastes everyone's swipes.
+                if session.needsOnboarding {
+                    OnboardingView()
+                        .transition(.opacity)
+                } else {
+                    MainTabView()
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                }
             }
         }
         .animation(.easeInOut(duration: 0.3), value: session.state)
