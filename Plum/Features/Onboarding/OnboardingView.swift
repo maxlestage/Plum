@@ -86,7 +86,12 @@ struct OnboardingView: View {
     // MARK: - Steps
 
     private func photosStep(_ viewModel: OnboardingViewModel) -> some View {
-        LazyVGrid(
+        // Read here, not inside the PhotosPicker label: that closure does not
+        // inherit the main actor, and reading the view model from it is an
+        // error under the Swift 6 language mode.
+        let isWorking = viewModel.isWorking
+
+        return LazyVGrid(
             columns: [GridItem(.flexible(), spacing: PlumTheme.Spacing.m),
                       GridItem(.flexible(), spacing: PlumTheme.Spacing.m)],
             spacing: PlumTheme.Spacing.m
@@ -110,7 +115,7 @@ struct OnboardingView: View {
             if viewModel.canAddMorePhotos {
                 PhotosPicker(selection: $pickedPhoto, matching: .images) {
                     VStack(spacing: PlumTheme.Spacing.s) {
-                        Image(systemName: viewModel.isWorking ? "hourglass" : "plus")
+                        Image(systemName: isWorking ? "hourglass" : "plus")
                             .font(.title)
                         Text("Ajouter")
                             .font(.plumCaption)
@@ -126,7 +131,7 @@ struct OnboardingView: View {
                             )
                     )
                 }
-                .disabled(viewModel.isWorking)
+                .disabled(isWorking)
             }
         }
     }
