@@ -30,6 +30,7 @@ struct AuthFormView: View {
 
                         labelledField("Email") {
                             TextField("vous@exemple.fr", text: $viewModel.email)
+                                .accessibilityIdentifier("champ-email")
                                 .textContentType(.emailAddress)
                                 .keyboardType(.emailAddress)
                                 .textInputAutocapitalization(.never)
@@ -41,6 +42,7 @@ struct AuthFormView: View {
 
                         labelledField("Mot de passe", hint: viewModel.passwordHint) {
                             SecureField("8 caractères minimum", text: $viewModel.password)
+                                .accessibilityIdentifier("champ-mot-de-passe")
                                 .textContentType(viewModel.mode == .signUp ? .newPassword : .password)
                                 .focused($focusedField, equals: .password)
                                 .submitLabel(.go)
@@ -62,6 +64,7 @@ struct AuthFormView: View {
                         Task { await viewModel.submit() }
                     }
                     .buttonStyle(PlumPrimaryButtonStyle(isLoading: viewModel.isSubmitting))
+                    .accessibilityIdentifier("bouton-valider")
                     .disabled(!viewModel.canSubmit)
                     .opacity(viewModel.canSubmit ? 1 : 0.5)
 

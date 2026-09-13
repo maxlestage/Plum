@@ -10,6 +10,8 @@ final class MatchesViewModel {
     private(set) var state: ActivityState = .idle
 
     private var matchesCursor: String?
+    private var conversationsCursor: String?
+    private var isPaginating = false
     private let matchService: any MatchServicing
     private let chatService: any ChatServicing
 
@@ -43,19 +45,38 @@ final class MatchesViewModel {
             matches = loadedMatches.items.sorted { $0.matchedAt > $1.matchedAt }
             matchesCursor = loadedMatches.nextCursor
             conversations = loadedConversations.items.sorted { $0.updatedAt > $1.updatedAt }
+            conversationsCursor = loadedConversations.nextCursor
             state = .ready
         } catch {
             state = .failed(error.asAPIError)
         }
     }
 
-    func loadMoreMatches() async {
-        guard let matchesCursor else { return }
+    var hasMoreToLoad: Bool {
+        matchesCursor != nil || conversationsCursor != nil
+    }
+
+    /// Called when the last row scrolls into view. Both lists page
+    /// independently, so whichever still has a cursor is extended.
+    func loadNextPage() async {
+        guard !isPaginating, hasMoreToLoad else { return }
+        isPaginating = true
+        defer { isPaginating = false }
+
         do {
-            let page = try await matchService.matches(cursor: matchesCursor)
-            let known = Set(matches.map(\.id))
-            matches += page.items.filter { !known.contains($0.id) }
-            self.matchesCursor = page.nextCursor
+            if let cursor = matchesCursor {
+                let page = try await matchService.matches(cursor: cursor)
+                let known = Set(matches.map(\.id))
+                matches += page.items.filter { !known.contains($0.id) }
+                matchesCursor = page.nextCursor
+            }
+            if let cursor = conversationsCursor {
+                let page = try await chatService.conversations(cursor: cursor)
+                let known = Set(conversations.map(\.id))
+                conversations += page.items.filter { !known.contains($0.id) }
+                conversations.sort { $0.updatedAt > $1.updatedAt }
+                conversationsCursor = page.nextCursor
+            }
         } catch {
             state = .failed(error.asAPIError)
         }

@@ -96,10 +96,16 @@ optimiste, à la réponse REST et à l'écho du socket de désigner le même mes
 xcodebuild test -scheme Plum -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
-La suite couvre le décodage du format de l'API, la construction des requêtes,
-le rafraîchissement des jetons (y compris le 401 inattendu et l'échec qui
-déconnecte), les seuils du geste de balayage, la validation du formulaire
-d'inscription et l'envoi optimiste des messages.
+Deux bundles tournent sous le même schéma.
+
+`PlumTests` couvre la logique : décodage du format de l'API, construction des
+requêtes, rafraîchissement des jetons (y compris le 401 inattendu et l'échec
+qui déconnecte), seuils du geste de balayage, validation des formulaires,
+envoi optimiste des messages, pagination et barrières de l'onboarding.
+
+`PlumUITests` lance l'application en mode démo et la traverse : connexion,
+deck, envoi d'un message, profil. Rien dans les tests unitaires n'attraperait
+un écran qui plante à l'affichage ou un bouton branché sur rien.
 
 ## Intégration continue
 
@@ -108,10 +114,10 @@ d'inscription et l'envoi optimiste des messages.
 - sur Ubuntu, il valide le graphe d'objets du projet et vérifie que le
   `pbxproj` committé correspond bien aux sources (la régénération ne doit
   produire aucun diff) ;
-- sur macOS, il construit l'application et exécute la suite de tests sur un
-  simulateur iPhone choisi à l'exécution par `Scripts/ci_test.sh`, plutôt
-  que sur un nom de modèle codé en dur qu'une nouvelle image de runner
-  casserait.
+- sur macOS, il construit l'application et exécute les deux suites de tests
+  sur un simulateur iPhone choisi à l'exécution par `Scripts/ci_test.sh`,
+  plutôt que sur un nom de modèle codé en dur qu'une nouvelle image de runner
+  casserait, et liste les avertissements du compilateur à chaque build.
 
 ## Le fichier de projet
 
@@ -126,6 +132,8 @@ python3 Scripts/validate_pbxproj.py      # vérifie le graphe d'objets
 
 Les identifiants d'objets sont dérivés du chemin de chaque fichier : deux
 exécutions produisent le même fichier, ce qui évite les conflits de fusion
-gratuits sur le projet Xcode. Le validateur analyse le fichier et refuse les
+gratuits sur le projet Xcode. Ajouter une cible de tests revient à créer le
+dossier et à la déclarer dans `TEST_TARGETS` ; un dossier absent est
+simplement ignoré. Le validateur analyse le fichier et refuse les
 références pendantes, les identifiants dupliqués et les fichiers compilés
 mais absents du navigateur.

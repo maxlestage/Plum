@@ -121,6 +121,21 @@ struct DiscoveryView: View {
                 }
                 .zIndex(Double(PlumTheme.Layout.cardStackDepth - index))
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.visibleProfiles.map(\.id))
+                // The deck is a drag gesture, which VoiceOver cannot perform.
+                // These are the same three verdicts as rotor actions.
+                .accessibilityHidden(!isTop)
+                .accessibilityAction(named: Text("J'aime")) {
+                    commit(.like, viewModel: viewModel)
+                }
+                .accessibilityAction(named: Text("Passer")) {
+                    commit(.pass, viewModel: viewModel)
+                }
+                .accessibilityAction(named: Text("Coup de cœur")) {
+                    commit(.superLike, viewModel: viewModel)
+                }
+                .accessibilityAction(named: Text("Signaler ou bloquer")) {
+                    reportTarget = profile
+                }
             }
         }
         .padding(.horizontal, PlumTheme.Spacing.l)
@@ -132,21 +147,27 @@ struct DiscoveryView: View {
             CircularActionButton(
                 systemImage: "arrow.uturn.backward",
                 tint: PlumTheme.Palette.apricot,
-                diameter: 48
+                diameter: 48,
+                accessibilityTitle: "Annuler le dernier passe"
             ) {
                 Task { await viewModel.rewind() }
             }
             .disabled(!viewModel.canRewind)
             .opacity(viewModel.canRewind ? 1 : 0.4)
 
-            CircularActionButton(systemImage: "xmark", tint: PlumTheme.Palette.pass) {
+            CircularActionButton(
+                systemImage: "xmark",
+                tint: PlumTheme.Palette.pass,
+                accessibilityTitle: "Passer"
+            ) {
                 commit(.pass, viewModel: viewModel)
             }
 
             CircularActionButton(
                 systemImage: "star.fill",
                 tint: PlumTheme.Palette.superLike,
-                diameter: 48
+                diameter: 48,
+                accessibilityTitle: "Coup de cœur"
             ) {
                 commit(.superLike, viewModel: viewModel)
             }
@@ -154,7 +175,8 @@ struct DiscoveryView: View {
             CircularActionButton(
                 systemImage: "heart.fill",
                 tint: PlumTheme.Palette.like,
-                isProminent: true
+                isProminent: true,
+                accessibilityTitle: "J'aime"
             ) {
                 commit(.like, viewModel: viewModel)
             }

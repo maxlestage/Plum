@@ -23,7 +23,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT_NAME = "Plum"
 APP_TARGET = "Plum"
-TEST_TARGET = "PlumTests"
+# Test bundles, in the order they should appear in the navigator. "ui" targets
+# drive the app through XCUITest and are wired differently from unit tests:
+# they host nothing, they launch the app.
+TEST_TARGETS = [("PlumTests", "unit"), ("PlumUITests", "ui")]
 BUNDLE_ID = "app.plum.ios"
 DEPLOYMENT_TARGET = "17.0"
 SWIFT_VERSION = "5.0"
@@ -122,17 +125,37 @@ class ProjectWriter:
     def __init__(self):
         self.lines: list[str] = []
         self.app_tree = build_tree(ROOT / APP_TARGET)
-        self.test_tree = build_tree(ROOT / TEST_TARGET)
-
         self.app_files = list(self.app_tree.walk_files())
-        self.test_files = list(self.test_tree.walk_files())
+
+        # A test target with no directory on disk is simply skipped, so adding
+        # one is a matter of creating the folder.
+        self.test_targets = [
+            (name, kind) for name, kind in TEST_TARGETS if (ROOT / name).is_dir()
+        ]
+        self.test_trees = {name: build_tree(ROOT / name) for name, _ in self.test_targets}
+        self.test_files = {
+            name: list(tree.walk_files()) for name, tree in self.test_trees.items()
+        }
 
         # Object ids, all derived from stable strings.
         self.project_id = identifier("project", PROJECT_NAME)
         self.main_group_id = identifier("group", "<root>")
         self.products_group_id = identifier("group", "Products")
         self.app_product_id = identifier("product", APP_TARGET)
-        self.test_product_id = identifier("product", TEST_TARGET)
+        self.test_product_ids = {
+            name: identifier("product", name) for name, _ in self.test_targets
+        }
+
+    @property
+    def all_targets(self) -> list[tuple[str, list]]:
+        """Every target paired with the files it compiles, app first."""
+        return [(APP_TARGET, self.app_files)] + [
+            (name, self.test_files[name]) for name, _ in self.test_targets
+        ]
+
+    @property
+    def target_names(self) -> list[str]:
+        return [APP_TARGET] + [name for name, _ in self.test_targets]
 
     # -- emitting helpers -------------------------------------------------
 
@@ -158,7 +181,7 @@ class ProjectWriter:
 
     def write_build_files(self) -> None:
         def body():
-            for target, files in ((APP_TARGET, self.app_files), (TEST_TARGET, self.test_files)):
+            for target, files in self.all_targets:
                 for node in files:
                     phase = "Sources" if is_source(node) else "Resources"
                     self.emit(
@@ -175,23 +198,25 @@ class ProjectWriter:
                 f"explicitFileType = wrapper.application; includeInIndex = 0; "
                 f"path = {APP_TARGET}.app; sourceTree = BUILT_PRODUCTS_DIR; }};"
             )
-            self.emit(
-                f"\t\t{self.test_product_id} /* {TEST_TARGET}.xctest */ = {{isa = PBXFileReference; "
-                f"explicitFileType = wrapper.cfbundle; includeInIndex = 0; "
-                f"path = {TEST_TARGET}.xctest; sourceTree = BUILT_PRODUCTS_DIR; }};"
-            )
-            for node in self.app_files + self.test_files:
+            for name, _ in self.test_targets:
                 self.emit(
-                    f"\t\t{self.file_ref_id(node)} /* {node.name} */ = {{isa = PBXFileReference; "
-                    f"lastKnownFileType = {file_type(node.path)}; path = {quoted(node.name)}; "
-                    f"sourceTree = \"<group>\"; }};"
+                    f"\t\t{self.test_product_ids[name]} /* {name}.xctest */ = "
+                    f"{{isa = PBXFileReference; explicitFileType = wrapper.cfbundle; "
+                    f"includeInIndex = 0; path = {name}.xctest; sourceTree = BUILT_PRODUCTS_DIR; }};"
                 )
+            for _, files in self.all_targets:
+                for node in files:
+                    self.emit(
+                        f"\t\t{self.file_ref_id(node)} /* {node.name} */ = "
+                        f"{{isa = PBXFileReference; lastKnownFileType = {file_type(node.path)}; "
+                        f"path = {quoted(node.name)}; sourceTree = \"<group>\"; }};"
+                    )
 
         self.section("PBXFileReference", body)
 
     def write_frameworks_phase(self) -> None:
         def body():
-            for target in (APP_TARGET, TEST_TARGET):
+            for target in self.target_names:
                 self.emit(
                     f"\t\t{identifier('frameworks', target)} /* Frameworks */ = "
                     f"{{isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ( ); "
@@ -229,7 +254,8 @@ class ProjectWriter:
             self.emit("\t\t\tisa = PBXGroup;")
             self.emit("\t\t\tchildren = (")
             self.emit(f"\t\t\t\t{self.group_id(self.app_tree)} /* {APP_TARGET} */,")
-            self.emit(f"\t\t\t\t{self.group_id(self.test_tree)} /* {TEST_TARGET} */,")
+            for name, _ in self.test_targets:
+                self.emit(f"\t\t\t\t{self.group_id(self.test_trees[name])} /* {name} */,")
             self.emit(f"\t\t\t\t{self.products_group_id} /* Products */,")
             self.emit("\t\t\t);")
             self.emit('\t\t\tsourceTree = "<group>";')
@@ -240,14 +266,16 @@ class ProjectWriter:
             self.emit("\t\t\tisa = PBXGroup;")
             self.emit("\t\t\tchildren = (")
             self.emit(f"\t\t\t\t{self.app_product_id} /* {APP_TARGET}.app */,")
-            self.emit(f"\t\t\t\t{self.test_product_id} /* {TEST_TARGET}.xctest */,")
+            for name, _ in self.test_targets:
+                self.emit(f"\t\t\t\t{self.test_product_ids[name]} /* {name}.xctest */,")
             self.emit("\t\t\t);")
             self.emit("\t\t\tname = Products;")
             self.emit('\t\t\tsourceTree = "<group>";')
             self.emit("\t\t};")
 
             emit_group(self.app_tree)
-            emit_group(self.test_tree)
+            for name, _ in self.test_targets:
+                emit_group(self.test_trees[name])
 
         self.section("PBXGroup", body)
 
@@ -290,13 +318,16 @@ class ProjectWriter:
                 "com.apple.product-type.application",
                 [],
             )
-            emit_target(
-                TEST_TARGET,
-                self.test_product_id,
-                f"{TEST_TARGET}.xctest",
-                "com.apple.product-type.bundle.unit-test",
-                [identifier("dependency", TEST_TARGET, APP_TARGET)],
-            )
+            for name, kind in self.test_targets:
+                emit_target(
+                    name,
+                    self.test_product_ids[name],
+                    f"{name}.xctest",
+                    "com.apple.product-type.bundle.ui-testing"
+                    if kind == "ui"
+                    else "com.apple.product-type.bundle.unit-test",
+                    [identifier("dependency", name, APP_TARGET)],
+                )
 
         self.section("PBXNativeTarget", body)
 
@@ -309,10 +340,10 @@ class ProjectWriter:
             self.emit("\t\t\t\tLastSwiftUpdateCheck = 1500;")
             self.emit("\t\t\t\tLastUpgradeCheck = 1500;")
             self.emit("\t\t\t\tTargetAttributes = {")
-            for name in (APP_TARGET, TEST_TARGET):
+            for name in self.target_names:
                 self.emit(f"\t\t\t\t\t{identifier('target', name)} = {{")
                 self.emit("\t\t\t\t\t\tCreatedOnToolsVersion = 15.0;")
-                if name == TEST_TARGET:
+                if name != APP_TARGET:
                     self.emit(f"\t\t\t\t\t\tTestTargetID = {identifier('target', APP_TARGET)};")
                 self.emit("\t\t\t\t\t};")
             self.emit("\t\t\t\t};")
@@ -334,8 +365,8 @@ class ProjectWriter:
             self.emit('\t\t\tprojectDirPath = "";')
             self.emit('\t\t\tprojectRoot = "";')
             self.emit("\t\t\ttargets = (")
-            self.emit(f"\t\t\t\t{identifier('target', APP_TARGET)} /* {APP_TARGET} */,")
-            self.emit(f"\t\t\t\t{identifier('target', TEST_TARGET)} /* {TEST_TARGET} */,")
+            for name in self.target_names:
+                self.emit(f"\t\t\t\t{identifier('target', name)} /* {name} */,")
             self.emit("\t\t\t);")
             self.emit("\t\t};")
 
@@ -343,7 +374,7 @@ class ProjectWriter:
 
     def write_phase(self, isa: str, label: str, predicate, key: str) -> None:
         def body():
-            for target, files in ((APP_TARGET, self.app_files), (TEST_TARGET, self.test_files)):
+            for target, files in self.all_targets:
                 self.emit(f"\t\t{identifier(key, target)} /* {label} */ = {{")
                 self.emit(f"\t\t\tisa = {isa};")
                 self.emit("\t\t\tbuildActionMask = 2147483647;")
@@ -361,26 +392,32 @@ class ProjectWriter:
 
     def write_target_dependency(self) -> None:
         def body():
-            proxy_id = identifier("proxy", TEST_TARGET, APP_TARGET)
-            self.emit(
-                f"\t\t{identifier('dependency', TEST_TARGET, APP_TARGET)} /* PBXTargetDependency */ = {{"
-            )
-            self.emit("\t\t\tisa = PBXTargetDependency;")
-            self.emit(f"\t\t\ttarget = {identifier('target', APP_TARGET)} /* {APP_TARGET} */;")
-            self.emit(f"\t\t\ttargetProxy = {proxy_id} /* PBXContainerItemProxy */;")
-            self.emit("\t\t};")
+            for name, _ in self.test_targets:
+                proxy_id = identifier("proxy", name, APP_TARGET)
+                self.emit(
+                    f"\t\t{identifier('dependency', name, APP_TARGET)} "
+                    f"/* PBXTargetDependency */ = {{"
+                )
+                self.emit("\t\t\tisa = PBXTargetDependency;")
+                self.emit(f"\t\t\ttarget = {identifier('target', APP_TARGET)} /* {APP_TARGET} */;")
+                self.emit(f"\t\t\ttargetProxy = {proxy_id} /* PBXContainerItemProxy */;")
+                self.emit("\t\t};")
 
         self.section("PBXTargetDependency", body)
 
     def write_container_proxy(self) -> None:
         def body():
-            self.emit(f"\t\t{identifier('proxy', TEST_TARGET, APP_TARGET)} /* PBXContainerItemProxy */ = {{")
-            self.emit("\t\t\tisa = PBXContainerItemProxy;")
-            self.emit(f"\t\t\tcontainerPortal = {self.project_id} /* Project object */;")
-            self.emit("\t\t\tproxyType = 1;")
-            self.emit(f"\t\t\tremoteGlobalIDString = {identifier('target', APP_TARGET)};")
-            self.emit(f"\t\t\tremoteInfo = {APP_TARGET};")
-            self.emit("\t\t};")
+            for name, _ in self.test_targets:
+                self.emit(
+                    f"\t\t{identifier('proxy', name, APP_TARGET)} "
+                    f"/* PBXContainerItemProxy */ = {{"
+                )
+                self.emit("\t\t\tisa = PBXContainerItemProxy;")
+                self.emit(f"\t\t\tcontainerPortal = {self.project_id} /* Project object */;")
+                self.emit("\t\t\tproxyType = 1;")
+                self.emit(f"\t\t\tremoteGlobalIDString = {identifier('target', APP_TARGET)};")
+                self.emit(f"\t\t\tremoteInfo = {APP_TARGET};")
+                self.emit("\t\t};")
 
         self.section("PBXContainerItemProxy", body)
 
@@ -488,19 +525,29 @@ class ProjectWriter:
             "TARGETED_DEVICE_FAMILY": '"1,2"',
         }
 
-    def test_settings(self, debug: bool) -> dict[str, str]:
-        return {
-            "BUNDLE_LOADER": '"$(TEST_HOST)"',
+    def test_settings(self, name: str, kind: str) -> dict[str, str]:
+        suffix = "uitests" if kind == "ui" else "tests"
+        settings = {
             "CODE_SIGN_STYLE": "Automatic",
             "CURRENT_PROJECT_VERSION": "1",
             "GENERATE_INFOPLIST_FILE": "YES",
             "MARKETING_VERSION": "1.0",
-            "PRODUCT_BUNDLE_IDENTIFIER": f"{BUNDLE_ID}.tests",
+            "PRODUCT_BUNDLE_IDENTIFIER": f"{BUNDLE_ID}.{suffix}",
             "PRODUCT_NAME": '"$(TARGET_NAME)"',
             "SWIFT_VERSION": SWIFT_VERSION,
             "TARGETED_DEVICE_FAMILY": '"1,2"',
-            "TEST_HOST": f'"$(BUILT_PRODUCTS_DIR)/{APP_TARGET}.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/{APP_TARGET}"',
         }
+        if kind == "ui":
+            # A UI bundle launches the app rather than being loaded into it,
+            # so it names its target instead of hosting one.
+            settings["TEST_TARGET_NAME"] = APP_TARGET
+        else:
+            settings["BUNDLE_LOADER"] = '"$(TEST_HOST)"'
+            settings["TEST_HOST"] = (
+                f'"$(BUILT_PRODUCTS_DIR)/{APP_TARGET}.app'
+                f'/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/{APP_TARGET}"'
+            )
+        return settings
 
     @staticmethod
     def configuration_id(scope: str, owner: str, name: str) -> str:
@@ -523,8 +570,10 @@ class ProjectWriter:
             emit_configuration("project", PROJECT_NAME, "Release", self.project_settings(debug=False))
             emit_configuration("target", APP_TARGET, "Debug", self.app_settings(debug=True))
             emit_configuration("target", APP_TARGET, "Release", self.app_settings(debug=False))
-            emit_configuration("target", TEST_TARGET, "Debug", self.test_settings(debug=True))
-            emit_configuration("target", TEST_TARGET, "Release", self.test_settings(debug=False))
+            for name, kind in self.test_targets:
+                settings = self.test_settings(name, kind)
+                emit_configuration("target", name, "Debug", settings)
+                emit_configuration("target", name, "Release", settings)
 
         self.section("XCBuildConfiguration", body)
 
@@ -547,7 +596,7 @@ class ProjectWriter:
                 "project",
                 PROJECT_NAME,
             )
-            for target in (APP_TARGET, TEST_TARGET):
+            for target in self.target_names:
                 emit_list(
                     identifier("configlist", "target", target),
                     f'Build configuration list for PBXNativeTarget "{target}"',
@@ -619,17 +668,7 @@ SCHEME_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "{test_target_id}"
-               BuildableName = "{test_target}.xctest"
-               BlueprintName = "{test_target}"
-               ReferencedContainer = "container:{project}.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
+{testables}      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -696,6 +735,18 @@ SCHEME_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 </Scheme>
 """
 
+TESTABLE_TEMPLATE = """         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "{test_target_id}"
+               BuildableName = "{test_target}.xctest"
+               BlueprintName = "{test_target}"
+               ReferencedContainer = "container:{project}.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+"""
+
 WORKSPACE_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <Workspace
    version = "1.0">
@@ -720,17 +771,26 @@ def main() -> None:
         SCHEME_TEMPLATE.format(
             project=PROJECT_NAME,
             app_target=APP_TARGET,
-            test_target=TEST_TARGET,
             app_target_id=identifier("target", APP_TARGET),
-            test_target_id=identifier("target", TEST_TARGET),
+            testables="".join(
+                TESTABLE_TEMPLATE.format(
+                    project=PROJECT_NAME,
+                    test_target=name,
+                    test_target_id=identifier("target", name),
+                )
+                for name, _ in writer.test_targets
+            ),
         ),
         encoding="utf-8",
     )
 
+    summary = ", ".join(
+        f"{len(writer.test_files[name])} dans {name}" for name, _ in writer.test_targets
+    )
     print(
         f"{PROJECT_NAME}.xcodeproj écrit : "
-        f"{len(writer.app_files)} fichiers dans {APP_TARGET}, "
-        f"{len(writer.test_files)} dans {TEST_TARGET}."
+        f"{len(writer.app_files)} fichiers dans {APP_TARGET}"
+        + (f", {summary}." if summary else ".")
     )
 
 

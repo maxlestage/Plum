@@ -45,6 +45,8 @@ struct CircularActionButton: View {
     let tint: Color
     var diameter: CGFloat = 60
     var isProminent = false
+    /// An icon alone tells VoiceOver nothing; every one of these needs a name.
+    var accessibilityTitle: String = ""
     let action: () -> Void
 
     var body: some View {
@@ -60,5 +62,6 @@ struct CircularActionButton: View {
                 }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(accessibilityTitle))
     }
 }

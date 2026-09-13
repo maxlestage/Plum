@@ -90,10 +90,10 @@ final class ChatViewModel {
             do {
                 let stream = try await self.chat.eventStream()
                 for await event in stream {
-                    await self.handle(event)
+                    self.handle(event)
                 }
             } catch {
-                await self.markDisconnected()
+                self.markDisconnected()
             }
         }
     }
@@ -134,7 +134,7 @@ final class ChatViewModel {
         typingResetTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(4))
             guard !Task.isCancelled else { return }
-            await self?.hideTypingIndicator()
+            self?.hideTypingIndicator()
         }
     }
 

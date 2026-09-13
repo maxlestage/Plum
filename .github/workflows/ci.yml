@@ -74,8 +74,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: resultats-xcodebuild
-          path: |
-            build.log
-            build/Plum.xcresult
+          name: journal-xcodebuild
+          # Le bundle .xcresult pèse ~75 Mo et n'a rien apporté que le journal
+          # ne disait déjà : on garde le journal seul.
+          path: build.log
           retention-days: 7

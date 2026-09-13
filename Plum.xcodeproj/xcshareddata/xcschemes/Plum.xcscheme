@@ -38,6 +38,16 @@
                ReferencedContainer = "container:Plum.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C5A4606E23595B4A082162F5"
+               BuildableName = "PlumUITests.xctest"
+               BlueprintName = "PlumUITests"
+               ReferencedContainer = "container:Plum.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

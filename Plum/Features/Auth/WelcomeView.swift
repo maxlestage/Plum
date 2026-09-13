@@ -31,10 +31,12 @@ struct WelcomeView: View {
 
                     VStack(spacing: PlumTheme.Spacing.m) {
                         Button("Créer un compte") { route = .signUp }
+                            .accessibilityIdentifier("bouton-inscription")
                             .buttonStyle(PlumPrimaryButtonStyle())
                             .tint(.white)
 
                         Button("J'ai déjà un compte") { route = .signIn }
+                            .accessibilityIdentifier("bouton-connexion")
                             .font(.plumButton)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity, minHeight: 54)
