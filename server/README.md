@@ -69,10 +69,18 @@ datait d'avant.
 
 ## Déploiement
 
-L'image est construite dans GitHub Actions, jamais sur Heroku — qui plafonne
-ses builds à 15 minutes, ce qu'une compilation Rust en release dépasse sans
-peine. Heroku ne reçoit qu'une image finie, et la release ne prend que
-quelques secondes.
+L'image est construite dans GitHub Actions, jamais sur Heroku. Heroku ne
+reçoit qu'une image finie, et la release ne prend que quelques secondes.
+
+**Il faut désactiver les déploiements automatiques côté Heroku** (onglet
+Deploy). Les deux chaînes ne peuvent pas coexister, et celle de Heroku échoue
+de toute façon : la racine du dépôt ne contient aucun manifeste qu'il sache
+détecter, le code étant dans `server/` et `web/`.
+
+Le workflow pose lui-même le stack `container` par l'API avant de pousser,
+parce que le registre de conteneurs l'exige et que ce réglage n'existe pas
+dans le tableau de bord — c'est `heroku stack:set container`, donc une machine
+avec un terminal. C'était la dernière étape qui imposait un ordinateur.
 
 Pour armer le déploiement, deux secrets dans le dépôt GitHub :
 

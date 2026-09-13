@@ -124,8 +124,38 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::HEROKU_API_KEY ou HEROKU_APP_NAME absent — déploiement sauté."
+            echo "::notice::HEROKU_API_KEY ou HEROKU_APP_NAME absent — déploiement sauté. Poser les deux secrets dans Settings → Secrets and variables → Actions, et désactiver le déploiement automatique côté Heroku : les deux chaînes ne peuvent pas coexister."
           fi
+
+      # Le registre de conteneurs n'accepte que les applications dont le stack
+      # est « container », et ce réglage n'existe pas dans le tableau de bord :
+      # c'est `heroku stack:set container`, donc une ligne de commande. Le
+      # workflow le pose lui-même, sans quoi tout ceci ne marcherait que depuis
+      # un ordinateur — ce qui est exactement ce qu'on cherche à éviter.
+      #
+      # Idempotent : reposer un stack qu'on a déjà ne change rien.
+      - name: S'assurer que l'application est sur le stack container
+        if: steps.check.outputs.ready == 'true'
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+        run: |
+          stack=$(curl -fsS "https://api.heroku.com/apps/$HEROKU_APP_NAME" \
+            -H "Accept: application/vnd.heroku+json; version=3" \
+            -H "Authorization: Bearer $HEROKU_API_KEY" \
+            | python3 -c 'import sys,json;print(json.load(sys.stdin)["build_stack"]["name"])')
+
+          if [ "$stack" = "container" ]; then
+            echo "::notice::stack déjà « container »"
+            exit 0
+          fi
+
+          echo "::notice::stack « $stack » → « container »"
+          curl -fsS -X PATCH "https://api.heroku.com/apps/$HEROKU_APP_NAME" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/vnd.heroku+json; version=3" \
+            -H "Authorization: Bearer $HEROKU_API_KEY" \
+            -d '{"build_stack":"container"}' > /dev/null
 
       - name: Pousser l'image et publier
         if: steps.check.outputs.ready == 'true'
