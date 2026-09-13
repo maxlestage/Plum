@@ -1,5 +1,20 @@
 import SwiftUI
 
+/// What the deck can put on top of itself. Two `.sheet` modifiers on the same
+/// view is a SwiftUI trap — only one of them presents — so both go through a
+/// single one.
+enum DeckSheet: Identifiable {
+    case profile(Profile)
+    case report(Profile)
+
+    var id: String {
+        switch self {
+        case let .profile(profile): return "profile-\(profile.id)"
+        case let .report(profile): return "report-\(profile.id)"
+        }
+    }
+}
+
 /// The deck. Owns the drag of the top card and turns it into a decision; the
 /// view model owns everything that outlives the gesture.
 struct DiscoveryView: View {
@@ -8,8 +23,7 @@ struct DiscoveryView: View {
     @State private var viewModel: DiscoveryViewModel?
     @State private var drag: CGSize = .zero
     @State private var isCommitting = false
-    @State private var reportTarget: Profile?
-    @State private var detailProfile: Profile?
+    @State private var sheet: DeckSheet?
     @State private var locationSync: LocationSync?
 
     var body: some View {
@@ -51,21 +65,28 @@ struct DiscoveryView: View {
         .onChange(of: deckRefresh.token) { _, _ in
             Task { await viewModel?.refresh() }
         }
-        .sheet(item: $detailProfile) { profile in
-            ProfileDetailView(
-                profile: profile,
-                onDecision: { decision in
-                    guard let viewModel else { return }
-                    commit(decision, viewModel: viewModel)
-                },
-                onReport: { reportTarget = profile }
-            )
-        }
-        .sheet(item: $reportTarget) { profile in
-            ReportSheet(profile: profile) { reason in
-                Task { await viewModel?.report(profile, reason: reason) }
-            } onBlock: {
-                Task { await viewModel?.block(profile) }
+        .sheet(item: $sheet) { presented in
+            switch presented {
+            case let .profile(profile):
+                ProfileDetailView(
+                    profile: profile,
+                    onDecision: { decision in
+                        guard let viewModel else { return }
+                        commit(decision, viewModel: viewModel)
+                    },
+                    onReport: { reason in
+                        Task { await viewModel?.report(profile, reason: reason) }
+                    },
+                    onBlock: {
+                        Task { await viewModel?.block(profile) }
+                    }
+                )
+            case let .report(profile):
+                ReportSheet(profile: profile) { reason in
+                    Task { await viewModel?.report(profile, reason: reason) }
+                } onBlock: {
+                    Task { await viewModel?.block(profile) }
+                }
             }
         }
         .fullScreenCover(
@@ -151,7 +172,7 @@ struct DiscoveryView: View {
                     profile: profile,
                     dragTranslation: isTop ? drag : .zero,
                     isTopCard: isTop,
-                    onOpenDetail: isTop ? { detailProfile = profile } : nil
+                    onOpenDetail: isTop ? { sheet = .profile(profile) } : nil
                 )
                 .scaleEffect(scale(forDepth: index))
                 .offset(y: CGFloat(index) * 12)
@@ -164,7 +185,7 @@ struct DiscoveryView: View {
                 .contextMenu {
                     if isTop {
                         Button(role: .destructive) {
-                            reportTarget = profile
+                            sheet = .report(profile)
                         } label: {
                             Label("Signaler ou bloquer", systemImage: "flag")
                         }
@@ -185,10 +206,10 @@ struct DiscoveryView: View {
                     commit(.superLike, viewModel: viewModel)
                 }
                 .accessibilityAction(named: Text("Voir le profil complet")) {
-                    detailProfile = profile
+                    sheet = .profile(profile)
                 }
                 .accessibilityAction(named: Text("Signaler ou bloquer")) {
-                    reportTarget = profile
+                    sheet = .report(profile)
                 }
             }
         }

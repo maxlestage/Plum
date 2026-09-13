@@ -137,13 +137,20 @@ extension PlumSmokeTests {
         )
         openDetail.tap()
 
+        // Ne pas s'appuyer sur le texte affiché : plumSectionHeader() applique
+        // .textCase(.uppercase), donc « À propos » se rend « À PROPOS ». Le
+        // bouton de fermeture, lui, n'existe que quand la feuille est ouverte.
+        let close = app.buttons["Fermer"]
         XCTAssertTrue(
-            app.staticTexts["À propos"].waitForExistence(timeout: timeout),
+            close.waitForExistence(timeout: timeout),
             "La feuille de profil ne s'est pas ouverte"
         )
-        XCTAssertTrue(app.buttons["Fermer"].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["feuille-profil"].exists,
+            "Le contenu de la feuille est absent"
+        )
 
-        app.buttons["Fermer"].tap()
+        close.tap()
         XCTAssertTrue(
             app.buttons["J'aime"].waitForExistence(timeout: timeout),
             "Fermer doit ramener au deck"

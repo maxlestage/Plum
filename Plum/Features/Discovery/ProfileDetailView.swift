@@ -9,10 +9,12 @@ import SwiftUI
 struct ProfileDetailView: View {
     let profile: Profile
     let onDecision: (SwipeDecision) -> Void
-    var onReport: (() -> Void)?
+    var onReport: ((String) -> Void)?
+    var onBlock: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var photoIndex = 0
+    @State private var isReporting = false
 
     var body: some View {
         NavigationStack {
@@ -27,17 +29,29 @@ struct ProfileDetailView: View {
                     }
                 }
                 .scrollIndicators(.hidden)
+                .accessibilityIdentifier("feuille-profil")
             }
             .safeAreaInset(edge: .bottom) { actions }
             .navigationBarTitleDisplayMode(.inline)
+            // Presented from here rather than bounced back to the deck:
+            // handing the deck a new sheet while this one dismisses cancels
+            // it, because both would ride the same binding.
+            .sheet(isPresented: $isReporting) {
+                ReportSheet(profile: profile) { reason in
+                    onReport?(reason)
+                    dismiss()
+                } onBlock: {
+                    onBlock?()
+                    dismiss()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Fermer") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(role: .destructive) {
-                        onReport?()
-                        dismiss()
+                        isReporting = true
                     } label: {
                         Label("Signaler", systemImage: "flag")
                     }
