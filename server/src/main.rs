@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 
 use migration::MigratorTrait;
 use plum_server::config::Config;
+use plum_server::rate_limit::RateLimiter;
 use plum_server::state::AppState;
 use sea_orm::{ConnectOptions, Database};
 use tracing_subscriber::EnvFilter;
@@ -43,7 +44,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     migration::Migrator::up(&db, None).await?;
     tracing::info!("schéma à jour");
 
-    let state = AppState::new(db, config);
+    let limiter = build_limiter(config.redis_url.as_deref()).await;
+    tracing::info!("limitation de débit : {}", limiter.describe());
+
+    let state = AppState::new(db, config, limiter);
     let app = plum_server::app(state);
 
     let address = SocketAddr::from(([0, 0, 0, 0], port));
@@ -55,6 +59,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
+}
+
+/// Redis is optional. Without it, or when it refuses to answer at boot, the
+/// limiter counts in this process: weaker, because it counts per dyno, but the
+/// service starts and defends itself rather than refusing to start at all.
+async fn build_limiter(url: Option<&str>) -> RateLimiter {
+    let Some(url) = url else {
+        return RateLimiter::InProcess(plum_server::rate_limit::InProcessLimiter::new());
+    };
+
+    if url.starts_with("rediss://") && !url.contains("#insecure") {
+        // Heroku's Key-Value Store presents a self-signed certificate, and
+        // their own documentation tells you to skip verification. Saying so
+        // beats a connection error that names neither.
+        tracing::warn!(
+            "URL rediss:// sans #insecure — Heroku utilise un certificat \
+             auto-signé et la connexion échouera probablement"
+        );
+    }
+
+    match redis::Client::open(url) {
+        Ok(client) => match redis::aio::ConnectionManager::new(client).await {
+            Ok(manager) => RateLimiter::Redis(Box::new(manager)),
+            Err(error) => {
+                tracing::warn!(%error, "Redis injoignable, repli en mémoire");
+                RateLimiter::InProcess(plum_server::rate_limit::InProcessLimiter::new())
+            }
+        },
+        Err(error) => {
+            tracing::warn!(%error, "REDIS_URL illisible, repli en mémoire");
+            RateLimiter::InProcess(plum_server::rate_limit::InProcessLimiter::new())
+        }
+    }
 }
 
 /// Heroku sends SIGTERM and waits 30 seconds before pulling the plug. Draining

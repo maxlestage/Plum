@@ -11,7 +11,18 @@ use super::types::*;
 use super::{password, tokens};
 use crate::entities::{profile, refresh_token, user};
 use crate::error::{ApiError, ApiResult};
+use crate::rate_limit::Quota;
 use crate::state::AppState;
+
+/// Ten tries a quarter of an hour, per address. Enough for someone who has
+/// genuinely forgotten which password they used; not enough to walk a
+/// dictionary.
+const SIGN_IN_QUOTA: Quota = Quota::new(10, 15 * 60);
+
+/// Sign-ups are keyed by address too, which does nothing against a script
+/// with many addresses — that needs the IP — but stops the same one being
+/// hammered while someone works out our error messages.
+const SIGN_UP_QUOTA: Quota = Quota::new(5, 60 * 60);
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -27,6 +38,8 @@ async fn sign_up(
     Json(request): Json<SignUpRequest>,
 ) -> ApiResult<Json<SessionResponse>> {
     let email = normalise_email(&request.email);
+    enforce(&state, "sign-up", &email, SIGN_UP_QUOTA).await?;
+
     if !looks_like_an_address(&email) {
         return Err(ApiError::BadRequest("Adresse email invalide.".into()));
     }
@@ -117,6 +130,10 @@ async fn sign_in(
     Json(request): Json<SignInRequest>,
 ) -> ApiResult<Json<SessionResponse>> {
     let email = normalise_email(&request.email);
+    // Counted before the password is checked, and whatever the outcome: a
+    // limiter that only counts failures tells an attacker which guesses were
+    // close.
+    enforce(&state, "sign-in", &email, SIGN_IN_QUOTA).await?;
 
     let found = user::Entity::find()
         .filter(user::Column::Email.eq(email))
@@ -236,6 +253,18 @@ pub fn authenticate(state: &AppState, headers: &HeaderMap) -> ApiResult<super::t
         .ok_or(ApiError::Unauthorized)?;
 
     state.tokens.verify(raw).map_err(|_| ApiError::Unauthorized)
+}
+
+async fn enforce(state: &AppState, bucket: &str, key: &str, quota: Quota) -> ApiResult<()> {
+    let decision = state.limiter.check(&format!("{bucket}:{key}"), quota).await;
+
+    if decision.allowed {
+        return Ok(());
+    }
+
+    Err(ApiError::RateLimited {
+        retry_after_seconds: decision.retry_after.as_secs().max(1),
+    })
 }
 
 fn normalise_email(email: &str) -> String {

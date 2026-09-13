@@ -8,6 +8,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use plum_server::config::Config;
+use plum_server::rate_limit::{InProcessLimiter, RateLimiter};
 use plum_server::state::AppState;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -56,8 +57,13 @@ async fn database() -> Option<DatabaseConnection> {
             let mut options =
                 ConnectOptions::new(plum_server::config::normalise_database_url(&url));
             options
-                .max_connections(10)
-                .acquire_timeout(std::time::Duration::from_secs(10))
+                // Wider than production on purpose: the harness runs every
+                // test at once, which is more concurrent work than one dyno
+                // ever sees. Narrowing it here would only make the tests
+                // queue behind each other and call it a failure.
+                .max_connections(24)
+                .min_connections(4)
+                .acquire_timeout(std::time::Duration::from_secs(20))
                 .sqlx_logging(false);
 
             let db = Database::connect(options)
@@ -82,7 +88,11 @@ fn state(db: DatabaseConnection) -> AppState {
             access_token_ttl_minutes: 15,
             refresh_token_ttl_days: 60,
             database_max_connections: 10,
+            redis_url: None,
         },
+        // Each test builds its own app, so each gets a fresh limiter and one
+        // test's attempts cannot exhaust another's quota.
+        RateLimiter::InProcess(InProcessLimiter::new()),
     )
 }
 
@@ -362,4 +372,84 @@ async fn health_answers_without_a_database() {
 async fn the_database_is_reachable_at_all() {
     let Some(db) = database().await else { return };
     db.ping().await.expect("la base doit répondre");
+}
+
+/// The client already understands a 429 with `Retry-After` — it decodes it as
+/// `APIError.rateLimited` and its retry policy waits exactly that long. The
+/// server had no way of producing one.
+#[tokio::test]
+async fn repeated_sign_in_attempts_are_throttled() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let email = unique_email("bruteforce");
+    let _ = call(&app, post("/api/v1/auth/sign-up", sign_up_body(&email))).await;
+
+    let attempt = || {
+        post(
+            "/api/v1/auth/sign-in",
+            json!({ "email": &email, "password": "pas-le-bon" }),
+        )
+    };
+
+    // The quota is ten per quarter hour, and the sign-up already spent none of
+    // this bucket: the first ten are refused on the password, the eleventh on
+    // the quota.
+    for index in 0..10 {
+        let (status, _) = call(&app, attempt()).await;
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "tentative {index} devrait être refusée sur le mot de passe"
+        );
+    }
+
+    let response = app.clone().oneshot(attempt()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+
+    let retry_after = response
+        .headers()
+        .get("retry-after")
+        .expect("le client lit cet en-tête pour savoir combien attendre")
+        .to_str()
+        .unwrap()
+        .parse::<u64>()
+        .expect("des secondes, pas une date");
+    assert!(retry_after > 0);
+}
+
+/// Throttling one account must not lock out everybody else.
+#[tokio::test]
+async fn throttling_is_per_account() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let targeted = unique_email("cible");
+    let bystander = unique_email("passant");
+    let _ = call(&app, post("/api/v1/auth/sign-up", sign_up_body(&targeted))).await;
+    let _ = call(&app, post("/api/v1/auth/sign-up", sign_up_body(&bystander))).await;
+
+    for _ in 0..12 {
+        let _ = call(
+            &app,
+            post(
+                "/api/v1/auth/sign-in",
+                json!({ "email": &targeted, "password": "pas-le-bon" }),
+            ),
+        )
+        .await;
+    }
+
+    let (status, _) = call(
+        &app,
+        post(
+            "/api/v1/auth/sign-in",
+            json!({ "email": &bystander, "password": "motdepasse" }),
+        ),
+    )
+    .await;
+
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "le voisin doit pouvoir se connecter"
+    );
 }

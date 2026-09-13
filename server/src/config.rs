@@ -13,6 +13,9 @@ pub struct Config {
     pub access_token_ttl_minutes: i64,
     pub refresh_token_ttl_days: i64,
     pub database_max_connections: u32,
+    /// Optional. Without it the rate limiter falls back to this process, which
+    /// counts per dyno instead of per account.
+    pub redis_url: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -53,6 +56,7 @@ impl Config {
             // account, not per dyno. A default pool would happily try to open
             // more and fail in a way that names neither the plan nor the cap.
             database_max_connections: parse_or("DATABASE_MAX_CONNECTIONS", 10)? as u32,
+            redis_url: env::var("REDIS_URL").ok().filter(|url| !url.is_empty()),
         })
     }
 }

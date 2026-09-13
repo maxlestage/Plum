@@ -25,6 +25,8 @@ pub enum ApiError {
     EmailTaken,
     #[error("Plum est réservé aux majeurs.")]
     TooYoung,
+    #[error("Doucement. Réessayez dans un instant.")]
+    RateLimited { retry_after_seconds: u64 },
     #[error("Quelque chose s'est mal passé de notre côté.")]
     Internal(#[from] anyhow_lite::Error),
 }
@@ -38,6 +40,7 @@ impl ApiError {
             Self::NotFound => (StatusCode::NOT_FOUND, Some("not_found")),
             Self::EmailTaken => (StatusCode::CONFLICT, Some("email_taken")),
             Self::TooYoung => (StatusCode::FORBIDDEN, Some("too_young")),
+            Self::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, Some("rate_limited")),
             Self::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, None),
         }
     }
@@ -58,6 +61,25 @@ impl IntoResponse for ApiError {
             message: self.to_string(),
             code: code.map(str::to_string),
         };
+
+        // The client already reads `Retry-After` and waits exactly that long
+        // before retrying; sending the status without the header would make it
+        // guess.
+        if let Self::RateLimited {
+            retry_after_seconds,
+        } = &self
+        {
+            return (
+                status,
+                [(
+                    axum::http::header::RETRY_AFTER,
+                    retry_after_seconds.to_string(),
+                )],
+                Json(body),
+            )
+                .into_response();
+        }
+
         (status, Json(body)).into_response()
     }
 }

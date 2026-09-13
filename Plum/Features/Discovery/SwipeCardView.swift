@@ -27,6 +27,13 @@ struct SwipeCardView: View {
                     photoIndicators
                         .frame(maxHeight: .infinity, alignment: .top)
                 }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            // An overlay, not a member of the stack: inside the ZStack the
+            // button had to be stretched to position itself, which made its
+            // accessibility frame the whole card — so a tap aimed at its
+            // centre landed in the middle of the photo and merely advanced it.
+            .overlay(alignment: .topTrailing) {
                 if let onOpenDetail {
                     Button(action: onOpenDetail) {
                         Image(systemName: "chevron.up.circle.fill")
@@ -38,15 +45,11 @@ struct SwipeCardView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    // En haut à droite : en bas, il passerait par-dessus la
-                    // bande des centres d'intérêt, qui occupe toute la largeur.
                     .padding(.trailing, PlumTheme.Spacing.xs)
                     .padding(.top, PlumTheme.Spacing.l)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .accessibilityLabel(Text("Voir le profil complet"))
                 }
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
             .clipShape(RoundedRectangle(cornerRadius: PlumTheme.Radius.card, style: .continuous))
             .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
             .contentShape(Rectangle())

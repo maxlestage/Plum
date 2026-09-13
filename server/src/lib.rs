@@ -2,6 +2,7 @@ pub mod auth;
 pub mod config;
 pub mod entities;
 pub mod error;
+pub mod rate_limit;
 pub mod state;
 
 use axum::routing::get;
