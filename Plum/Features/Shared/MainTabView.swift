@@ -6,6 +6,7 @@ struct MainTabView: View {
     @Environment(SessionStore.self) private var session
     @State private var selection: Tab = .discovery
     @State private var unreadCount = 0
+    @State private var locationSync: LocationSync?
 
     enum Tab: Hashable {
         case discovery
@@ -36,6 +37,7 @@ struct MainTabView: View {
         }
         .task {
             await loadProfile()
+            await refreshLocation()
             await watchForActivity()
         }
         .onChange(of: selection) { _, newValue in
@@ -49,6 +51,15 @@ struct MainTabView: View {
     private func loadProfile() async {
         guard session.currentProfile == nil else { return }
         session.currentProfile = try? await services.profiles.myProfile()
+    }
+
+    /// Distances are computed server-side from the last position we pushed,
+    /// so a stale one means a deck sorted by where the person used to be.
+    private func refreshLocation() async {
+        if locationSync == nil {
+            locationSync = LocationSync(provider: services.location, profiles: services.profiles)
+        }
+        await locationSync?.sync()
     }
 
     /// One app-wide socket subscription drives the tab badge, so a message
@@ -76,4 +87,5 @@ struct MainTabView: View {
     MainTabView()
         .environment(\.services, .preview)
         .environment(SessionStore(auth: AppEnvironment.preview.auth))
+        .environment(DeckRefreshSignal())
 }

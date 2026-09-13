@@ -18,6 +18,7 @@ final class ChatViewModel {
     private var hasMoreHistory = true
     private var streamTask: Task<Void, Never>?
     private var typingResetTask: Task<Void, Never>?
+    private var lastTypingNotice: Date?
 
     private let chat: any ChatServicing
     private let currentUserId: UUID
@@ -34,6 +35,21 @@ final class ChatViewModel {
 
     func isMine(_ item: ChatItem) -> Bool {
         item.message.senderId == currentUserId
+    }
+
+    /// How often we are willing to tell the other side we are typing. Every
+    /// keystroke would be a packet per character.
+    private static let typingNoticeInterval: TimeInterval = 3
+
+    /// Called on every keystroke, throttled to one notice every few seconds.
+    func draftChanged() async {
+        guard !draft.isEmpty else { return }
+        let now = Date.now
+        if let last = lastTypingNotice, now.timeIntervalSince(last) < Self.typingNoticeInterval {
+            return
+        }
+        lastTypingNotice = now
+        await chat.notifyTyping(conversationId: conversation.id)
     }
 
     // MARK: - Lifecycle

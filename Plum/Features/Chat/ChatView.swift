@@ -78,6 +78,9 @@ struct ChatView: View {
             }
             await viewModel?.start()
         }
+        .onChange(of: viewModel?.draft ?? "") { _, _ in
+            Task { await viewModel?.draftChanged() }
+        }
         .onDisappear { viewModel?.stop() }
         .sheet(isPresented: $isReporting) {
             // Harassment happens in the conversation, not on the card: the

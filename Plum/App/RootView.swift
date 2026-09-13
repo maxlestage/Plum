@@ -64,4 +64,5 @@ struct PlumMark: View {
     RootView()
         .environment(SessionStore(auth: AppEnvironment.preview.auth))
         .environment(\.services, .preview)
+        .environment(DeckRefreshSignal())
 }

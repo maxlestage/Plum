@@ -24,17 +24,23 @@ Scheme… ▸ Run ▸ Arguments`) :
 | `PLUM_DEMO_MODE`    | `1` pour les données en mémoire. Décochez-la pour viser le réseau. |
 | `PLUM_API_BASE_URL` | Racine REST, par défaut `http://127.0.0.1:8080/api/v1`. |
 | `PLUM_WS_BASE_URL`  | Socket de messagerie, par défaut `ws://127.0.0.1:8080/ws`. |
+| `PLUM_TERMS_URL` · `PLUM_PRIVACY_URL` · `PLUM_SUPPORT_URL` | Pages légales, pour pointer une préproduction. |
 
 ## Ce que fait l'application
 
 - **Inscription et connexion** — jetons JWT, rafraîchissement automatique,
-  stockage dans le trousseau, et une barrière 18+ vérifiée côté client.
+  stockage dans le trousseau, et une barrière 18+ vérifiée côté client. Une
+  session invalidée par le serveur ramène l'interface à l'écran d'accueil au
+  lieu de la laisser empiler des erreurs.
 - **Onboarding** — un compte neuf passe par trois étapes (photo obligatoire,
   ville et bio, critères) avant d'atteindre le deck. `User.profileCompleted`
   décide du routage à chaque lancement.
 - **Découverte** — un deck de cartes que l'on balaie à droite (j'aime), à
   gauche (non) ou vers le haut (coup de cœur), avec annulation du dernier
-  passe, signalement et blocage depuis chaque carte.
+  passe, signalement et blocage depuis chaque carte. La position est demandée
+  pendant l'onboarding, à côté du réglage de distance, et repoussée à chaque
+  lancement : c'est elle qui fait exister les distances affichées. Un refus
+  masque les distances sans rien casser d'autre.
 - **Matchs** — l'écran de célébration, la rangée des matchs sans conversation
   entamée, puis la boîte de réception.
 - **Messagerie** — historique paginé, envoi optimiste (la bulle apparaît
@@ -42,8 +48,10 @@ Scheme… ▸ Run ▸ Arguments`) :
   reconnexion automatique du WebSocket. Signalement, blocage et retrait du
   match sont accessibles depuis la conversation elle-même, pas seulement
   depuis la carte.
-- **Profil et réglages** — photos, bio, centres d'intérêt, critères de
-  recherche, déconnexion et suppression de compte.
+- **Profil et réglages** — photos (dont le choix de la couverture), bio,
+  centres d'intérêt, critères de recherche, déconnexion et suppression de
+  compte. Modifier les critères rafraîchit le deck immédiatement, alors même
+  qu'il vit dans un autre onglet resté en mémoire.
 
 ## Architecture
 
@@ -81,7 +89,7 @@ Le client parle à une API REST en `snake_case` avec des dates ISO 8601 :
 ```
 POST   /auth/sign-up · /auth/sign-in · /auth/refresh · /auth/sign-out
 GET    /me · /me/profile · /me/preferences
-PATCH  /me/profile · /me/preferences · /me/photos/order
+PATCH  /me/profile · /me/preferences · /me/photos/order · /me/location
 POST   /me/photos                       (multipart)
 POST   /me/profile/complete             (fin de l'onboarding)
 GET    /discovery/deck?limit=&cursor=

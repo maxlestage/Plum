@@ -5,6 +5,9 @@ protocol ChatServicing: Sendable {
     func messages(conversationId: UUID, before: String?) async throws -> Page<Message>
     func send(conversationId: UUID, clientId: UUID, body: String) async throws -> Message
     func markRead(conversationId: UUID) async throws
+    /// Tells the other side we are writing. Best effort by nature: a dropped
+    /// typing notice costs nothing.
+    func notifyTyping(conversationId: UUID) async
     /// The live stream, already authenticated. Ends when the caller's task is
     /// cancelled or ``closeStream()`` is called.
     func eventStream() async throws -> AsyncStream<ChatEvent>
@@ -53,6 +56,10 @@ struct ChatService: ChatServicing {
 
     func markRead(conversationId: UUID) async throws {
         try await client.send(.post("conversations/\(conversationId.uuidString)/read"))
+    }
+
+    func notifyTyping(conversationId: UUID) async {
+        try? await socket.send(.typing(conversationId: conversationId))
     }
 
     func eventStream() async throws -> AsyncStream<ChatEvent> {

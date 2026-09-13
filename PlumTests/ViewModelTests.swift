@@ -333,3 +333,95 @@ final class OnboardingViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.progress, 1.0, accuracy: 0.001)
     }
 }
+
+@MainActor
+final class ChatTypingNoticeTests: XCTestCase {
+    /// Emitting on every keystroke would be a packet per character; emitting
+    /// never — which is what the app did before — means the other side sees
+    /// nothing at all.
+    func testTypingNoticesAreThrottled() async {
+        let chat = DemoChatService()
+        let viewModel = ChatViewModel(
+            conversation: SampleData.conversations[0],
+            chat: chat,
+            currentUserId: SampleData.currentUser.id
+        )
+
+        viewModel.draft = "s"
+        await viewModel.draftChanged()
+        viewModel.draft = "sa"
+        await viewModel.draftChanged()
+        viewModel.draft = "sal"
+        await viewModel.draftChanged()
+
+        let notices = await chat.typingNotices
+        XCTAssertEqual(notices, 1, "Trois frappes rapprochées, une seule notification")
+    }
+
+    func testAnEmptyDraftSaysNothing() async {
+        let chat = DemoChatService()
+        let viewModel = ChatViewModel(
+            conversation: SampleData.conversations[0],
+            chat: chat,
+            currentUserId: SampleData.currentUser.id
+        )
+
+        viewModel.draft = ""
+        await viewModel.draftChanged()
+
+        let notices = await chat.typingNotices
+        XCTAssertEqual(notices, 0)
+    }
+}
+
+@MainActor
+final class ProfilePhotoOrderTests: XCTestCase {
+    private func makeViewModel() -> ProfileViewModel {
+        ProfileViewModel(
+            profiles: DemoProfileService(),
+            session: SessionStore(auth: DemoAuthService())
+        )
+    }
+
+    /// The cover photo decides whether anyone reads the rest of the profile,
+    /// and until now there was no way to choose it.
+    func testPromotingAPhotoMakesItTheCover() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+
+        guard let profile = viewModel.profile, profile.photos.count > 1 else {
+            return XCTFail("Le profil de démonstration doit avoir plusieurs photos")
+        }
+        let second = profile.orderedPhotos[1]
+
+        await viewModel.makeCover(second)
+
+        XCTAssertEqual(viewModel.profile?.coverPhoto?.id, second.id)
+        XCTAssertEqual(viewModel.profile?.orderedPhotos.first?.id, second.id)
+    }
+
+    func testPositionsStayContiguousAfterPromotion() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+        guard let second = viewModel.profile?.orderedPhotos.dropFirst().first else {
+            return XCTFail("Le profil de démonstration doit avoir plusieurs photos")
+        }
+
+        await viewModel.makeCover(second)
+
+        let positions = viewModel.profile?.orderedPhotos.map(\.position) ?? []
+        XCTAssertEqual(positions, Array(0..<positions.count))
+    }
+
+    func testPromotingTheCoverAgainChangesNothing() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+        guard let cover = viewModel.profile?.coverPhoto else {
+            return XCTFail("Le profil de démonstration doit avoir une photo")
+        }
+
+        await viewModel.makeCover(cover)
+
+        XCTAssertEqual(viewModel.profile?.coverPhoto?.id, cover.id)
+    }
+}

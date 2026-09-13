@@ -4,15 +4,18 @@ import SwiftUI
 /// view model owns everything that outlives the gesture.
 struct DiscoveryView: View {
     @Environment(\.services) private var services
+    @Environment(DeckRefreshSignal.self) private var deckRefresh
     @State private var viewModel: DiscoveryViewModel?
     @State private var drag: CGSize = .zero
     @State private var isCommitting = false
     @State private var reportTarget: Profile?
+    @State private var locationSync: LocationSync?
 
     var body: some View {
         PlumBackground {
             VStack(spacing: 0) {
                 header
+                locationPrompt
 
                 if let viewModel {
                     deck(for: viewModel)
@@ -38,7 +41,14 @@ struct DiscoveryView: View {
             if viewModel == nil {
                 viewModel = DiscoveryViewModel(discovery: services.discovery)
             }
+            if locationSync == nil {
+                locationSync = LocationSync(provider: services.location, profiles: services.profiles)
+            }
+            await locationSync?.refreshAuthorization()
             await viewModel?.loadInitialDeck()
+        }
+        .onChange(of: deckRefresh.token) { _, _ in
+            Task { await viewModel?.refresh() }
         }
         .sheet(item: $reportTarget) { profile in
             ReportSheet(profile: profile) { reason in
@@ -78,6 +88,35 @@ struct DiscoveryView: View {
         }
         .padding(.horizontal, PlumTheme.Spacing.l)
         .padding(.bottom, PlumTheme.Spacing.s)
+    }
+
+    /// Someone signing in on a new device skips onboarding entirely, so this
+    /// is the only place they would ever be asked. It stays a strip rather
+    /// than a modal: a deck without distances still works.
+    @ViewBuilder
+    private var locationPrompt: some View {
+        if let locationSync, locationSync.needsPermission {
+            Button {
+                Task { await locationSync.requestPermissionAndSync() }
+            } label: {
+                HStack(spacing: PlumTheme.Spacing.s) {
+                    Image(systemName: "location.circle.fill")
+                    Text("Activez la localisation pour voir qui est près de vous.")
+                        .font(.plumCaption)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(PlumTheme.Palette.plum)
+                .padding(PlumTheme.Spacing.s)
+                .background(
+                    RoundedRectangle(cornerRadius: PlumTheme.Radius.small, style: .continuous)
+                        .fill(PlumTheme.Palette.plum.opacity(0.1))
+                )
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, PlumTheme.Spacing.l)
+            .padding(.bottom, PlumTheme.Spacing.s)
+        }
     }
 
     @ViewBuilder
@@ -261,4 +300,5 @@ struct DiscoveryView: View {
     DiscoveryView()
         .environment(\.services, .preview)
         .environment(SessionStore(auth: AppEnvironment.preview.auth))
+        .environment(DeckRefreshSignal())
 }

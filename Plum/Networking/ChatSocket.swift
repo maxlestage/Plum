@@ -46,26 +46,21 @@ extension ChatEvent: Decodable {
 }
 
 /// What the app sends up.
+///
+/// Only typing goes over the socket. Sending a message and marking a thread
+/// read are REST calls: they need a response carrying the persisted resource
+/// and a real error to show when they fail, which a fire-and-forget frame
+/// cannot give.
 enum ChatCommand: Encodable, Sendable {
-    case sendMessage(conversationId: UUID, clientId: UUID, body: String)
-    case markRead(conversationId: UUID)
     case typing(conversationId: UUID)
 
     private enum CodingKeys: String, CodingKey {
-        case type, conversationId, clientId, body
+        case type, conversationId
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .sendMessage(conversationId, clientId, body):
-            try container.encode("send_message", forKey: .type)
-            try container.encode(conversationId, forKey: .conversationId)
-            try container.encode(clientId, forKey: .clientId)
-            try container.encode(body, forKey: .body)
-        case let .markRead(conversationId):
-            try container.encode("mark_read", forKey: .type)
-            try container.encode(conversationId, forKey: .conversationId)
         case let .typing(conversationId):
             try container.encode("typing", forKey: .type)
             try container.encode(conversationId, forKey: .conversationId)

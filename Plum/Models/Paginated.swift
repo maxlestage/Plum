@@ -13,10 +13,3 @@ struct Page<Item: Codable & Sendable>: Codable, Sendable {
 
     var hasMore: Bool { nextCursor != nil }
 }
-
-/// Endpoints that return nothing useful still return JSON; this absorbs it.
-struct EmptyResponse: Codable, Sendable {
-    init() {}
-    init(from decoder: Decoder) throws {}
-    func encode(to encoder: Encoder) throws {}
-}

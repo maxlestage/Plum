@@ -6,6 +6,8 @@ enum PlumTheme {
     enum Palette {
         /// Deep plum — the brand anchor.
         static let plum = Color(hex: 0x6B2D5C)
+        /// Le bas du dégradé de l'icône d'application, repris par
+        /// `Scripts/generate_appicon.py` — d'où l'absence d'usage en Swift.
         static let plumDeep = Color(hex: 0x40183A)
         static let blush = Color(hex: 0xE8608C)
         static let apricot = Color(hex: 0xF6A56B)
@@ -48,7 +50,6 @@ enum PlumTheme {
         static let small: CGFloat = 10
         static let medium: CGFloat = 18
         static let card: CGFloat = 28
-        static let pill: CGFloat = 999
     }
 
     enum Layout {
