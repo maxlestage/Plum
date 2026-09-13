@@ -191,6 +191,127 @@ final class APIClientTests: XCTestCase {
         XCTAssertTrue(sent.isEmpty)
     }
 
+    // MARK: - Réessais
+
+    /// A read that hits a struggling server should recover on its own rather
+    /// than putting an error in front of someone.
+    func testReadsAreRetriedUntilTheySucceed() async throws {
+        let transport = StubTransport(replies: [
+            .json("{}", status: 503),
+            .json(profileJSON)
+        ])
+        let client = APIClient(
+            configuration: configuration,
+            transport: transport,
+            tokenStore: InMemoryTokenStore(tokens: tokens(expiringIn: 600)),
+            retryPolicy: APIClient.RetryPolicy(maximumAttempts: 3, baseDelay: .milliseconds(1))
+        )
+
+        _ = try await client.send(.get("me/profile"), as: Profile.self)
+
+        let sent = await transport.recordedRequests()
+        XCTAssertEqual(sent.count, 2)
+    }
+
+    /// Replaying a swipe would count it twice. Writes get exactly one attempt.
+    func testWritesAreNeverReplayed() async {
+        let transport = StubTransport(replies: [
+            .json("{}", status: 503),
+            .json("{}", status: 503),
+            .json("{}", status: 503)
+        ])
+        let client = APIClient(
+            configuration: configuration,
+            transport: transport,
+            tokenStore: InMemoryTokenStore(tokens: tokens(expiringIn: 600)),
+            retryPolicy: APIClient.RetryPolicy(maximumAttempts: 3, baseDelay: .milliseconds(1))
+        )
+
+        let endpoint = Endpoint.post(
+            "discovery/swipes",
+            body: SwipeRequest(targetProfileId: UUID(), decision: .like)
+        )
+        _ = try? await client.send(endpoint, as: SwipeOutcome.self)
+
+        let sent = await transport.recordedRequests()
+        XCTAssertEqual(sent.count, 1, "Un swipe rejoué serait compté deux fois")
+    }
+
+    func testRetriesGiveUpAndSurfaceTheLastError() async {
+        let transport = StubTransport(replies: [
+            .json("{}", status: 503),
+            .json("{}", status: 503),
+            .json("{}", status: 503)
+        ])
+        let client = APIClient(
+            configuration: configuration,
+            transport: transport,
+            tokenStore: InMemoryTokenStore(tokens: tokens(expiringIn: 600)),
+            retryPolicy: APIClient.RetryPolicy(maximumAttempts: 3, baseDelay: .milliseconds(1))
+        )
+
+        do {
+            _ = try await client.send(.get("me/profile"), as: Profile.self)
+            XCTFail("La requête devait finir par échouer")
+        } catch {
+            XCTAssertEqual((error as? APIError)?.isRetryable, true)
+        }
+        let sent = await transport.recordedRequests()
+        XCTAssertEqual(sent.count, 3, "Trois tentatives, puis on rend la main")
+    }
+
+    /// A 400 is an answer, not a hiccup: retrying it only wastes time.
+    func testClientErrorsAreNotRetried() async {
+        let transport = StubTransport(replies: [
+            .json(#"{"message": "Requête invalide."}"#, status: 400),
+            .json(profileJSON)
+        ])
+        let client = APIClient(
+            configuration: configuration,
+            transport: transport,
+            tokenStore: InMemoryTokenStore(tokens: tokens(expiringIn: 600)),
+            retryPolicy: APIClient.RetryPolicy(maximumAttempts: 3, baseDelay: .milliseconds(1))
+        )
+
+        _ = try? await client.send(.get("me/profile"), as: Profile.self)
+
+        let sent = await transport.recordedRequests()
+        XCTAssertEqual(sent.count, 1)
+    }
+
+    /// `singleAttempt` is what a caller reaches for when a retry would be
+    /// wrong; it must really mean one.
+    func testSingleAttemptPolicyNeverRetries() async {
+        let transport = StubTransport(replies: [
+            .json("{}", status: 503),
+            .json(profileJSON)
+        ])
+        let client = APIClient(
+            configuration: configuration,
+            transport: transport,
+            tokenStore: InMemoryTokenStore(tokens: tokens(expiringIn: 600)),
+            retryPolicy: .singleAttempt
+        )
+
+        _ = try? await client.send(.get("me/profile"), as: Profile.self)
+
+        let sent = await transport.recordedRequests()
+        XCTAssertEqual(sent.count, 1)
+    }
+
+    func testBackoffGrowsBetweenAttempts() {
+        let policy = APIClient.RetryPolicy(maximumAttempts: 3, baseDelay: .milliseconds(300))
+        XCTAssertEqual(policy.delay(beforeAttempt: 1), .milliseconds(300))
+        XCTAssertEqual(policy.delay(beforeAttempt: 2), .milliseconds(900))
+    }
+
+    func testOnlyReadsAreConsideredSafeToReplay() {
+        XCTAssertTrue(Endpoint.get("matches").isRetryable)
+        XCTAssertFalse(Endpoint.post("discovery/rewind").isRetryable)
+        XCTAssertFalse(Endpoint.delete("matches/1").isRetryable)
+        XCTAssertFalse(Endpoint.patch("me/profile", body: ProfileUpdate()).isRetryable)
+    }
+
     func testSocketBackoffGrowsAndIsCapped() {
         XCTAssertEqual(ChatSocket.backoffDelay(forAttempt: 1), 1)
         XCTAssertEqual(ChatSocket.backoffDelay(forAttempt: 4), 8)
