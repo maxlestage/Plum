@@ -18,9 +18,16 @@ eq()   { [ "$2" = "$3" ] && ok "$1" || bad "$1" "attendu $3, reçu $2"; }
 
 EMAIL="parcours-$(date +%s%N)@plum.app"
 
+# Tiré au sort à chaque exécution plutôt qu'écrit en dur. Ce n'était pas un
+# secret — le script crée lui-même les comptes qu'il utilise — mais un mot de
+# passe littéral dans un dépôt est indistinguable d'une fuite pour qui le lit,
+# humain ou scanner. Et lancé contre autre chose qu'une base locale, ceci ne
+# laisse plus derrière lui des comptes dont le mot de passe est dans le code.
+MOTDEPASSE="$(head -c 18 /dev/urandom | base64 | tr -d '=+/')"
+
 # 1. Inscription
 body=$(curl -s -X POST "$API/auth/sign-up" -H 'content-type: application/json' \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"motdepasse\",\"display_name\":\"Camille\",\"birth_date\":\"1996-04-12T00:00:00Z\",\"gender\":\"nonBinary\"}")
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$MOTDEPASSE\",\"display_name\":\"Camille\",\"birth_date\":\"1996-04-12T00:00:00Z\",\"gender\":\"nonBinary\"}")
 ACCESS=$(echo "$body"  | python3 -c 'import sys,json;print(json.load(sys.stdin)["tokens"]["access_token"])' 2>/dev/null)
 REFRESH=$(echo "$body" | python3 -c 'import sys,json;print(json.load(sys.stdin)["tokens"]["refresh_token"])' 2>/dev/null)
 [ -n "${ACCESS:-}" ] && ok "inscription" || bad "inscription" "$body"
@@ -72,7 +79,7 @@ eq "réponses identiques" "$a" "$b"
 
 # 10. Le deck, les verdicts et le retour en arrière
 autre=$(curl -s -X POST "$API/auth/sign-up" -H 'content-type: application/json' \
-  -d "{\"email\":\"parcours-autre-$(date +%s%N)@plum.app\",\"password\":\"motdepasse\",\"display_name\":\"Dominique\",\"birth_date\":\"1996-04-12T00:00:00Z\",\"gender\":\"woman\"}")
+  -d "{\"email\":\"parcours-autre-$(date +%s%N)@plum.app\",\"password\":\"$MOTDEPASSE\",\"display_name\":\"Dominique\",\"birth_date\":\"1996-04-12T00:00:00Z\",\"gender\":\"woman\"}")
 AUTRE_ID=$(echo "$autre" | python3 -c 'import sys,json;print(json.load(sys.stdin)["user"]["id"])' 2>/dev/null)
 AUTRE_TOKEN=$(echo "$autre" | python3 -c 'import sys,json;print(json.load(sys.stdin)["tokens"]["access_token"])' 2>/dev/null)
 curl -s -o /dev/null -X PATCH "$API/me/location" -H "authorization: Bearer $AUTRE_TOKEN" \
