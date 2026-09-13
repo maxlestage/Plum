@@ -1,13 +1,28 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 
+import { useCopy, useLanguage } from "../i18n";
+import type { PageKey } from "../i18n/routes";
+import { pathFor } from "../i18n/routes";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { PlumMark } from "./PlumMark";
 
-export function Layout({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
+export function Layout({
+  page,
+  children,
+}: {
+  page: PageKey;
+  children: ReactNode;
+}) {
+  const copy = useCopy();
+  const language = useLanguage();
 
   return (
     <>
+      <a className="skip-link" href="#main">
+        {copy.nav.skipToContent}
+      </a>
+
       <header
         style={{
           borderBottom: "1px solid var(--hairline)",
@@ -24,7 +39,7 @@ export function Layout({ children }: { children: ReactNode }) {
           }}
         >
           <Link
-            to="/"
+            to={pathFor(language, "home")}
             style={{
               display: "flex",
               alignItems: "center",
@@ -38,15 +53,11 @@ export function Layout({ children }: { children: ReactNode }) {
             <PlumMark size={30} />
             Plum
           </Link>
-          {pathname !== "/" && (
-            <Link to="/" className="muted" style={{ marginInlineStart: "auto" }}>
-              Accueil
-            </Link>
-          )}
+          <LanguageSwitcher page={page} />
         </div>
       </header>
 
-      <main>{children}</main>
+      <main id="main">{children}</main>
 
       <footer
         style={{
@@ -64,13 +75,15 @@ export function Layout({ children }: { children: ReactNode }) {
               marginBottom: 16,
             }}
           >
-            <Link to="/conditions">Conditions d'utilisation</Link>
-            <Link to="/confidentialite">Confidentialité</Link>
-            <Link to="/aide">Aide et contact</Link>
+            {page !== "home" && (
+              <Link to={pathFor(language, "home")}>{copy.nav.home}</Link>
+            )}
+            <Link to={pathFor(language, "terms")}>{copy.nav.terms}</Link>
+            <Link to={pathFor(language, "privacy")}>{copy.nav.privacy}</Link>
+            <Link to={pathFor(language, "help")}>{copy.nav.help}</Link>
           </nav>
           <p className="muted" style={{ margin: 0, fontSize: "0.9rem" }}>
-            Plum — des rencontres pas sérieuses. Application réservée aux
-            personnes majeures.
+            {copy.footerTagline}
           </p>
         </div>
       </footer>
