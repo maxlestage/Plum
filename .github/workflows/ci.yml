@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  project:
+    name: Projet Xcode
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Le projet est valide
+        run: python3 Scripts/validate_pbxproj.py
+
+      - name: Le projet est à jour vis-à-vis des sources
+        # Le pbxproj est généré : s'il diverge de l'arborescence, c'est qu'un
+        # fichier a été ajouté ou supprimé sans régénérer.
+        run: |
+          python3 Scripts/generate_xcodeproj.py
+          if ! git diff --quiet -- Plum.xcodeproj; then
+            echo "::error::project.pbxproj ne correspond plus aux sources. Lancez : python3 Scripts/generate_xcodeproj.py"
+            git --no-pager diff --stat -- Plum.xcodeproj
+            exit 1
+          fi
+
+  build:
+    name: Build et tests iOS
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version d'Xcode
+        run: |
+          ls /Applications | grep -i '^Xcode' || true
+          xcodebuild -version
+
+      - name: Build et tests
+        run: ./Scripts/ci_test.sh
+
+      - name: Journal de compilation
+        if: failure()
+        run: |
+          echo "::group::Erreurs"
+          grep -E 'error:|warning: .*deprecated' build.log | head -n 100 || true
+          echo "::endgroup::"
+
+      - name: Artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultats-xcodebuild
+          path: |
+            build.log
+            build/Plum.xcresult
+          retention-days: 7

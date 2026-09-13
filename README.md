@@ -92,6 +92,18 @@ le rafraîchissement des jetons (y compris le 401 inattendu et l'échec qui
 déconnecte), les seuils du geste de balayage, la validation du formulaire
 d'inscription et l'envoi optimiste des messages.
 
+## Intégration continue
+
+`.github/workflows/ci.yml` fait deux choses à chaque PR :
+
+- sur Ubuntu, il valide le graphe d'objets du projet et vérifie que le
+  `pbxproj` committé correspond bien aux sources (la régénération ne doit
+  produire aucun diff) ;
+- sur macOS, il construit l'application et exécute la suite de tests sur un
+  simulateur iPhone choisi à l'exécution par `Scripts/ci_test.sh`, plutôt
+  que sur un nom de modèle codé en dur qu'une nouvelle image de runner
+  casserait.
+
 ## Le fichier de projet
 
 `Plum.xcodeproj/project.pbxproj` est **généré** par
