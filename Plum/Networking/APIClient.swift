@@ -15,9 +15,26 @@ protocol APIClientProtocol: Sendable {
 /// The one object that talks to the Rust API. An actor because the token pair
 /// it guards is mutated from every feature at once.
 actor APIClient: APIClientProtocol {
+    /// How a dropped connection or a struggling server is handled: a couple of
+    /// quick retries on reads, then give up and let the screen say so.
+    struct RetryPolicy: Sendable {
+        var maximumAttempts: Int
+        var baseDelay: Duration
+
+        static let `default` = RetryPolicy(maximumAttempts: 3, baseDelay: .milliseconds(300))
+        static let singleAttempt = RetryPolicy(maximumAttempts: 1, baseDelay: .zero)
+
+        /// 300ms, 900ms… a server that just rejected us deserves a pause, and
+        /// a person waiting deserves an answer before they give up.
+        func delay(beforeAttempt attempt: Int) -> Duration {
+            baseDelay * Int(pow(3.0, Double(max(0, attempt - 1))))
+        }
+    }
+
     private let configuration: APIConfiguration
     private let transport: any HTTPTransport
     private let tokenStore: any TokenStoring
+    private let retryPolicy: RetryPolicy
     private let decoder = JSONDecoder.plum
     private let encoder = JSONEncoder.plum
     private let logger = Logger(subsystem: "app.plum", category: "api")
@@ -30,11 +47,13 @@ actor APIClient: APIClientProtocol {
     init(
         configuration: APIConfiguration,
         transport: any HTTPTransport = URLSessionTransport(),
-        tokenStore: any TokenStoring = KeychainTokenStore()
+        tokenStore: any TokenStoring = KeychainTokenStore(),
+        retryPolicy: RetryPolicy = .default
     ) {
         self.configuration = configuration
         self.transport = transport
         self.tokenStore = tokenStore
+        self.retryPolicy = retryPolicy
         self.tokens = tokenStore.read()
     }
 
@@ -75,6 +94,35 @@ actor APIClient: APIClientProtocol {
     }
 
     private func perform(_ endpoint: Endpoint, allowingRefresh: Bool) async throws -> Data {
+        guard endpoint.isRetryable else {
+            return try await performOnce(endpoint, allowingRefresh: allowingRefresh)
+        }
+
+        var lastError: APIError = .invalidResponse
+        for attempt in 1...max(1, retryPolicy.maximumAttempts) {
+            do {
+                return try await performOnce(endpoint, allowingRefresh: allowingRefresh)
+            } catch let error as APIError where error.isRetryable {
+                lastError = error
+                guard attempt < retryPolicy.maximumAttempts else { break }
+                // A 429 tells us exactly how long to wait; anything else gets
+                // the backoff.
+                let wait: Duration
+                if case let .rateLimited(retryAfter) = error, let retryAfter {
+                    wait = .seconds(retryAfter)
+                } else {
+                    wait = retryPolicy.delay(beforeAttempt: attempt)
+                }
+                logger.notice(
+                    "Nouvelle tentative \(attempt + 1) pour \(endpoint.path, privacy: .public)"
+                )
+                try? await Task.sleep(for: wait)
+            }
+        }
+        throw lastError
+    }
+
+    private func performOnce(_ endpoint: Endpoint, allowingRefresh: Bool) async throws -> Data {
         var accessToken: String?
         if endpoint.requiresAuthentication {
             accessToken = try await validAccessToken()
@@ -95,7 +143,7 @@ actor APIClient: APIClientProtocol {
             // The access token was rejected even though it looked fresh; one
             // forced refresh, then a single retry.
             _ = try await refreshTokens(force: true)
-            return try await perform(endpoint, allowingRefresh: false)
+            return try await performOnce(endpoint, allowingRefresh: false)
 
         case 401:
             await signOutLocally()

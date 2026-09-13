@@ -120,6 +120,16 @@ final class MatchesViewModel {
         conversations.sort { $0.updatedAt > $1.updatedAt }
     }
 
+    /// Removes a conversation and its match after a report, a block or an
+    /// unmatch, without waiting for a reload to notice.
+    func drop(conversationId: UUID) {
+        guard let conversation = conversations.first(where: { $0.id == conversationId }) else {
+            return
+        }
+        conversations.removeAll { $0.id == conversationId }
+        matches.removeAll { $0.id == conversation.matchId }
+    }
+
     func markRead(_ conversationId: UUID) {
         guard let index = conversations.firstIndex(where: { $0.id == conversationId }) else { return }
         conversations[index].unreadCount = 0

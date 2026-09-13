@@ -4,11 +4,18 @@ import SwiftUI
 /// arriving from the socket in between.
 struct ChatView: View {
     let conversation: Conversation
+    /// Called when the conversation ends for good — a report, a block, an
+    /// unmatch — so the list that pushed us can drop the row instead of
+    /// showing a thread that no longer exists.
+    var onLeave: (() -> Void)?
 
     @Environment(\.services) private var services
     @Environment(SessionStore.self) private var session
     @State private var viewModel: ChatViewModel?
+    @State private var isReporting = false
+    @State private var isConfirmingUnmatch = false
     @FocusState private var isComposerFocused: Bool
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         PlumBackground {
@@ -29,6 +36,23 @@ struct ChatView: View {
         .navigationTitle(conversation.participant.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        isReporting = true
+                    } label: {
+                        Label("Signaler", systemImage: "flag")
+                    }
+                    Button(role: .destructive) {
+                        isConfirmingUnmatch = true
+                    } label: {
+                        Label("Retirer le match", systemImage: "person.badge.minus")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel(Text("Options de la conversation"))
+            }
             ToolbarItem(placement: .principal) {
                 HStack(spacing: PlumTheme.Spacing.s) {
                     AvatarView(profile: conversation.participant, diameter: 30)
@@ -55,6 +79,47 @@ struct ChatView: View {
             await viewModel?.start()
         }
         .onDisappear { viewModel?.stop() }
+        .sheet(isPresented: $isReporting) {
+            // Harassment happens in the conversation, not on the card: the
+            // same escape hatch has to be reachable from here.
+            ReportSheet(profile: conversation.participant) { reason in
+                Task { @MainActor in
+                    try? await services.discovery.report(
+                        profileId: conversation.participant.id,
+                        reason: reason
+                    )
+                    leaveConversation()
+                }
+            } onBlock: {
+                Task { @MainActor in
+                    try? await services.discovery.block(profileId: conversation.participant.id)
+                    leaveConversation()
+                }
+            }
+        }
+        .confirmationDialog(
+            "Retirer ce match ?",
+            isPresented: $isConfirmingUnmatch,
+            titleVisibility: .visible
+        ) {
+            Button("Retirer", role: .destructive) {
+                Task { @MainActor in
+                    try? await services.matches.unmatch(matchId: conversation.matchId)
+                    leaveConversation()
+                }
+            }
+        } message: {
+            Text("La conversation disparaît des deux côtés.")
+        }
+    }
+
+    /// Closes the socket for this thread before backing out, so a conversation
+    /// we just left does not keep pushing events.
+    @MainActor
+    private func leaveConversation() {
+        viewModel?.stop()
+        onLeave?()
+        dismiss()
     }
 
     private var connectionNotice: some View {
