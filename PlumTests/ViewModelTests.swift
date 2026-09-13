@@ -1,0 +1,200 @@
+import XCTest
+@testable import Plum
+
+@MainActor
+final class AuthValidationTests: XCTestCase {
+    func testEmailValidationCatchesTheObviousTypos() {
+        XCTAssertTrue(AuthViewModel.isValidEmail("moi@plum.app"))
+        XCTAssertTrue(AuthViewModel.isValidEmail("  moi@plum.app "))
+        XCTAssertFalse(AuthViewModel.isValidEmail("moi@plum"))
+        XCTAssertFalse(AuthViewModel.isValidEmail("@plum.app"))
+        XCTAssertFalse(AuthViewModel.isValidEmail("moi plum@plum.app"))
+        XCTAssertFalse(AuthViewModel.isValidEmail(""))
+    }
+
+    /// The age gate is the one rule the client must not get wrong.
+    func testAgeGateRejectsMinors() {
+        let seventeen = Calendar.current.date(byAdding: .year, value: -17, to: .now)!
+        let eighteen = Calendar.current.date(byAdding: .year, value: -18, to: .now)!
+
+        XCTAssertFalse(AuthViewModel.isOldEnough(seventeen))
+        XCTAssertTrue(AuthViewModel.isOldEnough(eighteen))
+    }
+
+    func testSignUpRequiresNameAndValidCredentials() {
+        let viewModel = AuthViewModel(
+            mode: .signUp,
+            auth: DemoAuthService(),
+            session: SessionStore(auth: DemoAuthService())
+        )
+
+        XCTAssertFalse(viewModel.canSubmit)
+
+        viewModel.email = "moi@plum.app"
+        viewModel.password = "motdepasse"
+        XCTAssertFalse(viewModel.canSubmit, "Le prénom manque encore")
+
+        viewModel.displayName = "Camille"
+        XCTAssertTrue(viewModel.canSubmit)
+
+        viewModel.password = "court"
+        XCTAssertFalse(viewModel.canSubmit)
+        XCTAssertEqual(viewModel.passwordHint, "8 caractères minimum.")
+    }
+
+    func testSuccessfulSignInPutsTheUserIntoTheSession() async {
+        let auth = DemoAuthService()
+        let session = SessionStore(auth: auth)
+        let viewModel = AuthViewModel(mode: .signIn, auth: auth, session: session)
+
+        viewModel.email = "moi@plum.app"
+        viewModel.password = "motdepasse"
+        await viewModel.submit()
+
+        XCTAssertEqual(session.state.user?.email, "moi@plum.app")
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    /// An invalid form must not reach the network at all.
+    func testSubmitIsANoOpWhileTheFormIsInvalid() async {
+        let auth = DemoAuthService()
+        let session = SessionStore(auth: auth)
+        let viewModel = AuthViewModel(mode: .signIn, auth: auth, session: session)
+
+        viewModel.email = "moi@plum"
+        viewModel.password = "1234567"
+        await viewModel.submit()
+
+        XCTAssertNil(session.state.user)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+}
+
+@MainActor
+final class DiscoveryViewModelTests: XCTestCase {
+    func testLoadsTheDeckAndExposesTheTopCard() async {
+        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
+
+        await viewModel.loadInitialDeck()
+
+        XCTAssertEqual(viewModel.topProfile?.id, SampleData.deck.first?.id)
+        XCTAssertLessThanOrEqual(
+            viewModel.visibleProfiles.count,
+            PlumTheme.Layout.cardStackDepth
+        )
+    }
+
+    /// The card leaves the stack immediately: waiting for the network would
+    /// make the gesture feel broken.
+    func testSwipeRemovesTheCardBeforeTheServerAnswers() async {
+        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
+        await viewModel.loadInitialDeck()
+        guard let top = viewModel.topProfile else {
+            return XCTFail("Le deck devait contenir au moins un profil")
+        }
+
+        await viewModel.swipe(top, decision: .pass)
+
+        XCTAssertFalse(viewModel.profiles.contains { $0.id == top.id })
+        XCTAssertTrue(viewModel.canRewind, "Un passe doit pouvoir être annulé")
+    }
+
+    func testRewindOnlyAppliesAfterAPass() async {
+        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
+        await viewModel.loadInitialDeck()
+        guard let top = viewModel.topProfile else {
+            return XCTFail("Le deck devait contenir au moins un profil")
+        }
+
+        await viewModel.swipe(top, decision: .like)
+        XCTAssertFalse(viewModel.canRewind)
+
+        await viewModel.rewind()
+        XCTAssertNotEqual(viewModel.topProfile?.id, top.id)
+    }
+
+    /// The thresholds are what separates "I changed my mind" from a decision.
+    func testGestureThresholds() {
+        XCTAssertNil(DiscoveryView.decision(for: CGSize(width: 40, height: 0)))
+        XCTAssertEqual(DiscoveryView.decision(for: CGSize(width: 200, height: 0)), .like)
+        XCTAssertEqual(DiscoveryView.decision(for: CGSize(width: -200, height: 0)), .pass)
+        XCTAssertEqual(DiscoveryView.decision(for: CGSize(width: 0, height: -200)), .superLike)
+        XCTAssertEqual(
+            DiscoveryView.decision(for: CGSize(width: 200, height: -200)),
+            .like,
+            "Un geste franchement latéral reste un like, pas un coup de cœur"
+        )
+    }
+
+    func testExitTranslationsLeaveTheScreen() {
+        XCTAssertGreaterThan(DiscoveryView.exitTranslation(for: .like).width, 400)
+        XCTAssertLessThan(DiscoveryView.exitTranslation(for: .pass).width, -400)
+        XCTAssertLessThan(DiscoveryView.exitTranslation(for: .superLike).height, -400)
+    }
+}
+
+@MainActor
+final class ChatViewModelTests: XCTestCase {
+    private func makeViewModel() -> ChatViewModel {
+        ChatViewModel(
+            conversation: SampleData.conversations[0],
+            chat: DemoChatService(),
+            currentUserId: SampleData.currentUser.id
+        )
+    }
+
+    func testSendShowsTheBubbleImmediatelyAndThenMarksItSent() async {
+        let viewModel = makeViewModel()
+        viewModel.draft = "On boit un truc ?"
+
+        await viewModel.send()
+
+        let mine = viewModel.items.filter { viewModel.isMine($0) }
+        XCTAssertEqual(mine.last?.message.body, "On boit un truc ?")
+        XCTAssertEqual(mine.last?.deliveryState, .sent)
+        XCTAssertTrue(viewModel.draft.isEmpty, "Le champ se vide dès l'envoi")
+    }
+
+    func testEmptyDraftsAreNotSent() async {
+        let viewModel = makeViewModel()
+        viewModel.draft = "   \n "
+
+        await viewModel.send()
+
+        XCTAssertTrue(viewModel.items.isEmpty)
+        XCTAssertFalse(viewModel.canSend)
+    }
+
+    func testHistoryArrivesInChronologicalOrder() async {
+        let viewModel = makeViewModel()
+
+        await viewModel.start()
+
+        let dates = viewModel.items.map(\.message.sentAt)
+        XCTAssertEqual(dates, dates.sorted())
+        XCTAssertFalse(viewModel.items.isEmpty)
+        viewModel.stop()
+    }
+}
+
+final class PreferencesTests: XCTestCase {
+    /// Whatever the sliders do, the range that reaches the server has to make
+    /// sense.
+    func testSanitizationKeepsTheAgeRangeLegalAndCoherent() {
+        let prefs = DiscoveryPreferences(
+            interestedIn: .everyone,
+            minAge: 12,
+            maxAge: 8,
+            maxDistanceKm: 5_000,
+            showMeOnPlum: true
+        ).sanitized
+
+        XCTAssertEqual(prefs.minAge, 18)
+        XCTAssertGreaterThanOrEqual(prefs.maxAge, prefs.minAge)
+        XCTAssertEqual(prefs.maxDistanceKm, 300)
+    }
+
+    func testDefaultsAreAlreadyValid() {
+        XCTAssertEqual(DiscoveryPreferences.default, DiscoveryPreferences.default.sanitized)
+    }
+}

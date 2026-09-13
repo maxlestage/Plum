@@ -1,0 +1,200 @@
+import Observation
+import SwiftUI
+
+/// One conversation. Handles the optimistic send, the live socket and the
+/// "someone is typing" indicator.
+@MainActor
+@Observable
+final class ChatViewModel {
+    let conversation: Conversation
+
+    private(set) var items: [ChatItem] = []
+    private(set) var state: ActivityState = .idle
+    private(set) var isParticipantTyping = false
+    private(set) var isConnected = true
+    var draft = ""
+
+    private var oldestCursor: String?
+    private var hasMoreHistory = true
+    private var streamTask: Task<Void, Never>?
+    private var typingResetTask: Task<Void, Never>?
+
+    private let chat: any ChatServicing
+    private let currentUserId: UUID
+
+    init(conversation: Conversation, chat: any ChatServicing, currentUserId: UUID) {
+        self.conversation = conversation
+        self.chat = chat
+        self.currentUserId = currentUserId
+    }
+
+    var canSend: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func isMine(_ item: ChatItem) -> Bool {
+        item.message.senderId == currentUserId
+    }
+
+    // MARK: - Lifecycle
+
+    func start() async {
+        await loadHistory()
+        _ = try? await chat.markRead(conversationId: conversation.id)
+        listenForEvents()
+    }
+
+    func stop() {
+        streamTask?.cancel()
+        streamTask = nil
+        typingResetTask?.cancel()
+    }
+
+    private func loadHistory() async {
+        state = .loading
+        do {
+            let page = try await chat.messages(conversationId: conversation.id, before: nil)
+            items = page.items
+                .sorted { $0.sentAt < $1.sentAt }
+                .map { ChatItem(message: $0) }
+            oldestCursor = page.nextCursor
+            hasMoreHistory = page.hasMore
+            state = .ready
+        } catch {
+            state = .failed(error.asAPIError)
+        }
+    }
+
+    /// Pulls the previous page when the user scrolls to the top of the thread.
+    func loadOlderMessages() async {
+        guard hasMoreHistory, let oldestCursor else { return }
+        do {
+            let page = try await chat.messages(conversationId: conversation.id, before: oldestCursor)
+            let known = Set(items.map(\.id))
+            let older = page.items
+                .filter { !known.contains($0.id) }
+                .sorted { $0.sentAt < $1.sentAt }
+                .map { ChatItem(message: $0) }
+            items.insert(contentsOf: older, at: 0)
+            self.oldestCursor = page.nextCursor
+            hasMoreHistory = page.hasMore
+        } catch {
+            state = .failed(error.asAPIError)
+        }
+    }
+
+    private func listenForEvents() {
+        streamTask?.cancel()
+        streamTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let stream = try await self.chat.eventStream()
+                for await event in stream {
+                    await self.handle(event)
+                }
+            } catch {
+                await self.markDisconnected()
+            }
+        }
+    }
+
+    private func markDisconnected() {
+        isConnected = false
+    }
+
+    private func handle(_ event: ChatEvent) {
+        switch event {
+        case let .messageReceived(message):
+            guard message.conversationId == conversation.id else { return }
+            insert(message)
+            isParticipantTyping = false
+            Task { _ = try? await chat.markRead(conversationId: conversation.id) }
+
+        case let .messageRead(messageId, readAt):
+            guard let index = items.firstIndex(where: { $0.id == messageId }) else { return }
+            items[index].message.readAt = readAt
+
+        case let .typing(conversationId, profileId):
+            guard conversationId == conversation.id, profileId != currentUserId else { return }
+            showTypingIndicator()
+
+        case let .connectionChanged(isConnected):
+            self.isConnected = isConnected
+
+        case .matchCreated:
+            break
+        }
+    }
+
+    /// The indicator hides itself: the server does not send a "stopped
+    /// typing" event and we should not wait for one.
+    private func showTypingIndicator() {
+        isParticipantTyping = true
+        typingResetTask?.cancel()
+        typingResetTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            await self?.hideTypingIndicator()
+        }
+    }
+
+    private func hideTypingIndicator() {
+        isParticipantTyping = false
+    }
+
+    private func insert(_ message: Message) {
+        // The server echoes our own message back with the client id we chose,
+        // so replace the optimistic copy rather than duplicating it.
+        if let index = items.firstIndex(where: { $0.id == message.id }) {
+            items[index] = ChatItem(message: message, deliveryState: .sent)
+        } else {
+            items.append(ChatItem(message: message))
+            items.sort { $0.message.sentAt < $1.message.sentAt }
+        }
+    }
+
+    // MARK: - Sending
+
+    func send() async {
+        let body = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
+        draft = ""
+
+        // Optimistic: the bubble appears immediately, keyed by a client id the
+        // server will echo back.
+        let clientId = UUID()
+        let pending = Message(
+            id: clientId,
+            conversationId: conversation.id,
+            senderId: currentUserId,
+            body: body,
+            sentAt: .now
+        )
+        items.append(ChatItem(message: pending, deliveryState: .sending))
+        Haptics.play(.light)
+
+        do {
+            let sent = try await chat.send(
+                conversationId: conversation.id,
+                clientId: clientId,
+                body: body
+            )
+            if let index = items.firstIndex(where: { $0.id == clientId }) {
+                items[index] = ChatItem(message: sent, deliveryState: .sent)
+            }
+        } catch {
+            if let index = items.firstIndex(where: { $0.id == clientId }) {
+                items[index].deliveryState = .failed
+            }
+            Haptics.play(.warning)
+        }
+    }
+
+    /// Retries a bubble that failed, in place.
+    func retry(_ item: ChatItem) async {
+        guard item.deliveryState == .failed else { return }
+        items.removeAll { $0.id == item.id }
+        draft = item.message.body
+        await send()
+    }
+}
