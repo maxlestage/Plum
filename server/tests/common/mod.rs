@@ -381,6 +381,44 @@ pub async fn only_see_age(app: &axum::Router, token: &str, age: i32, interested_
     assert_eq!(status, StatusCode::OK, "préférences : {body}");
 }
 
+/// Cherche un profil dans tout le deck, page après page.
+///
+/// La première page ne suffit pas : pour un visiteur **sans position**, l'axe
+/// géographique n'isole plus rien — tout le monde est à distance inconnue —
+/// et il ne reste que l'âge, qui fuit d'une exécution à l'autre. Les
+/// candidats des passages précédents remplissent alors la page.
+pub async fn deck_contains(app: &axum::Router, token: &str, wanted: Uuid) -> bool {
+    let mut query = "?limit=50".to_owned();
+    for _ in 0..40 {
+        let (status, body) = call(
+            app,
+            request(
+                "GET",
+                &format!("/api/v1/discovery/deck{query}"),
+                Some(token),
+                None,
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "deck : {body}");
+
+        if body["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["id"] == wanted.to_string())
+        {
+            return true;
+        }
+
+        match body["next_cursor"].as_str() {
+            Some(cursor) => query = format!("?limit=50&cursor={}", cursor.replace('|', "%7C")),
+            None => return false,
+        }
+    }
+    false
+}
+
 /// The identifiers in a viewer's deck, in order.
 pub async fn deck_ids(app: &axum::Router, token: &str, query: &str) -> Vec<Uuid> {
     let (status, body) = call(

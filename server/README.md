@@ -189,8 +189,23 @@ Les points qui ne se lisent pas dans la liste des routes :
   application de rencontres vend d'ordinaire ; il n'y a rien à vendre ici.
   Inventer un quota reviendrait à deviner un modèle économique.
 
-**Pas fait** : photos, messagerie, et la liste des matchs (ils sont créés et
-annoncés, mais rien ne les relit encore). `photos` est donc toujours un
+**Fait aussi** : la liste des matchs — `GET /matches`, `DELETE /matches/{id}`.
+
+- Le curseur compare `(date, id)` comme celui du deck : deux personnes qui
+  aiment en retour dans la même microseconde produiraient sinon un match sauté
+  ou répété. La date est encodée à la microseconde, précision que garde la
+  colonne `timestamptz`.
+- Les profils sont chargés en une requête, pas une par match : trente
+  allers-retours pour une liste qu'on ouvre à chaque lancement, c'est ce qui
+  rend une application lente sans qu'on sache pourquoi.
+- **Défaire un match ne supprime pas les verdicts.** Le deck exclut tout
+  profil déjà jugé, donc les effacer ferait réapparaître la personne dont on
+  vient de se séparer. Se défaire d'un match, c'est ne plus vouloir la voir.
+- Défaire le match de quelqu'un d'autre répond « introuvable » plutôt
+  qu'« interdit » : confirmer son existence renseignerait déjà.
+
+**Pas fait** : photos et messagerie. `conversation_id` est donc toujours nul,
+et `POST /matches/{id}/conversation` n'existe pas encore. `photos` est donc toujours un
 tableau vide dans les réponses — présent parce que le modèle Swift le déclare
 non optionnel, vide parce que les photos demandent un stockage objet : le
 système de fichiers d'un dyno est éphémère et ne peut pas les garder. Servir
