@@ -103,5 +103,16 @@ eq "signalement sans motif refusé" "$(curl -s -o /dev/null -w '%{http_code}' -X
 eq "déconnexion" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/auth/sign-out" "${AUTH[@]}" -H 'content-type: application/json' -d "{\"refresh_token\":\"$NEWREFRESH\"}")" 200
 eq "jeton de rafraîchissement mort" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/auth/refresh" -H 'content-type: application/json' -d "{\"refresh_token\":\"$NEWREFRESH\"}")" 401
 
+# 12. Le script efface ses propres comptes.
+#
+# Lancé contre une base jetable ça ne change rien ; lancé contre la
+# production — ce qui est tout l'intérêt d'un test de bout en bout — ça évite
+# de laisser derrière soi des comptes qu'on ne peut plus supprimer, faute
+# d'avoir gardé leurs jetons. Le jeton d'accès reste valable après la
+# déconnexion, qui ne révoque que le rafraîchissement.
+eq "compte principal supprimé" "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$API/me" "${AUTH[@]}")" 200
+eq "second compte supprimé" "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$API/me" -H "authorization: Bearer $AUTRE_TOKEN")" 200
+eq "le jeton ne rouvre plus rien" "$(curl -s -o /dev/null -w '%{http_code}' "$API/me" "${AUTH[@]}")" 401
+
 [ $fail -eq 0 ] && echo -e "\nPARCOURS COMPLET AU VERT" || echo -e "\nÉCHECS"
 exit $fail
