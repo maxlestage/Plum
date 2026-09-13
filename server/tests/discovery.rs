@@ -642,3 +642,73 @@ async fn every_discovery_route_refuses_an_anonymous_caller() {
         );
     }
 }
+
+/// Une distance exacte suffit à retrouver une adresse.
+///
+/// `PATCH /me/location` accepte n'importe quelle position : il suffit de se
+/// placer à trois endroits, de lire trois distances précises et de
+/// trianguler. C'est une attaque connue contre les applications de
+/// rencontres. La page Confidentialité promet « jamais assez pour trouver
+/// quelqu'un » — ce test est ce qui rend la promesse vraie.
+#[tokio::test]
+async fn distances_are_coarse_enough_not_to_locate_anyone() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let here = private_cluster();
+
+    let (viewer, _) = candidate(&app, "triangule", PRECISION, "woman", Some(here)).await;
+    only_see_age(&app, &viewer, PRECISION, "everyone").await;
+
+    // Des distances choisies pour tomber entre les paliers, là où une valeur
+    // exacte se verrait immédiatement.
+    for (index, km) in [0.4, 3.7, 6.2, 12.3, 28.9].iter().enumerate() {
+        candidate(
+            &app,
+            &format!("cible-{index}"),
+            PRECISION,
+            "man",
+            Some(north_of(here, *km)),
+        )
+        .await;
+    }
+
+    let (status, body) = call(
+        &app,
+        request("GET", "/api/v1/discovery/deck", Some(&viewer), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let items = body["items"].as_array().expect("items");
+    assert!(!items.is_empty(), "le deck ne doit pas être vide");
+
+    for item in items {
+        let km = item["distance_km"].as_f64().expect("distance");
+        let acceptable = km == 0.5                       // « moins d'1 km »
+            || (km < 10.0 && (km - km.round()).abs() < 1e-9)   // au kilomètre
+            || (km % 5.0).abs() < 1e-9; // par tranches de cinq
+        assert!(
+            acceptable,
+            "distance {km} : une valeur hors palier laisse trianguler une adresse"
+        );
+    }
+
+    // Le curseur transporte la clé de tri jusqu'au client : une distance
+    // exacte y fuirait tout aussi bien que dans la réponse.
+    let (_, page) = call(
+        &app,
+        request("GET", "/api/v1/discovery/deck?limit=1", Some(&viewer), None),
+    )
+    .await;
+    let cursor = page["next_cursor"].as_str().expect("curseur");
+    let km: f64 = cursor
+        .split('|')
+        .next()
+        .unwrap()
+        .parse()
+        .expect("distance du curseur");
+    assert!(
+        km == 0.5 || (km < 10.0 && (km - km.round()).abs() < 1e-9) || (km % 5.0).abs() < 1e-9,
+        "le curseur expose {km}, une précision que la réponse refuse"
+    );
+}

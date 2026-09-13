@@ -154,6 +154,15 @@ Les points qui ne se lisent pas dans la liste des routes :
   un sens ou dans l'autre, masqué, hors bornes d'âge ou de distance. Filtrer
   une page déjà récupérée rendrait des pages courtes ou vides alors qu'il
   reste des candidats.
+- **La distance quitte la base déjà arrondie**, aux paliers que le client
+  affiche : moins d'un kilomètre, puis au kilomètre, puis par tranches de
+  cinq. Ce n'est pas de la présentation, c'est la protection elle-même. Une
+  distance exacte suffit à retrouver une adresse — il suffit de se placer à
+  trois endroits, `PATCH /me/location` acceptant n'importe quelle position,
+  de lire trois distances et de trianguler. Le curseur de pagination
+  transporte la clé de tri jusqu'au client, donc le tri se fait sur la valeur
+  arrondie lui aussi, sans quoi la précision fuirait par là. Un test vérifie
+  les deux, et échoue bien lorsqu'on retire l'arrondi.
 - **La distance est calculée en SQL pur**, sans PostGIS ni `earthdistance` :
   deux extensions de moins à installer sur Heroku Postgres depuis un
   téléphone, pour une formule.

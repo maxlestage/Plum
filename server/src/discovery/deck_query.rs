@@ -32,6 +32,28 @@ const HAVERSINE: &str = "6371.0 * 2 * asin(sqrt(
   + cos(radians(v.latitude)) * cos(radians(c.latitude))
   * power(sin(radians(c.longitude - v.longitude) / 2), 2)))";
 
+/// La distance, ramenée aux paliers que le client affiche.
+///
+/// **Ce n'est pas de la présentation, c'est la mesure de protection.** Une
+/// distance exacte suffit à retrouver une adresse : il suffit de se placer
+/// successivement à trois endroits — `PATCH /me/location` accepte n'importe
+/// quelle position — de lire trois distances précises, et de trianguler.
+/// C'est une attaque connue contre les applications de rencontres, et elle a
+/// des conséquences bien réelles.
+///
+/// L'arrondi est donc fait ici, avant que la valeur ne quitte la base : le
+/// client n'a jamais accès à mieux qu'un palier, et la page Confidentialité
+/// qui promet « jamais assez pour trouver quelqu'un » dit enfin vrai.
+///
+/// Les paliers reprennent exactement ceux de `DistanceFormatter` côté Swift,
+/// pour que l'affichage soit identique : moins d'un kilomètre, puis au
+/// kilomètre, puis par tranches de cinq.
+const COARSE: &str = "CASE
+    WHEN %D% < 1  THEN 0.5
+    WHEN %D% < 10 THEN round((%D%)::numeric)::double precision
+    ELSE round((%D% / 5)::numeric)::double precision * 5
+  END";
+
 /// Everyone this viewer could still be shown, nearest first.
 ///
 /// Written as one statement on purpose. Every exclusion here — already
@@ -59,6 +81,8 @@ pub async fn deck(
         ""
     };
 
+    let coarse = COARSE.replace("%D%", HAVERSINE);
+
     let sql = format!(
         "WITH v AS (
             SELECT p.id, p.latitude, p.longitude, p.birth_date,
@@ -74,10 +98,14 @@ pub async fn deck(
             SELECT c.id, c.display_name, c.birth_date, c.gender, c.bio, c.city,
                    c.interests, c.last_active_at,
                    CASE WHEN v.latitude IS NULL OR c.latitude IS NULL THEN NULL
-                        ELSE {HAVERSINE} END AS distance_km,
+                        ELSE {coarse} END AS distance_km,
+                   -- Le tri se fait sur la valeur arrondie, et pas seulement
+                   -- l'affichage : le curseur de pagination transporte cette
+                   -- valeur jusqu'au client, et une distance exacte y fuirait
+                   -- tout aussi bien que dans la réponse.
                    COALESCE(
                      CASE WHEN v.latitude IS NULL OR c.latitude IS NULL THEN NULL
-                          ELSE {HAVERSINE} END,
+                          ELSE {coarse} END,
                      {NO_POSITION}) AS sort_km,
                    v.max_distance_km,
                    (v.latitude IS NOT NULL) AS viewer_located
