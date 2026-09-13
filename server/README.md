@@ -54,6 +54,19 @@ Les migrations, elles, ne doivent tourner qu'une fois : un verrou consultatif
 Postgres les sérialise. Le verrou vaut mieux qu'une cellule locale au processus
 parce qu'il tient aussi entre deux `cargo test` lancés en même temps.
 
+## Le parcours de bout en bout
+
+```bash
+DATABASE_URL=… JWT_SECRET=… PORT=8099 ./target/release/plum-server &
+PLUM_API=http://127.0.0.1:8099/api/v1 ../Scripts/parcours.sh
+```
+
+Les tests d'intégration prouvent la logique en passant par la couche `Router`
+en mémoire. Ce script prouve l'assemblage — le binaire, la configuration, le
+port, la base — ce qu'aucun d'eux ne touche. Il a déjà servi : après avoir
+ajouté le deck, il a répondu 404 partout, parce que le binaire qui tournait
+datait d'avant.
+
 ## Déploiement
 
 L'image est construite dans GitHub Actions, jamais sur Heroku — qui plafonne
@@ -116,7 +129,51 @@ Quelques points qui ne se devinent pas à la lecture des routes :
 - `PATCH /me/location` rafraîchit aussi l'horodatage d'activité, qui est ce qui
   allume la pastille verte.
 
-**Pas fait** : photos, deck, matchs, messagerie. `photos` est donc toujours un
+**Fait aussi** : le deck — `GET /discovery/deck`, `POST /discovery/swipes`,
+`POST /discovery/rewind`, `POST /profiles/{id}/report`,
+`POST /profiles/{id}/block`.
+
+Les points qui ne se lisent pas dans la liste des routes :
+
+- **Le curseur n'est pas un décalage.** Un deck bouge pendant qu'on le lit :
+  d'autres gens jugent, des profils apparaissent et disparaissent. Un `OFFSET`
+  répéterait ou sauterait des cartes en silence. La pagination compare le
+  n-uplet `(distance, id)`, ce que Postgres sait faire nativement. Les deux
+  écritures naïves échouent précisément sur les ex æquo : `distance >` les
+  saute, `distance >=` les répète. Un test pagine sept candidats placés au
+  même point, deux par deux, et vérifie qu'aucun n'est vu deux fois ni oublié.
+- **Tout est exclu dans la requête**, pas après coup : déjà jugé, bloqué dans
+  un sens ou dans l'autre, masqué, hors bornes d'âge ou de distance. Filtrer
+  une page déjà récupérée rendrait des pages courtes ou vides alors qu'il
+  reste des candidats.
+- **La distance est calculée en SQL pur**, sans PostGIS ni `earthdistance` :
+  deux extensions de moins à installer sur Heroku Postgres depuis un
+  téléphone, pour une formule.
+- **Un profil sans position n'est pas montré à quelqu'un qui en a une.** Un
+  rayon que l'on choisit doit vouloir dire quelque chose, et un profil dont la
+  position est inconnue ne peut pas prétendre être dans les 20 km. La
+  conséquence, qui est une décision et non un effet de bord : **un profil
+  n'est découvrable qu'une fois sa position envoyée**. À l'inverse, un
+  visiteur sans position n'a pas de rayon à appliquer et voit tout le monde,
+  plutôt qu'un deck vide.
+- **`interestedIn` n'a que trois valeurs pour quatre genres.** « women » et
+  « men » ne retiennent que `woman` et `man` : un profil non binaire n'est
+  atteint que par « everyone ». C'est une conséquence du modèle du client, et
+  un test la fixe explicitement pour qu'elle reste un choix visible.
+- **Un match appartient à une paire, pas à un sens.** Une seule ligne, plus
+  petit identifiant d'abord, avec une clé unique sur la paire ordonnée et une
+  contrainte `CHECK` qui garantit l'ordre — sans quoi une ligne écrite à
+  l'envers échapperait à la clé unique et créerait le doublon qu'elle existe
+  pour empêcher.
+- **Le retour en arrière supprime le verdict** au lieu de le marquer défait :
+  le deck exclut tout profil déjà jugé, donc une ligne laissée en place
+  garderait la carte cachée et le retour semblerait ne rien faire.
+- **`likesRemaining` vaut toujours `null`.** Un plafond quotidien est ce qu'une
+  application de rencontres vend d'ordinaire ; il n'y a rien à vendre ici.
+  Inventer un quota reviendrait à deviner un modèle économique.
+
+**Pas fait** : photos, messagerie, et la liste des matchs (ils sont créés et
+annoncés, mais rien ne les relit encore). `photos` est donc toujours un
 tableau vide dans les réponses — présent parce que le modèle Swift le déclare
 non optionnel, vide parce que les photos demandent un stockage objet : le
 système de fichiers d'un dyno est éphémère et ne peut pas les garder. Servir
