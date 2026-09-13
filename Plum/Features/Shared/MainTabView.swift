@@ -57,8 +57,12 @@ struct MainTabView: View {
         guard let stream = try? await services.chat.eventStream() else { return }
         for await event in stream {
             switch event {
-            case .messageReceived:
-                if selection != .matches { unreadCount += 1 }
+            case let .messageReceived(message):
+                // The socket echoes our own messages back; those are not
+                // something to badge ourselves about.
+                if message.senderId != session.currentUserId, selection != .matches {
+                    unreadCount += 1
+                }
             case .matchCreated:
                 unreadCount += 1
             default:
