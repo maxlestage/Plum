@@ -1,0 +1,205 @@
+//! Rate limiting, backed by Redis when there is one and by this process when
+//! there is not.
+//!
+//! Optional on purpose. Requiring a paid add-on to boot would mean a Heroku
+//! app that cannot start until someone adds one, and an add-on outage that
+//! takes the whole API down with it. Degrading to a per-process limiter is a
+//! worse defence — it counts per dyno — but it is a defence, and the service
+//! stays up.
+
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+/// How many of something, over how long.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Quota {
+    pub limit: u32,
+    pub window: Duration,
+}
+
+impl Quota {
+    pub const fn new(limit: u32, window_seconds: u64) -> Self {
+        Self {
+            limit,
+            window: Duration::from_secs(window_seconds),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Decision {
+    pub allowed: bool,
+    /// What is left of the quota once this call is counted.
+    pub remaining: u32,
+    /// How long until the window rolls over. Sent verbatim as `Retry-After`,
+    /// which the iOS client already reads and honours.
+    pub retry_after: Duration,
+}
+
+pub enum RateLimiter {
+    // Boxed: the manager is 320 bytes and the fallback a handful, so every
+    // value of this enum would otherwise carry the larger of the two.
+    Redis(Box<redis::aio::ConnectionManager>),
+    /// Per-process fallback. Counts per dyno rather than per account, which is
+    /// weaker — and stated as such rather than papered over.
+    InProcess(InProcessLimiter),
+}
+
+impl RateLimiter {
+    pub async fn check(&self, key: &str, quota: Quota) -> Decision {
+        match self {
+            Self::Redis(manager) => match redis_check((**manager).clone(), key, quota).await {
+                Ok(decision) => decision,
+                Err(error) => {
+                    // A limiter that fails closed turns a Redis blip into an
+                    // outage. Let the request through and say so.
+                    tracing::warn!(%error, "limiteur indisponible, requête laissée passer");
+                    Decision {
+                        allowed: true,
+                        remaining: quota.limit,
+                        retry_after: Duration::ZERO,
+                    }
+                }
+            },
+            Self::InProcess(limiter) => limiter.check(key, quota),
+        }
+    }
+
+    pub fn describe(&self) -> &'static str {
+        match self {
+            Self::Redis(_) => "redis",
+            Self::InProcess(_) => "en mémoire (par dyno)",
+        }
+    }
+}
+
+/// Fixed window: `INCR`, and set the expiry only on the first hit so the
+/// window starts when the first request does and is not pushed back by every
+/// subsequent one.
+async fn redis_check(
+    mut manager: redis::aio::ConnectionManager,
+    key: &str,
+    quota: Quota,
+) -> redis::RedisResult<Decision> {
+    let namespaced = format!("plum:rl:{key}");
+    let (count, ttl): (u32, i64) = redis::pipe()
+        .atomic()
+        .incr(&namespaced, 1)
+        .expire(&namespaced, quota.window.as_secs() as i64)
+        .ignore()
+        .ttl(&namespaced)
+        .query_async(&mut manager)
+        .await?;
+
+    Ok(decide(count, quota, Duration::from_secs(ttl.max(0) as u64)))
+}
+
+fn decide(count: u32, quota: Quota, retry_after: Duration) -> Decision {
+    Decision {
+        allowed: count <= quota.limit,
+        remaining: quota.limit.saturating_sub(count),
+        retry_after,
+    }
+}
+
+#[derive(Default)]
+pub struct InProcessLimiter {
+    windows: Mutex<HashMap<String, (u32, Instant)>>,
+}
+
+impl InProcessLimiter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn check(&self, key: &str, quota: Quota) -> Decision {
+        let now = Instant::now();
+        let mut windows = self.windows.lock().unwrap_or_else(|poisoned| {
+            // A poisoned lock means another thread panicked while holding it.
+            // The counters are not worth taking the process down for.
+            poisoned.into_inner()
+        });
+
+        // Opportunistic pruning: without it the map grows once per address
+        // that ever knocked, forever.
+        if windows.len() > 10_000 {
+            windows.retain(|_, (_, started)| now.duration_since(*started) < quota.window);
+        }
+
+        let entry = windows.entry(key.to_string()).or_insert((0, now));
+        if now.duration_since(entry.1) >= quota.window {
+            *entry = (0, now);
+        }
+        entry.0 += 1;
+
+        let elapsed = now.duration_since(entry.1);
+        decide(entry.0, quota, quota.window.saturating_sub(elapsed))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const QUOTA: Quota = Quota::new(3, 60);
+
+    #[test]
+    fn the_first_requests_of_a_window_are_allowed() {
+        let limiter = InProcessLimiter::new();
+
+        for expected_remaining in [2, 1, 0] {
+            let decision = limiter.check("moi@plum.app", QUOTA);
+            assert!(decision.allowed);
+            assert_eq!(decision.remaining, expected_remaining);
+        }
+    }
+
+    #[test]
+    fn the_one_past_the_quota_is_refused() {
+        let limiter = InProcessLimiter::new();
+        for _ in 0..3 {
+            limiter.check("moi@plum.app", QUOTA);
+        }
+
+        let decision = limiter.check("moi@plum.app", QUOTA);
+
+        assert!(!decision.allowed);
+        assert_eq!(decision.remaining, 0);
+        assert!(decision.retry_after > Duration::ZERO);
+    }
+
+    /// One account being hammered must not lock out another.
+    #[test]
+    fn keys_are_counted_separately() {
+        let limiter = InProcessLimiter::new();
+        for _ in 0..4 {
+            limiter.check("cible@plum.app", QUOTA);
+        }
+
+        let other = limiter.check("quelqun-dautre@plum.app", QUOTA);
+
+        assert!(other.allowed);
+        assert_eq!(other.remaining, 2);
+    }
+
+    #[test]
+    fn the_window_rolls_over() {
+        let limiter = InProcessLimiter::new();
+        let instant = Quota::new(2, 0);
+
+        for _ in 0..5 {
+            assert!(limiter.check("moi@plum.app", instant).allowed);
+        }
+    }
+
+    #[test]
+    fn the_decision_counts_the_current_call() {
+        // The caller has already been counted when it reads `remaining`, so a
+        // quota of three leaves two after the first call, not three.
+        assert_eq!(decide(1, QUOTA, Duration::from_secs(60)).remaining, 2);
+        assert!(decide(3, QUOTA, Duration::from_secs(60)).allowed);
+        assert!(!decide(4, QUOTA, Duration::from_secs(60)).allowed);
+        assert_eq!(decide(9, QUOTA, Duration::from_secs(60)).remaining, 0);
+    }
+}

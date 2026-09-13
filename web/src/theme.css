@@ -1,0 +1,166 @@
+/*
+ * The same palette as the iOS app, to the hex digit. `PlumTheme.swift` is the
+ * source of truth and `Scripts/check_palette.py` checks these values against
+ * it — a site that drifts from the product it presents looks like a fake.
+ */
+:root {
+  --plum: #6b2d5c;
+  --plum-deep: #40183a;
+  --blush: #e8608c;
+  --apricot: #f6a56b;
+  --mint: #4fc3a1;
+
+  --canvas: #fff7f4;
+  --surface: #ffffff;
+  --primary-text: #1f1320;
+  --secondary-text: #7a6b78;
+  --hairline: rgba(31, 19, 32, 0.1);
+
+  --warm-gradient: linear-gradient(135deg, var(--blush), var(--plum));
+  --radius: 18px;
+  --radius-large: 28px;
+  --measure: 34rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #140c14;
+    --surface: #241826;
+    --primary-text: #f6eef4;
+    --secondary-text: #b7a6b4;
+    --hairline: rgba(246, 238, 244, 0.12);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--primary-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--plum);
+}
+
+@media (prefers-color-scheme: dark) {
+  a {
+    color: var(--blush);
+  }
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* Every screen this is read on is a phone first; the desktop layout is the
+   exception, not the baseline. */
+.shell {
+  width: 100%;
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.prose {
+  max-width: var(--measure);
+}
+
+.section {
+  padding: 64px 0;
+}
+
+.section + .section {
+  border-top: 1px solid var(--hairline);
+}
+
+.eyebrow {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary-text);
+  margin: 0 0 12px;
+}
+
+.muted {
+  color: var(--secondary-text);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--warm-gradient);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button--quiet {
+  background: transparent;
+  color: var(--plum);
+  border: 1.5px solid var(--hairline);
+}
+
+@media (prefers-color-scheme: dark) {
+  .button--quiet {
+    color: var(--blush);
+  }
+}
+
+.button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--apricot);
+  outline-offset: 3px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-large);
+  padding: 24px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 46rem) {
+  .grid--three {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .grid--two {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .section {
+    padding: 88px 0;
+  }
+}

@@ -1,0 +1,12 @@
+.git/
+.github/
+Plum/
+PlumTests/
+PlumUITests/
+Plum.xcodeproj/
+docs/
+Scripts/
+server/target/
+web/node_modules/
+web/dist/
+*.md

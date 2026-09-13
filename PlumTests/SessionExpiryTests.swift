@@ -134,3 +134,38 @@ final class LegalLinksTests: XCTestCase {
         XCTAssertEqual(urls.count, 3, "Trois documents, trois adresses")
     }
 }
+
+/// A shipped build has no scheme variables: whatever it aims at has to be
+/// compiled in, or it aims at localhost — which is to say at itself.
+final class ProductionEndpointTests: XCTestCase {
+    func testAShippedBuildDoesNotAimAtLocalhost() {
+        let configuration = APIConfiguration.fromEnvironment([:])
+
+        #if DEBUG
+        XCTAssertEqual(configuration.baseURL.host(), "127.0.0.1")
+        #else
+        XCTAssertEqual(configuration.baseURL.host(), APIConfiguration.productionHost)
+        XCTAssertEqual(configuration.baseURL.scheme, "https")
+        XCTAssertEqual(configuration.webSocketURL.scheme, "wss")
+        #endif
+    }
+
+    /// The environment still wins where it exists, so pointing a device build
+    /// at a laptop stays a scheme edit rather than a code edit.
+    func testTheEnvironmentOverridesTheCompiledDefault() {
+        let configuration = APIConfiguration.fromEnvironment([
+            "PLUM_API_BASE_URL": "https://essai.example/api/v1",
+            "PLUM_WS_BASE_URL": "wss://essai.example/ws",
+        ])
+
+        XCTAssertEqual(configuration.baseURL.absoluteString, "https://essai.example/api/v1")
+        XCTAssertEqual(configuration.webSocketURL.absoluteString, "wss://essai.example/ws")
+    }
+
+    /// The legal pages the App Store asks for live on the same host as the API.
+    func testTheLegalPagesPointAtTheDeployment() {
+        for url in [LegalLinks.terms, LegalLinks.privacy, LegalLinks.support] {
+            XCTAssertEqual(url.host(), APIConfiguration.productionHost, "\(url)")
+        }
+    }
+}
