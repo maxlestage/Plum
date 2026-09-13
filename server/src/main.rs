@@ -104,7 +104,18 @@ async fn build_limiter(url: Option<&str>) -> RateLimiter {
         // ailleurs.
         Ok(client) => match timeout(
             REDIS_CONNECT_TIMEOUT,
-            redis::aio::ConnectionManager::new(client),
+            // Un seul essai, avec sa propre limite de temps. Par défaut le
+            // gestionnaire réessaie en arrière-plan, ce qui transforme une
+            // vraie erreur — certificat refusé, hôte injoignable, mot de
+            // passe faux — en un simple « délai dépassé » qui ne dit rien.
+            // Ici la première erreur remonte telle quelle, et le journal
+            // nomme la cause.
+            redis::aio::ConnectionManager::new_with_config(
+                client,
+                redis::aio::ConnectionManagerConfig::new()
+                    .set_number_of_retries(0)
+                    .set_connection_timeout(REDIS_CONNECT_TIMEOUT),
+            ),
         )
         .await
         {
