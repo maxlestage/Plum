@@ -35,66 +35,81 @@ struct MatchesView: View {
     @ViewBuilder
     private var content: some View {
         if let viewModel {
-            if viewModel.isEmpty {
-                EmptyStateView(
-                    systemImage: "heart.slash",
-                    title: "Rien encore",
-                    message: "Les matchs arrivent quand deux personnes se disent oui. Retournez swiper."
-                )
-            } else {
-                List {
-                    if !viewModel.unstartedMatches.isEmpty {
-                        Section {
-                            newMatchesRail(viewModel)
-                                .listRowInsets(EdgeInsets())
-                                .listRowBackground(Color.clear)
-                        } header: {
-                            Text("Nouveaux matchs").plumSectionHeader()
-                        }
+            VStack(spacing: 0) {
+                // Every other screen shows its failures; this one swallowed
+                // them, so a match that would not open just did nothing.
+                if let error = viewModel.state.error {
+                    ErrorBanner(message: error.userMessage) {
+                        Task { await viewModel.load() }
                     }
-
-                    Section {
-                        ForEach(viewModel.conversations) { conversation in
-                            Button {
-                                openedConversation = conversation
-                            } label: {
-                                ConversationRow(conversation: conversation)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("ligne-conversation")
-                            .listRowBackground(PlumTheme.Palette.surface)
-                            .swipeActions(edge: .trailing) {
-                                Button("Retirer", role: .destructive) {
-                                    Task { await unmatch(conversation, viewModel: viewModel) }
-                                }
-                            }
-                            .onAppear {
-                                // Reaching the last row is the signal to page.
-                                guard conversation.id == viewModel.conversations.last?.id else { return }
-                                Task { await viewModel.loadNextPage() }
-                            }
-                        }
-
-                        if viewModel.hasMoreToLoad {
-                            HStack {
-                                Spacer()
-                                ProgressView().tint(PlumTheme.Palette.plum)
-                                Spacer()
-                            }
-                            .listRowBackground(Color.clear)
-                        }
-                    } header: {
-                        if !viewModel.conversations.isEmpty {
-                            Text("Messages").plumSectionHeader()
-                        }
-                    }
+                    .padding(.vertical, PlumTheme.Spacing.s)
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .refreshable { await viewModel.load() }
+                list(viewModel)
             }
         } else {
             ProgressView().tint(PlumTheme.Palette.plum)
+        }
+    }
+
+    @ViewBuilder
+    private func list(_ viewModel: MatchesViewModel) -> some View {
+        if viewModel.isEmpty {
+            EmptyStateView(
+                systemImage: "heart.slash",
+                title: "Rien encore",
+                message: "Les matchs arrivent quand deux personnes se disent oui. Retournez swiper."
+            )
+        } else {
+            List {
+                if !viewModel.unstartedMatches.isEmpty {
+                    Section {
+                        newMatchesRail(viewModel)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    } header: {
+                        Text("Nouveaux matchs").plumSectionHeader()
+                    }
+                }
+
+                Section {
+                    ForEach(viewModel.conversations) { conversation in
+                        Button {
+                            openedConversation = conversation
+                        } label: {
+                            ConversationRow(conversation: conversation)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("ligne-conversation")
+                        .listRowBackground(PlumTheme.Palette.surface)
+                        .swipeActions(edge: .trailing) {
+                            Button("Retirer", role: .destructive) {
+                                Task { await unmatch(conversation, viewModel: viewModel) }
+                            }
+                        }
+                        .onAppear {
+                            // Reaching the last row is the signal to page.
+                            guard conversation.id == viewModel.conversations.last?.id else { return }
+                            Task { await viewModel.loadNextPage() }
+                        }
+                    }
+
+                    if viewModel.hasMoreToLoad {
+                        HStack {
+                            Spacer()
+                            ProgressView().tint(PlumTheme.Palette.plum)
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                    }
+                } header: {
+                    if !viewModel.conversations.isEmpty {
+                        Text("Messages").plumSectionHeader()
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .refreshable { await viewModel.load() }
         }
     }
 

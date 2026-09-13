@@ -11,7 +11,10 @@ Aucune dépendance tierce.
 open Plum.xcodeproj
 ```
 
-Le projet cible **iOS 17.0** et se construit avec Xcode 15 ou plus récent. Le
+Le projet cible **iOS 17.0, iPhone uniquement, en portrait** — le deck plein
+écran et la barre d'onglets sont un design de téléphone, et revendiquer l'iPad
+sans mise en page iPad est un motif de rejet connu. Il se construit avec
+Xcode 15 ou plus récent. Le
 schéma `Plum` est partagé et démarre en **mode démo** : l'application est
 entièrement utilisable dans le simulateur, avec des données en mémoire, sans
 qu'aucun serveur ne tourne.
