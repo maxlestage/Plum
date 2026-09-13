@@ -15,6 +15,9 @@ protocol ProfileServicing: Sendable {
     func reorderPhotos(_ orderedIds: [UUID]) async throws -> [Photo]
     func preferences() async throws -> DiscoveryPreferences
     func updatePreferences(_ preferences: DiscoveryPreferences) async throws -> DiscoveryPreferences
+    /// Marks onboarding as done. Returns the updated account so the session
+    /// stops routing to the onboarding flow.
+    func completeProfile() async throws -> User
 }
 
 struct ProfileService: ProfileServicing {
@@ -53,5 +56,9 @@ struct ProfileService: ProfileServicing {
     func updatePreferences(_ preferences: DiscoveryPreferences) async throws -> DiscoveryPreferences {
         let endpoint = Endpoint.patch("me/preferences", body: preferences.sanitized)
         return try await client.send(endpoint, as: DiscoveryPreferences.self)
+    }
+
+    func completeProfile() async throws -> User {
+        try await client.send(.post("me/profile/complete"), as: User.self)
     }
 }

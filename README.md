@@ -29,6 +29,9 @@ Scheme… ▸ Run ▸ Arguments`) :
 
 - **Inscription et connexion** — jetons JWT, rafraîchissement automatique,
   stockage dans le trousseau, et une barrière 18+ vérifiée côté client.
+- **Onboarding** — un compte neuf passe par trois étapes (photo obligatoire,
+  ville et bio, critères) avant d'atteindre le deck. `User.profileCompleted`
+  décide du routage à chaque lancement.
 - **Découverte** — un deck de cartes que l'on balaie à droite (j'aime), à
   gauche (non) ou vers le haut (coup de cœur), avec annulation du dernier
   passe, signalement et blocage depuis chaque carte.
@@ -71,6 +74,7 @@ POST   /auth/sign-up · /auth/sign-in · /auth/refresh · /auth/sign-out
 GET    /me · /me/profile · /me/preferences
 PATCH  /me/profile · /me/preferences · /me/photos/order
 POST   /me/photos                       (multipart)
+POST   /me/profile/complete             (fin de l'onboarding)
 GET    /discovery/deck?limit=&cursor=
 POST   /discovery/swipes · /discovery/rewind
 GET    /matches · POST /matches/{id}/conversation
@@ -78,6 +82,11 @@ GET    /conversations · /conversations/{id}/messages
 POST   /conversations/{id}/messages · /conversations/{id}/read
 WS     /ws                              (message · read · typing · match)
 ```
+
+`POST /conversations/{id}/messages` reçoit un `client_id` : le serveur doit
+persister le message **sous cet identifiant**. C'est ce qui permet à la bulle
+optimiste, à la réponse REST et à l'écho du socket de désigner le même message
+— sans quoi un envoi peut s'afficher deux fois selon l'ordre d'arrivée.
 
 ## Tests
 

@@ -198,3 +198,138 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(DiscoveryPreferences.default, DiscoveryPreferences.default.sanitized)
     }
 }
+
+@MainActor
+final class ChatDeliveryTests: XCTestCase {
+    private func makeViewModel() -> ChatViewModel {
+        ChatViewModel(
+            conversation: SampleData.conversations[0],
+            chat: DemoChatService(),
+            currentUserId: SampleData.currentUser.id
+        )
+    }
+
+    /// Retrying must not go through the composer: whatever has been typed
+    /// since the failure has to survive.
+    func testRetryLeavesTheDraftAlone() async {
+        let viewModel = makeViewModel()
+        viewModel.draft = "autre chose, en cours de frappe"
+
+        let failed = ChatItem(
+            message: Message(
+                id: UUID(),
+                conversationId: SampleData.conversations[0].id,
+                senderId: SampleData.currentUser.id,
+                body: "message qui avait échoué",
+                sentAt: .now
+            ),
+            deliveryState: .failed
+        )
+
+        await viewModel.retry(failed)
+
+        XCTAssertEqual(viewModel.draft, "autre chose, en cours de frappe")
+        XCTAssertTrue(viewModel.items.contains { $0.message.body == "message qui avait échoué" })
+        XCTAssertFalse(viewModel.items.contains { $0.id == failed.id })
+    }
+
+    /// Sending twice must never leave two rows sharing an identifier — SwiftUI
+    /// renders that wrong and the thread jumps.
+    func testIdentifiersStayUnique() async {
+        let viewModel = makeViewModel()
+
+        viewModel.draft = "un"
+        await viewModel.send()
+        viewModel.draft = "deux"
+        await viewModel.send()
+
+        let ids = viewModel.items.map(\.id)
+        XCTAssertEqual(ids.count, Set(ids).count)
+    }
+}
+
+@MainActor
+final class OnboardingViewModelTests: XCTestCase {
+    private func makeViewModel(session: SessionStore) -> OnboardingViewModel {
+        OnboardingViewModel(profiles: DemoProfileService(), session: session)
+    }
+
+    /// The photo gate is the whole point of the flow: without it a new account
+    /// reaches the deck as an empty card.
+    func testAPhotoIsRequiredBeforeLeavingTheFirstStep() async {
+        let viewModel = makeViewModel(session: SessionStore(auth: DemoAuthService()))
+
+        XCTAssertFalse(viewModel.canAdvance)
+        XCTAssertEqual(viewModel.blockedReason, "Ajoutez au moins une photo pour continuer.")
+
+        await viewModel.addPhoto(Data("jpeg".utf8))
+
+        XCTAssertTrue(viewModel.canAdvance)
+        XCTAssertNil(viewModel.blockedReason)
+
+        _ = await viewModel.advance()
+        XCTAssertEqual(viewModel.step, .about)
+    }
+
+    func testCityIsRequiredOnTheSecondStep() async {
+        let viewModel = makeViewModel(session: SessionStore(auth: DemoAuthService()))
+        await viewModel.addPhoto(Data("jpeg".utf8))
+        _ = await viewModel.advance()
+
+        XCTAssertEqual(viewModel.step, .about)
+        XCTAssertFalse(viewModel.canAdvance)
+
+        viewModel.city = "Paris"
+        XCTAssertTrue(viewModel.canAdvance)
+    }
+
+    func testGoingBackDoesNotSkipPastTheFirstStep() async {
+        let viewModel = makeViewModel(session: SessionStore(auth: DemoAuthService()))
+
+        viewModel.goBack()
+        XCTAssertEqual(viewModel.step, .photos, "Il n'y a rien avant la première étape")
+
+        await viewModel.addPhoto(Data("jpeg".utf8))
+        _ = await viewModel.advance()
+        viewModel.goBack()
+        XCTAssertEqual(viewModel.step, .photos)
+    }
+
+    /// Finishing has to flip the account over, or the app loops back into
+    /// onboarding on the next launch.
+    func testFinishingMarksTheAccountAsComplete() async {
+        let session = SessionStore(auth: DemoAuthService())
+        session.adopt(
+            User(
+                id: SampleData.currentUser.id,
+                email: "neuf@plum.app",
+                createdAt: .now,
+                profileCompleted: false
+            )
+        )
+        XCTAssertTrue(session.needsOnboarding)
+
+        let viewModel = makeViewModel(session: session)
+        await viewModel.addPhoto(Data("jpeg".utf8))
+        _ = await viewModel.advance()
+        viewModel.city = "Paris"
+        viewModel.bio = "Ici pour les terrasses."
+        _ = await viewModel.advance()
+
+        XCTAssertEqual(viewModel.step, .preferences)
+        XCTAssertTrue(viewModel.isLastStep)
+
+        let finished = await viewModel.advance()
+
+        XCTAssertTrue(finished)
+        XCTAssertFalse(session.needsOnboarding)
+        XCTAssertNotNil(session.currentProfile)
+    }
+
+    func testProgressReachesOneOnTheLastStep() {
+        let viewModel = makeViewModel(session: SessionStore(auth: DemoAuthService()))
+        XCTAssertEqual(viewModel.progress, 1.0 / 3.0, accuracy: 0.001)
+        viewModel.step = .preferences
+        XCTAssertEqual(viewModel.progress, 1.0, accuracy: 0.001)
+    }
+}

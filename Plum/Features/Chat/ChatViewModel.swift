@@ -159,9 +159,20 @@ final class ChatViewModel {
         let body = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
         draft = ""
+        await deliver(body)
+    }
 
-        // Optimistic: the bubble appears immediately, keyed by a client id the
-        // server will echo back.
+    /// Retries a bubble that failed, in place. It does not go back through
+    /// `draft`: whatever the person has started typing since must survive.
+    func retry(_ item: ChatItem) async {
+        guard item.deliveryState == .failed else { return }
+        items.removeAll { $0.id == item.id }
+        await deliver(item.message.body)
+    }
+
+    private func deliver(_ body: String) async {
+        // Optimistic: the bubble appears immediately under an id we choose,
+        // which the server persists as the message id.
         let clientId = UUID()
         let pending = Message(
             id: clientId,
@@ -182,6 +193,10 @@ final class ChatViewModel {
             if let index = items.firstIndex(where: { $0.id == clientId }) {
                 items[index] = ChatItem(message: sent, deliveryState: .sent)
             }
+            // The socket can echo the message back before the REST call
+            // returns; without this the bubble appears twice, and SwiftUI
+            // gets two rows sharing an id.
+            removeDuplicates()
         } catch {
             if let index = items.firstIndex(where: { $0.id == clientId }) {
                 items[index].deliveryState = .failed
@@ -190,11 +205,8 @@ final class ChatViewModel {
         }
     }
 
-    /// Retries a bubble that failed, in place.
-    func retry(_ item: ChatItem) async {
-        guard item.deliveryState == .failed else { return }
-        items.removeAll { $0.id == item.id }
-        draft = item.message.body
-        await send()
+    private func removeDuplicates() {
+        var seen = Set<UUID>()
+        items = items.filter { seen.insert($0.id).inserted }
     }
 }
