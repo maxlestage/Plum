@@ -1,13 +1,21 @@
 import PhotosUI
 import SwiftUI
 
+/// Same trap as the deck: two `.sheet` modifiers on one view means only one of
+/// them ever presents. One modifier, one enum.
+enum ProfileSheet: String, Identifiable {
+    case edit
+    case settings
+
+    var id: String { rawValue }
+}
+
 /// Your own card, as others see it, with everything editable in place.
 struct ProfileView: View {
     @Environment(\.services) private var services
     @Environment(SessionStore.self) private var session
     @State private var viewModel: ProfileViewModel?
-    @State private var isEditing = false
-    @State private var isShowingSettings = false
+    @State private var sheet: ProfileSheet?
     @State private var pickedPhoto: PhotosPickerItem?
 
     var body: some View {
@@ -19,20 +27,18 @@ struct ProfileView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        isShowingSettings = true
+                        sheet = .settings
                     } label: {
                         Image(systemName: "gearshape")
                     }
                 }
             }
-            .sheet(isPresented: $isEditing) {
+            .sheet(item: $sheet) { presented in
                 if let viewModel {
-                    EditProfileView(viewModel: viewModel)
-                }
-            }
-            .sheet(isPresented: $isShowingSettings) {
-                if let viewModel {
-                    SettingsView(viewModel: viewModel)
+                    switch presented {
+                    case .edit: EditProfileView(viewModel: viewModel)
+                    case .settings: SettingsView(viewModel: viewModel)
+                    }
                 }
             }
         }
@@ -84,7 +90,7 @@ struct ProfileView: View {
                         .padding(.horizontal, PlumTheme.Spacing.l)
                     }
 
-                    Button("Modifier mon profil") { isEditing = true }
+                    Button("Modifier mon profil") { sheet = .edit }
                         .buttonStyle(PlumSecondaryButtonStyle())
                         .padding(.horizontal, PlumTheme.Spacing.l)
 
