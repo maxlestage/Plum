@@ -135,7 +135,12 @@ extension PlumSmokeTests {
             openDetail.waitForExistence(timeout: timeout),
             "La carte du dessus doit proposer d'ouvrir le profil complet"
         )
-        openDetail.tap()
+
+        // Tap by coordinate. `tap()` first asks the accessibility layer to
+        // scroll the element into view, which fails on this one — it sits
+        // inside a card that carries a drag gesture, and the scroll action
+        // errors even though the button is plainly on screen.
+        openDetail.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         // Ne pas s'appuyer sur le texte affiché : plumSectionHeader() applique
         // .textCase(.uppercase), donc « À propos » se rend « À PROPOS ». Le

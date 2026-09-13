@@ -32,12 +32,16 @@ struct SwipeCardView: View {
                         Image(systemName: "chevron.up.circle.fill")
                             .font(.title)
                             .foregroundStyle(.white, .black.opacity(0.35))
+                            // The glyph is 28pt; the minimum comfortable
+                            // target is 44. Grow the hit area, not the icon.
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     // En haut à droite : en bas, il passerait par-dessus la
                     // bande des centres d'intérêt, qui occupe toute la largeur.
-                    .padding(.trailing, PlumTheme.Spacing.m)
-                    .padding(.top, PlumTheme.Spacing.xl)
+                    .padding(.trailing, PlumTheme.Spacing.xs)
+                    .padding(.top, PlumTheme.Spacing.l)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .accessibilityLabel(Text("Voir le profil complet"))
                 }
