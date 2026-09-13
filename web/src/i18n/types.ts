@@ -25,11 +25,9 @@ export interface Entry {
 }
 
 export interface Copy {
-  /** Goes on `<html lang>`; also what screen readers switch voice on. */
-  htmlLang: string;
-  documentTitle: string;
-  metaDescription: string;
-
+  // Titles and descriptions are not here: `site.json` holds them, because the
+  // build-time template generator needs the same values and cannot read
+  // TypeScript. Two copies of a title is one title that goes stale.
   nav: {
     home: string;
     terms: string;

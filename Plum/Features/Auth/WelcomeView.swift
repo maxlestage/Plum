@@ -21,7 +21,7 @@ struct WelcomeView: View {
                         Text("Plum")
                             .font(.plumDisplay)
                             .foregroundStyle(.white)
-                        Text("Des rencontres pas sérieuses.\nC'est déjà beaucoup.")
+                        Text("Une photo, deux phrases.\nEt on verra bien.")
                             .font(.plumBody)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.white.opacity(0.9))

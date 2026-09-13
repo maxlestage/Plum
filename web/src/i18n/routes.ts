@@ -1,7 +1,11 @@
+import site from "./site.json";
 import type { Language } from "./types";
 
 /**
  * The page keys, and the slug each language uses for them.
+ *
+ * The table lives in `site.json` because the build-time template generator
+ * needs the same one, and it cannot import TypeScript.
  *
  * Translated slugs rather than `/es/privacy`: a Spanish reader should not have
  * to read English to know where a link goes. The key is what the code routes
@@ -11,26 +15,7 @@ export const pages = ["home", "terms", "privacy", "help"] as const;
 
 export type PageKey = (typeof pages)[number];
 
-export const slugs: Record<Language, Record<PageKey, string>> = {
-  fr: {
-    home: "",
-    terms: "conditions",
-    privacy: "confidentialite",
-    help: "aide",
-  },
-  en: {
-    home: "",
-    terms: "terms",
-    privacy: "privacy",
-    help: "help",
-  },
-  es: {
-    home: "",
-    terms: "condiciones",
-    privacy: "privacidad",
-    help: "ayuda",
-  },
-};
+export const slugs = site.slugs as Record<Language, Record<PageKey, string>>;
 
 /**
  * Always with a trailing slash.

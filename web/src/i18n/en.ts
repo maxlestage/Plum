@@ -1,11 +1,6 @@
 import type { Copy } from "./types";
 
 export const en: Copy = {
-  htmlLang: "en",
-  documentTitle: "Plum — Dating, not too seriously",
-  metaDescription:
-    "Plum is a dating app that doesn't take itself too seriously. One photo, two sentences, and we'll see.",
-
   nav: {
     home: "Home",
     terms: "Terms of use",
@@ -16,10 +11,9 @@ export const en: Copy = {
   },
 
   hero: {
-    headlineTop: "Dating, not too seriously.",
-    headlineBottom: "That's plenty.",
-    tagline:
-      "Plum is an iOS app. One photo, two sentences, and we'll see how it goes.",
+    headlineTop: "One photo, two sentences.",
+    headlineBottom: "Then we'll see.",
+    tagline: "Plum is a dating app for iOS.",
     availabilityCta: "When can I get it?",
     questionCta: "Ask a question",
   },
@@ -27,7 +21,7 @@ export const en: Copy = {
   stepsEyebrow: "How it works",
   steps: [
     {
-      title: "One photo, two sentences",
+      title: "Thirty seconds",
       body: "The least it takes for someone to want to reply. A photo is required; the rest takes thirty seconds.",
     },
     {
@@ -70,7 +64,7 @@ export const en: Copy = {
       "One more thing worth saying plainly: the app itself is currently in French only. This page is translated; the product is not, yet.",
   },
 
-  footerTagline: "Plum — dating, not too seriously. For adults only.",
+  footerTagline: "Plum — a dating app. For adults only.",
 
   draft: {
     heading: "A draft, not a legal document.",

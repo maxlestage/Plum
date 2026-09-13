@@ -1,11 +1,6 @@
 import type { Copy } from "./types";
 
 export const es: Copy = {
-  htmlLang: "es",
-  documentTitle: "Plum — Citas sin ponerse serios",
-  metaDescription:
-    "Plum es una aplicación de citas sin ponerse serios. Una foto, dos frases, y ya veremos.",
-
   nav: {
     home: "Inicio",
     terms: "Condiciones de uso",
@@ -16,10 +11,9 @@ export const es: Copy = {
   },
 
   hero: {
-    headlineTop: "Citas sin ponerse serios.",
-    headlineBottom: "Ya es bastante.",
-    tagline:
-      "Plum es una aplicación para iOS. Una foto, dos frases, y ya veremos.",
+    headlineTop: "Una foto, dos frases.",
+    headlineBottom: "Y ya veremos.",
+    tagline: "Plum es una aplicación de citas para iOS.",
     availabilityCta: "¿Cuándo estará disponible?",
     questionCta: "Hacer una pregunta",
   },
@@ -27,7 +21,7 @@ export const es: Copy = {
   stepsEyebrow: "Cómo funciona",
   steps: [
     {
-      title: "Una foto, dos frases",
+      title: "Treinta segundos",
       body: "Lo mínimo para que alguien tenga ganas de responder. La foto es obligatoria; lo demás se rellena en treinta segundos.",
     },
     {
@@ -70,7 +64,7 @@ export const es: Copy = {
       "Una cosa más, dicha claramente: la aplicación está por ahora solo en francés. Esta página está traducida; el producto todavía no.",
   },
 
-  footerTagline: "Plum — citas sin ponerse serios. Solo para mayores de edad.",
+  footerTagline: "Plum — aplicación de citas. Solo para mayores de edad.",
 
   draft: {
     heading: "Borrador, no un documento jurídico.",

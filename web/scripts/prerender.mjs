@@ -23,52 +23,15 @@ const dist = path.join(here, "..", "dist");
 const languages = ["fr", "en", "es"];
 const pages = ["home", "terms", "privacy", "help"];
 
-const slugs = {
-  fr: {
-    home: "",
-    terms: "conditions",
-    privacy: "confidentialite",
-    help: "aide",
-  },
-  en: { home: "", terms: "terms", privacy: "privacy", help: "help" },
-  es: { home: "", terms: "condiciones", privacy: "privacidad", help: "ayuda" },
-};
-
-const meta = {
-  fr: {
-    title: "Plum — Des rencontres pas sérieuses",
-    description:
-      "Plum est une application de rencontres pas sérieuses. Une photo, deux phrases, et on verra bien.",
-    pageTitles: {
-      home: null,
-      terms: "Conditions d'utilisation",
-      privacy: "Confidentialité",
-      help: "Aide et contact",
-    },
-  },
-  en: {
-    title: "Plum — Dating, not too seriously",
-    description:
-      "Plum is a dating app that doesn't take itself too seriously. One photo, two sentences, and we'll see.",
-    pageTitles: {
-      home: null,
-      terms: "Terms of use",
-      privacy: "Privacy",
-      help: "Help and contact",
-    },
-  },
-  es: {
-    title: "Plum — Citas sin ponerse serios",
-    description:
-      "Plum es una aplicación de citas sin ponerse serios. Una foto, dos frases, y ya veremos.",
-    pageTitles: {
-      home: null,
-      terms: "Condiciones de uso",
-      privacy: "Privacidad",
-      help: "Ayuda y contacto",
-    },
-  },
-};
+/**
+ * Slugs and metadata come from `src/i18n/site.json`, the same file the
+ * application reads. They used to be copied here, and a copy of a title is a
+ * title that goes stale the first time someone edits only one of them.
+ */
+const site = JSON.parse(
+  fs.readFileSync(path.join(here, "..", "src", "i18n", "site.json"), "utf8"),
+);
+const { slugs, meta } = site;
 
 /** `&` first, or it would double-escape the entities added after it. */
 function escapeHtml(value) {

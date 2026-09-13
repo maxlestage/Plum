@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
-import { useCopy, useLanguage } from "../i18n";
+import { useLanguage } from "../i18n";
+import site from "../i18n/site.json";
 import { languages } from "../i18n";
 import type { PageKey } from "../i18n/routes";
 import { pathFor } from "../i18n/routes";
@@ -22,16 +23,20 @@ function setMeta(selector: string, attribute: string, value: string) {
  * same French title for all three versions.
  */
 export function DocumentHead({ page }: { page: PageKey }) {
-  const copy = useCopy();
   const language = useLanguage();
 
   useEffect(() => {
-    document.documentElement.lang = copy.htmlLang;
-    document.title = copy.documentTitle;
-    setMeta('meta[name="description"]', "content", copy.metaDescription);
-    setMeta('meta[property="og:title"]', "content", copy.documentTitle);
-    setMeta('meta[property="og:description"]', "content", copy.metaDescription);
-  }, [copy]);
+    const { title, description, pageTitles } = site.meta[language];
+    const section = pageTitles[page];
+    // The same rule the template generator applies, from the same table.
+    const fullTitle = section === null ? title : `${section} — Plum`;
+
+    document.documentElement.lang = language;
+    document.title = fullTitle;
+    setMeta('meta[name="description"]', "content", description);
+    setMeta('meta[property="og:title"]', "content", fullTitle);
+    setMeta('meta[property="og:description"]', "content", description);
+  }, [language, page]);
 
   useEffect(() => {
     // Alternates tell a search engine these are the same page in another

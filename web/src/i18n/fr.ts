@@ -1,11 +1,6 @@
 import type { Copy } from "./types";
 
 export const fr: Copy = {
-  htmlLang: "fr",
-  documentTitle: "Plum — Des rencontres pas sérieuses",
-  metaDescription:
-    "Plum est une application de rencontres pas sérieuses. Une photo, deux phrases, et on verra bien.",
-
   nav: {
     home: "Accueil",
     terms: "Conditions d'utilisation",
@@ -16,10 +11,9 @@ export const fr: Copy = {
   },
 
   hero: {
-    headlineTop: "Des rencontres pas sérieuses.",
-    headlineBottom: "C'est déjà beaucoup.",
-    tagline:
-      "Plum est une application iOS. Une photo, deux phrases, et on verra bien.",
+    headlineTop: "Une photo, deux phrases.",
+    headlineBottom: "Et on verra bien.",
+    tagline: "Plum est une application de rencontres pour iOS.",
     availabilityCta: "Quand est-ce disponible ?",
     questionCta: "Poser une question",
   },
@@ -27,7 +21,7 @@ export const fr: Copy = {
   stepsEyebrow: "Comment ça marche",
   steps: [
     {
-      title: "Une photo, deux phrases",
+      title: "Trente secondes",
       body: "Le strict minimum pour qu'on ait envie de répondre. Une photo est obligatoire ; le reste se remplit en trente secondes.",
     },
     {
@@ -70,7 +64,7 @@ export const fr: Copy = {
   },
 
   footerTagline:
-    "Plum — des rencontres pas sérieuses. Application réservée aux personnes majeures.",
+    "Plum — application de rencontres réservée aux personnes majeures.",
 
   draft: {
     heading: "Brouillon, pas un document juridique.",
