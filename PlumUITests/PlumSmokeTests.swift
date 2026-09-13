@@ -122,3 +122,43 @@ final class PlumSmokeTests: XCTestCase {
         )
     }
 }
+
+extension PlumSmokeTests {
+    /// The card shows three lines of bio; without this screen people swipe on
+    /// photographs alone. The sheet has to open from the deck and carry the
+    /// whole profile.
+    func testTheFullProfileOpensFromTheDeck() {
+        signIn()
+
+        let openDetail = app.buttons["Voir le profil complet"]
+        XCTAssertTrue(
+            openDetail.waitForExistence(timeout: timeout),
+            "La carte du dessus doit proposer d'ouvrir le profil complet"
+        )
+
+        // Tap by coordinate. `tap()` first asks the accessibility layer to
+        // scroll the element into view, which fails on this one — it sits
+        // inside a card that carries a drag gesture, and the scroll action
+        // errors even though the button is plainly on screen.
+        openDetail.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        // Ne pas s'appuyer sur le texte affiché : plumSectionHeader() applique
+        // .textCase(.uppercase), donc « À propos » se rend « À PROPOS ». Le
+        // bouton de fermeture, lui, n'existe que quand la feuille est ouverte.
+        let close = app.buttons["Fermer"]
+        XCTAssertTrue(
+            close.waitForExistence(timeout: timeout),
+            "La feuille de profil ne s'est pas ouverte"
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["feuille-profil"].exists,
+            "Le contenu de la feuille est absent"
+        )
+
+        close.tap()
+        XCTAssertTrue(
+            app.buttons["J'aime"].waitForExistence(timeout: timeout),
+            "Fermer doit ramener au deck"
+        )
+    }
+}

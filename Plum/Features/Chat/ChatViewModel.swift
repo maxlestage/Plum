@@ -16,6 +16,7 @@ final class ChatViewModel {
 
     private var oldestCursor: String?
     private var hasMoreHistory = true
+    private var isLoadingHistory = false
     private var streamTask: Task<Void, Never>?
     private var typingResetTask: Task<Void, Never>?
     private var lastTypingNotice: Date?
@@ -81,9 +82,20 @@ final class ChatViewModel {
         }
     }
 
-    /// Pulls the previous page when the user scrolls to the top of the thread.
-    func loadOlderMessages() async {
-        guard hasMoreHistory, let oldestCursor else { return }
+    /// Pulls the previous page when the person scrolls to the top of the
+    /// thread.
+    ///
+    /// Returns the message that was at the top before the insert. Older
+    /// messages go in *above* the current position, which shoves everything
+    /// down: the view uses this to scroll back to where the reader was, so a
+    /// page load stops feeling like the thread jumped.
+    @discardableResult
+    func loadOlderMessages() async -> UUID? {
+        guard hasMoreHistory, !isLoadingHistory, let oldestCursor else { return nil }
+        isLoadingHistory = true
+        defer { isLoadingHistory = false }
+
+        let previousTop = items.first?.id
         do {
             let page = try await chat.messages(conversationId: conversation.id, before: oldestCursor)
             let known = Set(items.map(\.id))
@@ -91,11 +103,18 @@ final class ChatViewModel {
                 .filter { !known.contains($0.id) }
                 .sorted { $0.sentAt < $1.sentAt }
                 .map { ChatItem(message: $0) }
+            guard !older.isEmpty else {
+                hasMoreHistory = page.hasMore
+                self.oldestCursor = page.nextCursor
+                return nil
+            }
             items.insert(contentsOf: older, at: 0)
             self.oldestCursor = page.nextCursor
             hasMoreHistory = page.hasMore
+            return previousTop
         } catch {
             state = .failed(error.asAPIError)
+            return nil
         }
     }
 
