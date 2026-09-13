@@ -10,19 +10,13 @@ use http_body_util::BodyExt;
 use plum_server::config::Config;
 use plum_server::rate_limit::{InProcessLimiter, RateLimiter};
 use plum_server::state::AppState;
-use sea_orm::{ConnectOptions, Database, DatabaseConnection};
+use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use serde_json::{json, Value};
-use tokio::sync::OnceCell;
 use tower::ServiceExt;
 
-/// The connection and the migrations, once for the whole binary.
-///
-/// Cargo runs these tests in parallel threads of one process. Each one calling
-/// `Migrator::up` meant several racing to create `seaql_migrations`, and
-/// Postgres rejecting all but the first — a failure that only ever appears
-/// under real concurrency, which is to say only in CI.
-static SHARED: OnceCell<Option<DatabaseConnection>> = OnceCell::const_new();
+/// Identifies the migration lock. Any constant does; this one spells "PLUM".
+const MIGRATION_LOCK: i64 = 0x504c_554d;
 
 /// Routes the server's own logs into the test output. Without this an
 /// internal failure reaches the assertion as a bare 500 with a polite message
@@ -34,48 +28,96 @@ fn capture_server_logs() {
         .try_init();
 }
 
+/// The test database URL, or `None` when the suite should skip.
+fn test_database_url() -> Option<String> {
+    match std::env::var("TEST_DATABASE_URL") {
+        Ok(url) => Some(plum_server::config::normalise_database_url(&url)),
+        Err(_) => {
+            // Ten green tests that executed nothing is worse than one red one.
+            // CI sets REQUIRE_TEST_DATABASE so a Postgres service that failed
+            // to start cannot pass for a clean run.
+            assert!(
+                std::env::var("REQUIRE_TEST_DATABASE").is_err(),
+                "REQUIRE_TEST_DATABASE est posé mais TEST_DATABASE_URL manque : \
+                 les tests d'intégration auraient été sautés en silence"
+            );
+            eprintln!("· sauté : TEST_DATABASE_URL non défini");
+            None
+        }
+    }
+}
+
+/// A connection of this test's own, and the migrations applied once.
+///
+/// **Each test gets its own pool, deliberately.** Sharing one across the suite
+/// is the obvious economy and it does not work: `#[tokio::test]` gives every
+/// test its own current-thread runtime, and a sqlx connection registers its
+/// socket with the IO driver of the runtime that opened it. Once the first
+/// test finishes, that runtime is dropped and its driver with it — so a later
+/// test handed one of those pooled connections waits on a socket nobody is
+/// polling, and fails twenty seconds later with `ConnectionAcquire(Timeout)`.
+/// The symptom is a handful of unrelated tests failing at random, including
+/// one that does nothing but `ping`.
 async fn database() -> Option<DatabaseConnection> {
     capture_server_logs();
-    SHARED
-        .get_or_init(|| async {
-            let url = match std::env::var("TEST_DATABASE_URL") {
-                Ok(url) => url,
-                Err(_) => {
-                    // Ten green tests that executed nothing is worse than one
-                    // red one. CI sets REQUIRE_TEST_DATABASE so a Postgres
-                    // service that failed to start cannot pass for a clean run.
-                    assert!(
-                        std::env::var("REQUIRE_TEST_DATABASE").is_err(),
-                        "REQUIRE_TEST_DATABASE est posé mais TEST_DATABASE_URL manque : \
-                         les tests d'intégration auraient été sautés en silence"
-                    );
-                    eprintln!("· sauté : TEST_DATABASE_URL non défini");
-                    return None;
-                }
-            };
+    let url = test_database_url()?;
 
-            let mut options =
-                ConnectOptions::new(plum_server::config::normalise_database_url(&url));
-            options
-                // Wider than production on purpose: the harness runs every
-                // test at once, which is more concurrent work than one dyno
-                // ever sees. Narrowing it here would only make the tests
-                // queue behind each other and call it a failure.
-                .max_connections(24)
-                .min_connections(4)
-                .acquire_timeout(std::time::Duration::from_secs(20))
-                .sqlx_logging(false);
+    migrate_once(&url).await;
 
-            let db = Database::connect(options)
-                .await
-                .expect("connexion à la base de test");
-            migration::Migrator::up(&db, None)
-                .await
-                .expect("migrations");
-            Some(db)
-        })
+    let mut options = ConnectOptions::new(url);
+    options
+        .max_connections(4)
+        .min_connections(0)
+        .acquire_timeout(std::time::Duration::from_secs(20))
+        .sqlx_logging(false);
+
+    Some(
+        Database::connect(options)
+            .await
+            .expect("connexion à la base de test"),
+    )
+}
+
+/// Applies the migrations under a Postgres advisory lock.
+///
+/// The migrator is idempotent, so the arrivals after the first do nothing —
+/// but running them concurrently is not: several tests racing to create
+/// `seaql_migrations` had Postgres reject all but one with a duplicate key on
+/// `pg_type`. The lock is held by a session, so this pool has exactly one
+/// connection and the three statements are guaranteed to share it.
+///
+/// A lock rather than a `OnceCell`: it serialises across threads, across test
+/// binaries, and across a second `cargo test` someone starts in another
+/// terminal, none of which a process-local cell can do.
+async fn migrate_once(url: &str) {
+    let mut options = ConnectOptions::new(url.to_owned());
+    options
+        .max_connections(1)
+        .min_connections(1)
+        .acquire_timeout(std::time::Duration::from_secs(30))
+        .sqlx_logging(false);
+
+    let db = Database::connect(options)
         .await
-        .clone()
+        .expect("connexion pour les migrations");
+
+    db.execute_unprepared(&format!("SELECT pg_advisory_lock({MIGRATION_LOCK})"))
+        .await
+        .expect("prise du verrou de migration");
+
+    let outcome = migration::Migrator::up(&db, None).await;
+
+    // Released whatever happened: holding it through a panic would hang every
+    // other test on the lock instead of failing them with the real reason.
+    let unlock = db
+        .execute_unprepared(&format!("SELECT pg_advisory_unlock({MIGRATION_LOCK})"))
+        .await;
+
+    outcome.expect("migrations");
+    unlock.expect("libération du verrou de migration");
+    db.close()
+        .await
+        .expect("fermeture de la connexion de migration");
 }
 
 fn state(db: DatabaseConnection) -> AppState {
@@ -122,6 +164,15 @@ async fn call(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value)
         serde_json::from_slice(&bytes).unwrap_or(Value::Null)
     };
     (status, body)
+}
+
+/// Like `call`, but keeps the bytes. `call` parses JSON and folds anything
+/// else into `Null`, which cannot tell the site's HTML from an empty body.
+async fn call_raw(app: &axum::Router, request: Request<Body>) -> (StatusCode, String) {
+    let response = app.clone().oneshot(request).await.expect("réponse");
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (status, String::from_utf8_lossy(&bytes).into_owned())
 }
 
 fn post(path: &str, body: Value) -> Request<Body> {
@@ -481,7 +532,9 @@ async fn the_site_and_the_api_share_one_host_without_shadowing_each_other() {
     assert_eq!(root, StatusCode::OK, "la racine doit servir le site");
 
     // A route of the single-page site, typed straight into the address bar.
-    let (deep, _) = call(
+    // The status matters as much as the body: `not_found_service` would serve
+    // this exact page under a 404, which search engines take at their word.
+    let (deep, deep_body) = call_raw(
         &app,
         Request::builder()
             .uri("/confidentialite")
@@ -490,6 +543,10 @@ async fn the_site_and_the_api_share_one_host_without_shadowing_each_other() {
     )
     .await;
     assert_eq!(deep, StatusCode::OK, "une route du site ne doit pas 404");
+    assert!(
+        deep_body.contains("<title>Plum</title>"),
+        "la route profonde doit servir index.html, reçu : {deep_body}"
+    );
 
     let (health, body) = call(
         &app,
@@ -512,6 +569,23 @@ async fn the_site_and_the_api_share_one_host_without_shadowing_each_other() {
     )
     .await;
     assert_eq!(unauthorised, StatusCode::UNAUTHORIZED);
+
+    // A typo under /api must read as a typo. Falling through to the site would
+    // hand the client 200 and a page of HTML, and the iOS app would report a
+    // decoding failure instead of a missing route.
+    let (missing, missing_body) = call_raw(
+        &app,
+        Request::builder()
+            .uri("/api/v1/nexiste-pas")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(missing, StatusCode::NOT_FOUND);
+    assert!(
+        !missing_body.contains("<title>Plum</title>"),
+        "une route d'API inconnue ne doit pas servir le site : {missing_body}"
+    );
 
     std::fs::remove_dir_all(&directory).ok();
 }

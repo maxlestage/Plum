@@ -30,6 +30,11 @@ async fn health() -> Json<Health> {
     })
 }
 
+/// Kept separate from the site's catch-all so an API typo reads as one.
+async fn unknown_api_route() -> error::ApiError {
+    error::ApiError::NotFound
+}
+
 pub fn app(state: AppState) -> Router {
     app_with_site(state, None)
 }
@@ -42,7 +47,13 @@ pub fn app(state: AppState) -> Router {
 pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
     let api = Router::new()
         .route("/health", get(health))
-        .nest("/api/v1", auth::routes::router())
+        .nest(
+            "/api/v1",
+            // An unknown path under /api must not fall through to the site:
+            // a client asking for JSON would get 200 and a page of HTML, and
+            // would report the decoding failure rather than the typo.
+            auth::routes::router().fallback(unknown_api_route),
+        )
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
@@ -51,8 +62,14 @@ pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
             // Anything the API does not claim is a route of the single-page
             // site, so an unknown path serves index.html rather than a 404 —
             // otherwise /conditions only works when typed from inside the app.
+            //
+            // `fallback`, not `not_found_service`: the latter is documented
+            // for exactly this case, and it wraps the fallback in a
+            // `SetStatus` that forces 404. The page would render and the
+            // status would still say the page does not exist — which search
+            // engines believe, and which some clients treat as an error.
             let index = directory.join("index.html");
-            let files = ServeDir::new(directory).not_found_service(ServeFile::new(index));
+            let files = ServeDir::new(directory).fallback(ServeFile::new(index));
             api.fallback_service(files)
         }
         None => api,
