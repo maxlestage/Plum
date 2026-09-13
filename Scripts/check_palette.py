@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 THEME = ROOT / "Plum" / "DesignSystem" / "PlumTheme.swift"
 ASSETS = ROOT / "Plum" / "Resources" / "Assets.xcassets"
 ICON_SCRIPT = ROOT / "Scripts" / "generate_appicon.py"
+SITE_CSS = ROOT / "web" / "src" / "theme.css"
 
 # Which theme colour each repetition must equal.
 ASSET_EXPECTATIONS = {
@@ -35,8 +36,18 @@ ICON_EXPECTATIONS = {
 }
 # The icon's ink is the light canvas, so the mark matches the app's paper.
 ICON_ASSET_EXPECTATIONS = {"WHITE": "Canvas"}
+# The presentation site repeats the palette a fourth time, in CSS. A site that
+# drifts from the product it presents looks like a fake.
+SITE_EXPECTATIONS = {
+    "--plum": "plum",
+    "--plum-deep": "plumDeep",
+    "--blush": "blush",
+    "--apricot": "apricot",
+    "--mint": "mint",
+}
 
 SWIFT_COLOUR = re.compile(r"static let (\w+)\s*=\s*Color\(hex:\s*0x([0-9A-Fa-f]{6})\)")
+CSS_COLOUR = re.compile(r"(--[a-z-]+):\s*#([0-9A-Fa-f]{6});")
 PYTHON_COLOUR = re.compile(r"^(\w+)\s*=\s*\(0x([0-9A-Fa-f]{2}),\s*0x([0-9A-Fa-f]{2}),\s*0x([0-9A-Fa-f]{2})\)", re.M)
 
 
@@ -52,6 +63,15 @@ def icon_colours() -> dict[str, int]:
     for name, red, green, blue in PYTHON_COLOUR.findall(ICON_SCRIPT.read_text(encoding="utf-8")):
         found[name] = (int(red, 16) << 16) | (int(green, 16) << 8) | int(blue, 16)
     return found
+
+
+def site_colours() -> dict[str, int]:
+    if not SITE_CSS.exists():
+        return {}
+    # Only the light palette, declared on bare `:root`: the dark block
+    # redefines the neutrals, not the brand colours.
+    text = SITE_CSS.read_text(encoding="utf-8").split("@media", 1)[0]
+    return {name: int(value, 16) for name, value in CSS_COLOUR.findall(text)}
 
 
 def asset_colour(name: str) -> int | None:
@@ -74,6 +94,7 @@ def asset_colour(name: str) -> int | None:
 def main() -> int:
     theme = theme_colours()
     icons = icon_colours()
+    site = site_colours()
     problems: list[str] = []
 
     if not theme:
@@ -113,6 +134,18 @@ def main() -> int:
                 f"{asset} (#{expected:06X})"
             )
 
+    if site:
+        for variable, member in SITE_EXPECTATIONS.items():
+            expected = theme.get(member)
+            actual = site.get(variable)
+            if expected is None or actual is None:
+                problems.append(f"impossible de comparer {variable} et Palette.{member}")
+            elif actual != expected:
+                problems.append(
+                    f"theme.css {variable} (#{actual:06X}) ne suit plus "
+                    f"Palette.{member} (#{expected:06X})"
+                )
+
     if problems:
         print("✗ La palette a divergé :", file=sys.stderr)
         for problem in problems:
@@ -124,7 +157,12 @@ def main() -> int:
         )
         return 1
 
-    checked = len(ASSET_EXPECTATIONS) + len(ICON_EXPECTATIONS) + len(ICON_ASSET_EXPECTATIONS)
+    checked = (
+        len(ASSET_EXPECTATIONS)
+        + len(ICON_EXPECTATIONS)
+        + len(ICON_ASSET_EXPECTATIONS)
+        + (len(SITE_EXPECTATIONS) if site else 0)
+    )
     print(f"✓ Palette cohérente — {checked} correspondances vérifiées, {len(theme)} couleurs de thème")
     return 0
 

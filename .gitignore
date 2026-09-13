@@ -29,3 +29,11 @@ fastlane/report.xml
 fastlane/screenshots/**/*.png
 fastlane/test_output
 *.xcresult
+
+## Rust
+server/target/
+
+## Site
+web/node_modules/
+web/dist/
+web/.vite/
