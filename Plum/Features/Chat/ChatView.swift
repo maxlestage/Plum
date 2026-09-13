@@ -144,7 +144,14 @@ struct ChatView: View {
 
                     Color.clear
                         .frame(height: 1)
-                        .onAppear { Task { await viewModel.loadOlderMessages() } }
+                        .onAppear {
+                            Task { @MainActor in
+                                // Put the reader back where they were: the new
+                                // page went in above them.
+                                guard let anchor = await viewModel.loadOlderMessages() else { return }
+                                proxy.scrollTo(anchor, anchor: .top)
+                            }
+                        }
 
                     ForEach(Array(viewModel.items.enumerated()), id: \.element.id) { index, item in
                         MessageBubble(
