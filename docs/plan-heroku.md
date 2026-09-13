@@ -31,17 +31,57 @@ Aucune de ces étapes n'exige un ordinateur.
 
 ## Chaîne 1 — Backend Rust sur Heroku
 
-### Le piège à éviter d'emblée
+### Deux chaînes qui ne peuvent pas coexister
 
-Heroku impose **15 minutes** de temps de build. Une compilation Rust en release
-d'un axum + SeaORM les dépasse sans peine, surtout au premier build. Compiler
-sur Heroku est donc un cul-de-sac.
+Heroku sait déployer de deux façons, et **il faut en choisir une** :
 
-**La sortie** : construire l'image Docker dans GitHub Actions — qui n'a pas
-cette limite et sait mettre en cache les couches de dépendances — puis la
-pousser au registre de conteneurs Heroku et déclencher la release par API.
-Heroku ne fait plus que lancer une image déjà prête. Le déploiement tombe à
-quelques secondes, et tout se pilote depuis GitHub.
+1. **Heroku construit depuis GitHub** (onglet Deploy → « Connect to GitHub »,
+   déploiements automatiques). Heroku récupère le dépôt et le construit
+   lui-même.
+2. **GitHub Actions construit et pousse une image finie** au registre de
+   conteneurs, puis déclenche la release par API. Heroku ne fait que lancer
+   une image déjà prête.
+
+Ce dépôt est fait pour la seconde, et la première **échoue nécessairement** :
+la racine ne contient aucun manifeste que Heroku sache détecter — pas de
+`package.json`, pas de `Cargo.toml`, pas de `Procfile`. Le code est dans
+`server/` et `web/`. Le build s'arrête donc avant de commencer, sur « no
+default language could be detected ».
+
+Si les déploiements automatiques sont activés côté Heroku, il faut les
+**désactiver** : sinon chaque poussée sur `master` déclenche un build voué à
+échouer, et un courriel avec.
+
+### Le temps de build, mesuré et non estimé
+
+Heroku plafonne ses builds à 15 minutes. **Mesuré sur le constructeur de
+Heroku lui-même, trois fois : 2 min 40 s à 3 min 13 s**, image Docker
+complète, étage Node compris. L'affirmation « ça dépasse les 15 minutes sans
+peine », que j'ai d'abord écrite, était fausse — d'un facteur cinq.
+
+Construire sur Heroku est donc parfaitement viable, et c'est ce que fait ce
+dépôt.
+
+Les vraies raisons tiennent quand même :
+
+- **Le cache de couches.** Actions garde les dépendances compilées d'un build
+  à l'autre ; un build Heroku repart de plus loin à chaque fois.
+- **Le build est déjà là.** L'image est construite et testée sur chaque pull
+  request, avant d'être poussée. Un Dockerfile cassé échoue sur la PR, pas sur
+  le déploiement.
+- **Deux étages, Node puis Rust.** Le site et l'API sont construits ensemble et
+  servis par le même dyno.
+
+### Le réglage qui ne se fait pas depuis un téléphone
+
+Le registre de conteneurs n'accepte que les applications dont le stack est
+`container`. Ce réglage n'existe **pas** dans le tableau de bord : c'est
+`heroku stack:set container`, une commande. Sur un téléphone, c'est un
+cul-de-sac.
+
+Le workflow le pose donc lui-même, par l'API, avant de pousser l'image — il a
+déjà la clé. C'est idempotent, et ça enlève la seule étape qui imposait un
+ordinateur.
 
 ### Forme du projet
 
@@ -173,3 +213,42 @@ La tranche 2 avant tout le reste : un backend déployé qui répond à
 
 Le reste — le code, les workflows, le Dockerfile, les migrations — je peux
 l'écrire et le pousser d'ici.
+
+
+---
+
+## Ce que le premier déploiement réel a appris
+
+Trois bugs qu'aucun test ne pouvait attraper, parce qu'ils tenaient à
+l'environnement et non au code.
+
+### Un Redis injoignable empêchait le démarrage
+
+Les migrations passaient, puis Heroku tuait le dyno au bout de soixante
+secondes : le port n'avait jamais été ouvert. `ConnectionManager::new`
+réessaie en interne plutôt que d'échouer, et la construction du limiteur
+précède l'écoute — donc un add-on en panne rendait le service impossible à
+démarrer.
+
+Le code affirmait partout que « Redis reste facultatif, le service reste
+debout » et faisait l'inverse. L'attente est maintenant bornée à cinq
+secondes, et un test rejoue le cas contre une adresse qui ne répond pas.
+
+### L'erreur ne disait rien
+
+Le journal ne donnait qu'un « délai dépassé », ce qui ne distingue pas un
+certificat refusé d'un hôte injoignable ou d'un mot de passe faux. Un
+déploiement n'a servi qu'à rendre l'échec bavard : un seul essai, pas de
+réessai en arrière-plan, l'erreur remonte telle quelle.
+
+### La vraie cause : une feature de compilation
+
+`Cannot create insecure client without tls-rustls-insecure feature`.
+
+Le fragment `#insecure` était bien ajouté à l'URL, et bien lu par la
+bibliothèque à l'analyse — puis refusé à la connexion, faute d'une option de
+compilation. Une option manquante ne se voit dans aucun test qui ne parle pas
+à un vrai serveur TLS.
+
+La morale des trois : un échec qui ne nomme pas sa cause coûte un déploiement
+de plus que celui qui la nomme.

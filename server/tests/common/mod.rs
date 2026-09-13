@@ -11,6 +11,7 @@
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
+use chrono::Datelike;
 use http_body_util::BodyExt;
 use plum_server::config::Config;
 use plum_server::rate_limit::{InProcessLimiter, RateLimiter};
@@ -19,6 +20,7 @@ use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use serde_json::{json, Value};
 use tower::ServiceExt;
+use uuid::Uuid;
 
 /// Identifies the migration lock. Any constant does; this one spells "PLUM".
 pub const MIGRATION_LOCK: i64 = 0x504c_554d;
@@ -237,4 +239,165 @@ pub async fn sign_up_and_token(app: &axum::Router, tag: &str) -> (String, Value)
         .to_owned();
 
     (token, body["user"].clone())
+}
+
+/// Deck tests need candidates that no other test can see or be seen by.
+///
+/// The deck reads every profile in the database, and the suite shares one, so
+/// two tests running at once would appear in each other's results. Isolation
+/// is by age: each deck test owns a distinct age, creates its candidates at
+/// that age, and pins its own preferences to exactly that band. The default
+/// sign-up is thirty years old, so the ordinary fixtures of every other suite
+/// fall outside every band.
+///
+/// The ages are listed here rather than inline so a collision is visible in
+/// one place instead of appearing as a flake.
+pub mod deck_ages {
+    pub const ORDERING: i32 = 21;
+    pub const ALREADY_JUDGED: i32 = 22;
+    pub const BLOCKED: i32 = 23;
+    pub const HIDDEN: i32 = 24;
+    pub const GENDER: i32 = 25;
+    pub const AGE_RANGE: i32 = 26;
+    pub const MATCHING: i32 = 27;
+    pub const REWIND: i32 = 28;
+    pub const SELF: i32 = 29;
+    pub const NO_POSITION: i32 = 33;
+    /// Tests that never read a deck still take an age of their own, so that
+    /// adding a deck assertion to one of them later cannot silently start
+    /// borrowing another test's candidates.
+    pub const BAD_CURSOR: i32 = 34;
+    pub const SELF_ACTIONS: i32 = 35;
+    pub const EMPTY_REWIND: i32 = 36;
+    pub const NOMAD: i32 = 37;
+    pub const PRECISION: i32 = 38;
+    pub const CURSOR: i32 = 31;
+    pub const REPORTING: i32 = 32;
+}
+
+/// A patch of the planet no other test run is using.
+///
+/// The age band isolates tests from each other *within* one run. It does
+/// nothing between runs: the database keeps the accounts of every previous
+/// `cargo test`, and the deck reads every profile there is. So each test also
+/// takes a random point on Earth and a radius small enough that yesterday's
+/// candidates, wherever they landed, are out of range.
+///
+/// Two independent axes, because either alone has a hole: the age band leaks
+/// across runs, and two random points could in principle land close together.
+pub fn private_cluster() -> (f64, f64) {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    // Mixed so that two calls a microsecond apart land far apart, rather than
+    // a few metres apart as the raw clock would give.
+    let mixed = (nanos as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    let latitude = -55.0 + f64::from((mixed >> 32) as u32) / f64::from(u32::MAX) * 110.0;
+    let longitude = -180.0 + f64::from(mixed as u32) / f64::from(u32::MAX) * 360.0;
+    (latitude, longitude)
+}
+
+/// Nudges a position by roughly `km` northwards, for tests that need
+/// candidates at known different distances.
+pub fn north_of((latitude, longitude): (f64, f64), km: f64) -> (f64, f64) {
+    (latitude + km / 111.0, longitude)
+}
+
+/// A birth date that makes someone exactly `age` today.
+pub fn birth_date_for(age: i32) -> String {
+    let today = chrono::Utc::now().date_naive();
+    let born = today
+        .with_year(today.year() - age)
+        .expect("une date de naissance valide");
+    format!("{born}T00:00:00Z")
+}
+
+/// Signs up one candidate with a chosen age, gender and optional position.
+pub async fn candidate(
+    app: &axum::Router,
+    tag: &str,
+    age: i32,
+    gender: &str,
+    position: Option<(f64, f64)>,
+) -> (String, Uuid) {
+    let email = unique_email(tag);
+    let (status, body) = call(
+        app,
+        post(
+            "/api/v1/auth/sign-up",
+            json!({
+                "email": email,
+                "password": "motdepasse",
+                "display_name": tag,
+                "birth_date": birth_date_for(age),
+                "gender": gender,
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "inscription de {tag} : {body}");
+
+    let token = body["tokens"]["access_token"].as_str().unwrap().to_owned();
+    let id: Uuid = body["user"]["id"].as_str().unwrap().parse().unwrap();
+
+    if let Some((latitude, longitude)) = position {
+        let (status, _) = call(
+            app,
+            request(
+                "PATCH",
+                "/api/v1/me/location",
+                Some(&token),
+                Some(json!({ "latitude": latitude, "longitude": longitude })),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "position de {tag}");
+    }
+
+    (token, id)
+}
+
+/// Pins a viewer's filters to exactly one age, so only the candidates this
+/// test created can appear in its deck.
+pub async fn only_see_age(app: &axum::Router, token: &str, age: i32, interested_in: &str) {
+    let (status, body) = call(
+        app,
+        request(
+            "PATCH",
+            "/api/v1/me/preferences",
+            Some(token),
+            Some(json!({
+                "interested_in": interested_in,
+                "min_age": age,
+                "max_age": age,
+                "max_distance_km": 60,
+                "show_me_on_plum": true,
+            })),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "préférences : {body}");
+}
+
+/// The identifiers in a viewer's deck, in order.
+pub async fn deck_ids(app: &axum::Router, token: &str, query: &str) -> Vec<Uuid> {
+    let (status, body) = call(
+        app,
+        request(
+            "GET",
+            &format!("/api/v1/discovery/deck{query}"),
+            Some(token),
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "deck : {body}");
+    body["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .map(|item| item["id"].as_str().unwrap().parse().unwrap())
+        .collect()
 }
