@@ -24,7 +24,12 @@ const languages = ["fr", "en", "es"];
 const pages = ["home", "terms", "privacy", "help"];
 
 const slugs = {
-  fr: { home: "", terms: "conditions", privacy: "confidentialite", help: "aide" },
+  fr: {
+    home: "",
+    terms: "conditions",
+    privacy: "confidentialite",
+    help: "aide",
+  },
   en: { home: "", terms: "terms", privacy: "privacy", help: "help" },
   es: { home: "", terms: "condiciones", privacy: "privacidad", help: "ayuda" },
 };
@@ -74,9 +79,10 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
+/** Trailing slash, for the same reason as its twin in `src/i18n/routes.ts`. */
 function pathFor(language, page) {
   const slug = slugs[language][page];
-  return slug === "" ? `/${language}` : `/${language}/${slug}`;
+  return slug === "" ? `/${language}/` : `/${language}/${slug}/`;
 }
 
 const template = fs.readFileSync(path.join(dist, "index.html"), "utf8");
@@ -114,7 +120,7 @@ for (const language of languages) {
       )
       .replace(
         /<meta\s+property="og:description"[\s\S]*?\/>/,
-        `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="${language}" />\n    ${alternates}`,
+        `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="${language}" />\n    <link rel="canonical" href="${pathFor(language, page)}" />\n    ${alternates}`,
       );
 
     const directory = path.join(dist, pathFor(language, page));
@@ -126,10 +132,20 @@ for (const language of languages) {
 
 // A shell that made none of its substitutions would ship silently and look
 // fine to a person while staying wrong for every crawler.
-const sample = fs.readFileSync(path.join(dist, "es", "privacidad", "index.html"), "utf8");
-for (const expected of ['<html lang="es">', "Privacidad — Plum", 'hreflang="x-default"']) {
+const sample = fs.readFileSync(
+  path.join(dist, "es", "privacidad", "index.html"),
+  "utf8",
+);
+for (const expected of [
+  '<html lang="es">',
+  "Privacidad — Plum",
+  'hreflang="x-default"',
+  'rel="canonical" href="/es/privacidad/"',
+]) {
   if (!sample.includes(expected)) {
-    console.error(`prerender : « ${expected} » absent du témoin, le gabarit a dû changer`);
+    console.error(
+      `prerender : « ${expected} » absent du témoin, le gabarit a dû changer`,
+    );
     process.exit(1);
   }
 }

@@ -32,9 +32,18 @@ export const slugs: Record<Language, Record<PageKey, string>> = {
   },
 };
 
+/**
+ * Always with a trailing slash.
+ *
+ * The pages are served as directory indexes, and `ServeDir` answers a
+ * directory URL without a trailing slash with a 307 to the version that has
+ * one. Declaring the slashless form in `hreflang` would point every
+ * translation at a URL that redirects before it serves, and would leave the
+ * address bar disagreeing with the canonical after a reload.
+ */
 export function pathFor(language: Language, page: PageKey): string {
   const slug = slugs[language][page];
-  return slug === "" ? `/${language}` : `/${language}/${slug}`;
+  return slug === "" ? `/${language}/` : `/${language}/${slug}/`;
 }
 
 /** Which page a slug refers to, in any language, or `undefined`. */

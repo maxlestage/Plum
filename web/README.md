@@ -49,8 +49,15 @@ suffisant pour une personne et inutile pour les robots qui fabriquent les
 aperçus de liens — aucun n'exécute de JavaScript. Partager `/es` dans WhatsApp
 ou iMessage aurait affiché le titre français.
 
-`ServeDir` sert `/es/privacidad/index.html` tout seul pour `/es/privacidad`, et
-l'application prend le relais ensuite.
+`ServeDir` sert `/es/privacidad/index.html` tout seul pour `/es/privacidad/`,
+et l'application prend le relais ensuite.
+
+**Toutes les adresses portent une barre finale.** `ServeDir` répond à une URL
+de répertoire sans barre par une redirection 307 vers celle qui en a une :
+déclarer la forme sans barre dans les `hreflang` ferait pointer chaque
+traduction vers une adresse qui redirige avant de servir, et la barre
+d'adresse contredirait le `canonical` après un rechargement. Un `canonical`
+est posé dans chaque gabarit, sur cette même forme.
 
 Corollaire attrapé par les tests : le composant qui pose les `hreflang` à
 l'exécution doit **remplacer** ceux du gabarit, pas s'ajouter à eux, sinon
