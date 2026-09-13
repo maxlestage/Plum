@@ -9,7 +9,7 @@ use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use plum_server::config::Config;
 use plum_server::state::AppState;
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use serde_json::{json, Value};
 use tokio::sync::OnceCell;
@@ -53,7 +53,14 @@ async fn database() -> Option<DatabaseConnection> {
                 }
             };
 
-            let db = Database::connect(plum_server::config::normalise_database_url(&url))
+            let mut options =
+                ConnectOptions::new(plum_server::config::normalise_database_url(&url));
+            options
+                .max_connections(10)
+                .acquire_timeout(std::time::Duration::from_secs(10))
+                .sqlx_logging(false);
+
+            let db = Database::connect(options)
                 .await
                 .expect("connexion à la base de test");
             migration::Migrator::up(&db, None)
@@ -74,6 +81,7 @@ fn state(db: DatabaseConnection) -> AppState {
             jwt_secret: "un-secret-de-test-suffisamment-long-pour-passer".into(),
             access_token_ttl_minutes: 15,
             refresh_token_ttl_days: 60,
+            database_max_connections: 10,
         },
     )
 }

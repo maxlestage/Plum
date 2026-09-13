@@ -54,7 +54,8 @@ async fn sign_up(
         return Err(ApiError::EmailTaken);
     }
 
-    let password_hash = password::hash(&request.password)
+    let password_hash = password::hash(request.password.clone())
+        .await
         .map_err(|error| ApiError::Internal(crate::error::anyhow_lite::Error::new(error)))?;
 
     let user_id = Uuid::new_v4();
@@ -127,7 +128,7 @@ async fn sign_in(
     let Some(found) = found else {
         return Err(ApiError::InvalidCredentials);
     };
-    if !password::verify(&request.password, &found.password_hash) {
+    if !password::verify(request.password.clone(), found.password_hash.clone()).await {
         return Err(ApiError::InvalidCredentials);
     }
 

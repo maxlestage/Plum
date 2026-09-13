@@ -68,6 +68,7 @@ déploiement en le signalant. Rien ne casse avant que Heroku n'existe.
 | `JWT_SECRET` | 32 caractères minimum, sinon refus de démarrer. |
 | `ACCESS_TOKEN_TTL_MINUTES` | 15 par défaut. |
 | `REFRESH_TOKEN_TTL_DAYS` | 60 par défaut. |
+| `DATABASE_MAX_CONNECTIONS` | 10 par défaut. Heroku Postgres Essential-0 en autorise **20 pour tout le compte**, pas par dyno : dépasser ce plafond produit une erreur qui ne nomme ni le plan ni la limite. |
 
 ## Ce qui est fait, ce qui ne l'est pas
 

@@ -12,6 +12,7 @@ pub struct Config {
     pub jwt_secret: String,
     pub access_token_ttl_minutes: i64,
     pub refresh_token_ttl_days: i64,
+    pub database_max_connections: u32,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -48,6 +49,10 @@ impl Config {
             jwt_secret,
             access_token_ttl_minutes: parse_or("ACCESS_TOKEN_TTL_MINUTES", 15)?,
             refresh_token_ttl_days: parse_or("REFRESH_TOKEN_TTL_DAYS", 60)?,
+            // Heroku Postgres Essential-0 allows 20 connections for the whole
+            // account, not per dyno. A default pool would happily try to open
+            // more and fail in a way that names neither the plan nor the cap.
+            database_max_connections: parse_or("DATABASE_MAX_CONNECTIONS", 10)? as u32,
         })
     }
 }

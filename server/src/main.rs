@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use migration::MigratorTrait;
 use plum_server::config::Config;
 use plum_server::state::AppState;
-use sea_orm::Database;
+use sea_orm::{ConnectOptions, Database};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -27,7 +27,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let port = config.port;
 
-    let db = Database::connect(&config.database_url).await?;
+    let mut options = ConnectOptions::new(config.database_url.clone());
+    options
+        .max_connections(config.database_max_connections)
+        // Ten seconds, not the default thirty: a request that cannot get a
+        // connection should fail while someone is still looking at the screen.
+        .acquire_timeout(std::time::Duration::from_secs(10))
+        .sqlx_logging(false);
+
+    let db = Database::connect(options).await?;
 
     // Migrating at boot keeps the deployment to a single image. It holds
     // because there is one dyno: with several, two would race here and this
