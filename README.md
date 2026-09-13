@@ -39,7 +39,9 @@ Scheme… ▸ Run ▸ Arguments`) :
   entamée, puis la boîte de réception.
 - **Messagerie** — historique paginé, envoi optimiste (la bulle apparaît
   avant la réponse du serveur), accusés de lecture, indicateur de saisie et
-  reconnexion automatique du WebSocket.
+  reconnexion automatique du WebSocket. Signalement, blocage et retrait du
+  match sont accessibles depuis la conversation elle-même, pas seulement
+  depuis la carte.
 - **Profil et réglages** — photos, bio, centres d'intérêt, critères de
   recherche, déconnexion et suppression de compte.
 
@@ -64,6 +66,13 @@ aperçus Xcode utilisables hors ligne.
 
 Les view models sont des classes `@MainActor @Observable` : elles portent
 l'état et les règles, les vues ne portent que la mise en page et les gestes.
+
+### Réseau
+
+Les lectures sont rejouées jusqu'à trois fois sur une erreur serveur, une
+coupure réseau ou un 429 — en respectant l'en-tête `Retry-After` quand il est
+là, sinon avec un recul de 300 ms puis 900 ms. Les écritures ne sont **jamais**
+rejouées : un swipe ou un message renvoyé serait compté deux fois.
 
 ### L'API attendue
 

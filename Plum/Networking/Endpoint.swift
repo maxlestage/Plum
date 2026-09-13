@@ -9,6 +9,12 @@ struct Endpoint: Sendable {
     var body: AnyEncodable?
     var requiresAuthentication: Bool
 
+    /// Whether replaying this call is safe. Reads always are; a swipe or a
+    /// message is not, because the server would count it twice.
+    var isRetryable: Bool {
+        method == .get
+    }
+
     init(
         path: String,
         method: HTTPMethod = .get,

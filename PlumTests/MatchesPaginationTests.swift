@@ -115,3 +115,38 @@ final class MatchesPaginationTests: XCTestCase {
         XCTAssertEqual(cursors, [nil, "1"], "Sans curseur, aucune requête supplémentaire")
     }
 }
+
+@MainActor
+final class MatchesRemovalTests: XCTestCase {
+    private func makeViewModel() -> MatchesViewModel {
+        MatchesViewModel(
+            matchService: PagingMatchService(pages: [Page(items: [], nextCursor: nil)]),
+            chatService: SinglePageChatService()
+        )
+    }
+
+    /// Blocking someone from inside the conversation has to remove the row
+    /// too, or the inbox keeps offering a thread that no longer exists.
+    func testDroppingAConversationAlsoDropsItsMatch() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+
+        let conversation = SampleData.conversations[0]
+        XCTAssertTrue(viewModel.conversations.contains { $0.id == conversation.id })
+
+        viewModel.drop(conversationId: conversation.id)
+
+        XCTAssertFalse(viewModel.conversations.contains { $0.id == conversation.id })
+        XCTAssertFalse(viewModel.matches.contains { $0.id == conversation.matchId })
+    }
+
+    func testDroppingSomethingUnknownChangesNothing() async {
+        let viewModel = makeViewModel()
+        await viewModel.load()
+        let before = viewModel.conversations.count
+
+        viewModel.drop(conversationId: UUID())
+
+        XCTAssertEqual(viewModel.conversations.count, before)
+    }
+}

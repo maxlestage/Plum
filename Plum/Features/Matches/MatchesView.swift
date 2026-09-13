@@ -14,8 +14,11 @@ struct MatchesView: View {
             }
             .navigationTitle("Vos matchs")
             .navigationDestination(item: $openedConversation) { conversation in
-                ChatView(conversation: conversation)
-                    .onDisappear { viewModel?.markRead(conversation.id) }
+                ChatView(conversation: conversation) {
+                    // Reported, blocked or unmatched: the row has to go.
+                    viewModel?.drop(conversationId: conversation.id)
+                }
+                .onDisappear { viewModel?.markRead(conversation.id) }
             }
         }
         .task {
