@@ -106,7 +106,7 @@ déploiement en le signalant. Rien ne casse avant que Heroku n'existe.
 ## Ce qui est fait, ce qui ne l'est pas
 
 **Fait** : santé, inscription, connexion, rafraîchissement avec rotation,
-déconnexion globale, `/me`, et limitation de débit sur l'inscription et la
+déconnexion globale, `/me`, **suppression de compte**, et limitation de débit sur l'inscription et la
 connexion — dix tentatives par quart d'heure et par adresse, comptées avant la
 vérification du mot de passe pour qu'un limiteur ne révèle pas quelles
 suppositions approchaient. Mots de passe en Argon2id, jetons de

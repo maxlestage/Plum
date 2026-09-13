@@ -30,7 +30,7 @@ pub fn router() -> Router<AppState> {
         .route("/auth/sign-in", post(sign_in))
         .route("/auth/refresh", post(refresh))
         .route("/auth/sign-out", post(sign_out))
-        .route("/me", get(me))
+        .route("/me", get(me).delete(delete_me))
 }
 
 async fn sign_up(
@@ -243,6 +243,36 @@ async fn issue_session(state: &AppState, owner: user::Model) -> ApiResult<Sessio
             expires_at: access.expires_at,
         },
     })
+}
+
+/// Supprime le compte, et tout ce qui en dépend.
+///
+/// Le client iOS appelle cette route depuis ses réglages, et la page
+/// Confidentialité promet la suppression « à tout moment, sans demande à
+/// formuler ». C'est aussi le droit d'effacement de l'article 17 du RGPD.
+/// La route n'existait pas : le bouton renvoyait 404, et la promesse était
+/// publiée en trois langues.
+///
+/// Une seule instruction suffit parce que le schéma a été construit pour :
+/// profil, préférences, jetons de rafraîchissement, verdicts, matchs et
+/// blocages partent en cascade. Les signalements survivent avec une
+/// référence vidée — ils sont la trace de décisions prises, et les effacer
+/// avec le compte reviendrait à laisser quelqu'un supprimer les preuves le
+/// concernant.
+async fn delete_me(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<()> {
+    let claims = authenticate(&state, &headers)?;
+
+    let outcome = user::Entity::delete_by_id(claims.sub)
+        .exec(&state.db)
+        .await?;
+
+    // Un jeton valide pour un compte déjà parti : rien à supprimer, et rien
+    // à signaler comme une erreur de plus.
+    if outcome.rows_affected == 0 {
+        return Err(ApiError::Unauthorized);
+    }
+
+    Ok(())
 }
 
 pub fn authenticate(state: &AppState, headers: &HeaderMap) -> ApiResult<super::tokens::Claims> {
