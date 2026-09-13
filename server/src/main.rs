@@ -1,4 +1,7 @@
 use std::net::SocketAddr;
+use std::time::Duration;
+
+use tokio::time::timeout;
 
 use migration::MigratorTrait;
 use plum_server::config::Config;
@@ -70,6 +73,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Redis is optional. Without it, or when it refuses to answer at boot, the
 /// limiter counts in this process: weaker, because it counts per dyno, but the
 /// service starts and defends itself rather than refusing to start at all.
+/// Ce qu'un démarrage peut passer à essayer de joindre Redis.
+///
+/// Généreux pour une connexion qui marche, et très en deçà des soixante
+/// secondes que Heroku accorde à un dyno pour ouvrir son port.
+const REDIS_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 async fn build_limiter(url: Option<&str>) -> RateLimiter {
     let Some(url) = url else {
         return RateLimiter::InProcess(plum_server::rate_limit::InProcessLimiter::new());
@@ -86,10 +95,29 @@ async fn build_limiter(url: Option<&str>) -> RateLimiter {
     }
 
     match redis::Client::open(url) {
-        Ok(client) => match redis::aio::ConnectionManager::new(client).await {
-            Ok(manager) => RateLimiter::Redis(Box::new(manager)),
-            Err(error) => {
+        // Borné, et c'est le point important : `ConnectionManager::new`
+        // réessaie en interne au lieu d'échouer, donc sans délai il ne rend
+        // jamais la main quand Redis est injoignable. Comme l'écoute du port
+        // vient après, le dyno ne se lie à rien et Heroku le tue au bout de
+        // soixante secondes — un limiteur facultatif rendait ainsi Redis
+        // indispensable, exactement l'inverse de ce qui est écrit partout
+        // ailleurs.
+        Ok(client) => match timeout(
+            REDIS_CONNECT_TIMEOUT,
+            redis::aio::ConnectionManager::new(client),
+        )
+        .await
+        {
+            Ok(Ok(manager)) => RateLimiter::Redis(Box::new(manager)),
+            Ok(Err(error)) => {
                 tracing::warn!(%error, "Redis injoignable, repli en mémoire");
+                RateLimiter::InProcess(plum_server::rate_limit::InProcessLimiter::new())
+            }
+            Err(_) => {
+                tracing::warn!(
+                    délai = ?REDIS_CONNECT_TIMEOUT,
+                    "Redis n'a pas répondu à temps, repli en mémoire"
+                );
                 RateLimiter::InProcess(plum_server::rate_limit::InProcessLimiter::new())
             }
         },
@@ -117,4 +145,40 @@ async fn shutdown_signal() {
     }
 
     tracing::info!("arrêt demandé, fermeture en cours");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Le démarrage ne doit jamais dépendre de Redis.
+    ///
+    /// Ce test a une vraie histoire : sans le délai, `ConnectionManager::new`
+    /// réessayait indéfiniment, l'écoute du port n'était jamais atteinte, et
+    /// Heroku tuait le dyno au bout de soixante secondes. L'adresse choisie
+    /// est dans 10.0.0.0/8 et ne répond pas, ce qui reproduit exactement le
+    /// cas d'un Redis en panne.
+    #[tokio::test]
+    async fn an_unreachable_redis_does_not_hold_the_boot() {
+        let started = std::time::Instant::now();
+        let limiter = build_limiter(Some("rediss://:x@10.255.255.1:6379#insecure")).await;
+        let waited = started.elapsed();
+
+        assert!(
+            matches!(limiter, RateLimiter::InProcess(_)),
+            "un Redis injoignable doit donner le repli en mémoire"
+        );
+        assert!(
+            waited < REDIS_CONNECT_TIMEOUT + Duration::from_secs(3),
+            "le démarrage a attendu {waited:?}, soit bien plus que le délai"
+        );
+    }
+
+    #[tokio::test]
+    async fn no_redis_url_means_the_in_process_limiter() {
+        assert!(matches!(
+            build_limiter(None).await,
+            RateLimiter::InProcess(_)
+        ));
+    }
 }
