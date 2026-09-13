@@ -1,18 +1,49 @@
+use std::sync::LazyLock;
+
 use argon2::Argon2;
 use password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use tokio::sync::Semaphore;
+
+/// How many hashes may be computed at the same time.
+///
+/// Argon2id costs about 19 MiB of memory and ~100 ms of CPU per call, by
+/// design — that cost is the whole defence. `spawn_blocking` keeps it off the
+/// runtime's workers, but tokio's blocking pool grows to 512 threads, so a
+/// burst of sign-ins would put hundreds of those 19 MiB allocations in flight
+/// at once. On a 512 MB dyno that is an out-of-memory restart that anyone can
+/// trigger by opening a few dozen connections.
+///
+/// The rate limiter does not cover this. It counts per address, and an
+/// attacker uses a different address each time; nothing there bounds how many
+/// hashes run concurrently. This does, and the excess waits its turn — a
+/// slower sign-in under load, rather than a dyno that dies.
+static HASHING_SLOTS: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(max_in_flight()));
+
+/// Bounded above so a host that reports many cores cannot blow the memory
+/// budget, and below so there is always at least one.
+fn max_in_flight() -> usize {
+    std::thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(2)
+        .clamp(1, 8)
+}
 
 /// Argon2id is CPU-bound by design — that is the entire point — and it costs
 /// roughly 100 ms. Running it on a runtime worker blocks that worker for the
 /// duration; under real concurrency the executor starves and every other
 /// request, including the database pool's own acquisitions, times out behind
-/// it. So the work goes to a blocking thread.
+/// it. So the work goes to a blocking thread, and only so many at a time.
 pub async fn hash(password: String) -> Result<String, password_hash::Error> {
+    // `ok()`: acquisition only fails on a closed semaphore, and this one is
+    // never closed. Proceeding unbounded beats panicking inside a handler.
+    let _slot = HASHING_SLOTS.acquire().await.ok();
     tokio::task::spawn_blocking(move || hash_blocking(&password))
         .await
         .unwrap_or(Err(password_hash::Error::Crypto))
 }
 
 pub async fn verify(password: String, hash: String) -> bool {
+    let _slot = HASHING_SLOTS.acquire().await.ok();
     tokio::task::spawn_blocking(move || verify_blocking(&password, &hash))
         .await
         .unwrap_or(false)
@@ -70,5 +101,32 @@ mod tests {
     fn a_corrupt_hash_fails_closed() {
         assert!(!verify_blocking("peu importe", "ceci n'est pas un hachage"));
         assert!(!verify_blocking("peu importe", ""));
+    }
+
+    #[test]
+    fn the_number_in_flight_is_bounded_and_never_zero() {
+        let slots = max_in_flight();
+        assert!((1..=8).contains(&slots), "créneaux hors bornes : {slots}");
+    }
+
+    /// A semaphore in front of the hashing is a deadlock waiting to happen if
+    /// a permit is ever dropped on the floor. More callers than there are
+    /// permits, all of which must finish.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn more_concurrent_hashes_than_permits_all_complete() {
+        let callers = max_in_flight() * 3 + 1;
+        let mut running = Vec::with_capacity(callers);
+        for index in 0..callers {
+            running.push(tokio::spawn(hash(format!("motdepasse-{index}"))));
+        }
+
+        let mut digests = Vec::with_capacity(callers);
+        for task in running {
+            digests.push(task.await.expect("tâche").expect("hachage"));
+        }
+
+        assert_eq!(digests.len(), callers);
+        // Every permit was returned, so the queue drained rather than wedged.
+        assert_eq!(HASHING_SLOTS.available_permits(), max_in_flight());
     }
 }
