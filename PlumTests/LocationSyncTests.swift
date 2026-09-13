@@ -23,7 +23,10 @@ final class LocationSyncTests: XCTestCase {
         let pushed = await sync.sync()
 
         XCTAssertTrue(pushed)
-        let stored = try XCTUnwrap(await profiles.lastPushedLocation)
+        // `XCTUnwrap` prend une autoclosure, qui n'accepte pas `await` :
+        // la lecture de l'acteur doit se faire avant.
+        let pushedLocation = await profiles.lastPushedLocation
+        let stored = try XCTUnwrap(pushedLocation)
         XCTAssertEqual(stored.latitude, 48.8566, accuracy: 0.0001)
         XCTAssertEqual(stored.longitude, 2.3522, accuracy: 0.0001)
         XCTAssertNil(sync.lastError)

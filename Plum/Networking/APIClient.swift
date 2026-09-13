@@ -77,10 +77,6 @@ actor APIClient: APIClientProtocol {
 
     func send<Response: Decodable>(_ endpoint: Endpoint, as type: Response.Type) async throws -> Response {
         let data = try await perform(endpoint, allowingRefresh: true)
-        if Response.self == EmptyResponse.self, data.isEmpty {
-            // A 204 has no body to decode, but callers still expect a value.
-            return EmptyResponse() as! Response
-        }
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {

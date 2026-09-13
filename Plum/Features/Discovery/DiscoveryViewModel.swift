@@ -119,8 +119,4 @@ final class DiscoveryViewModel {
     func dismissMatch() {
         newMatch = nil
     }
-
-    func dismissError() {
-        state = .ready
-    }
 }

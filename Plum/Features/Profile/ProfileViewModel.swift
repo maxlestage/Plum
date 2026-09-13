@@ -157,8 +157,4 @@ final class ProfileViewModel {
             state = .failed(error.asAPIError)
         }
     }
-
-    func dismissError() {
-        state = .ready
-    }
 }
