@@ -1,6 +1,6 @@
 # Plum
 
-Plum est une application de rencontres pas sérieuses. Cette version est une
+Plum est une application de rencontres pour iOS. Cette version est une
 application **iOS native, écrite entièrement en Swift** : SwiftUI pour l'interface,
 `async`/`await` et acteurs pour la concurrence, `URLSession` pour le réseau.
 Aucune dépendance tierce.
