@@ -3,6 +3,7 @@ pub mod config;
 pub mod discovery;
 pub mod entities;
 pub mod error;
+pub mod matches;
 pub mod profile;
 pub mod rate_limit;
 pub mod state;
@@ -57,6 +58,7 @@ pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
             auth::routes::router()
                 .merge(profile::routes::router())
                 .merge(discovery::routes::router())
+                .merge(matches::routes::router())
                 .fallback(unknown_api_route),
         )
         .layer(TraceLayer::new_for_http())
