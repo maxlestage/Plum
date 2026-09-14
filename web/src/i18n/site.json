@@ -1,5 +1,7 @@
 {
   "_": "Les slugs et les métadonnées de page, lus à la fois par l'application (src/i18n) et par le générateur de gabarits (scripts/prerender.mjs). Une seule source : la duplication entre les deux avait déjà commencé à dériver.",
+  "origin": "https://plum-a5f3c7189761.herokuapp.com",
+  "_origin": "L'adresse publique du site, sans barre finale. Elle sert à écrire des `canonical` et des `hreflang` absolus dans les coquilles pré-rendues : Google ignore un `hreflang` relatif, ce qui rendait muettes les annotations trilingues là où elles comptaient — dans le HTML que lisent les robots. À l'exécution l'application utilise `window.location.origin`, qui est plus juste puisqu'elle connaît l'hôte réellement servi.",
   "slugs": {
     "fr": {
       "home": "",
