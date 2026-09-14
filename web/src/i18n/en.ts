@@ -113,6 +113,10 @@ export const en: Copy = {
         body: "Search filters make it possible to infer sexual orientation, which the GDPR lists among the special categories of Article 9. That is exactly what calls for a legal review, and why this page remains a draft.",
       },
       {
+        title: "Photos",
+        body: "They are re-encoded on arrival, which strips the camera metadata — including the GPS coordinates a phone photo often carries without anyone noticing. A photo's address cannot be guessed, but it is not password-protected either: it opens without signing in, as everywhere photos go through a cache. So anyone who got hold of a link keeps the image, including after an unmatch. Deleting the photo, or the account, removes it from the server.",
+      },
+      {
         title: "Deletion",
         body: "From the app's settings, at any time, with no request to file.",
       },

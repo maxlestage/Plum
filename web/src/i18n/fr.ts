@@ -113,6 +113,10 @@ export const fr: Copy = {
         body: "Les critères de recherche permettent d'inférer une orientation sexuelle, que le RGPD range parmi les catégories particulières de l'article 9. C'est précisément le point qui exige une relecture juridique, et la raison pour laquelle cette page reste un brouillon.",
       },
       {
+        title: "Les photos",
+        body: "Elles sont réencodées à la réception, ce qui efface les métadonnées de l'appareil — dont les coordonnées GPS qu'une photo de téléphone porte souvent sans qu'on le sache. L'adresse d'une photo n'est pas devinable, mais elle n'est pas non plus protégée par un mot de passe : elle s'ouvre sans être connecté, comme partout où les photos passent par un cache. Qui a mis la main sur un lien garde donc l'image, y compris après un match défait. Supprimer la photo, ou le compte, la retire du serveur.",
+      },
+      {
         title: "Suppression",
         body: "Depuis les réglages de l'application, à tout moment, sans demande à formuler.",
       },

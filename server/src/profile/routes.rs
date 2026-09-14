@@ -38,7 +38,9 @@ async fn my_profile(
 ) -> ApiResult<Json<ProfileResponse>> {
     let claims = authenticate(&state, &headers)?;
     let found = load_profile(&state, claims.sub).await?;
-    Ok(Json(ProfileResponse::own(found)))
+    let mut response = ProfileResponse::own(found);
+    crate::photos::routes::attach_one(&state, &mut response).await?;
+    Ok(Json(response))
 }
 
 async fn update_profile(
@@ -89,7 +91,9 @@ async fn update_profile(
     }
 
     let saved = update.update(&state.db).await?;
-    Ok(Json(ProfileResponse::own(saved)))
+    let mut response = ProfileResponse::own(saved);
+    crate::photos::routes::attach_one(&state, &mut response).await?;
+    Ok(Json(response))
 }
 
 /// Trims, drops the blanks, and removes duplicates while keeping the order the
