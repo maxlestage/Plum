@@ -4,7 +4,16 @@
       <stop offset="0%" stop-color="#E8608C"/>
       <stop offset="100%" stop-color="#6B2D5C"/>
     </linearGradient>
+    <mask id="sillon">
+      <rect width="64" height="64" fill="#fff"/>
+      <path d="M30 21 A 36.54 36.54 0 0 0 30 50" stroke="#000" stroke-width="3.2"
+            fill="none" stroke-linecap="round"/>
+    </mask>
   </defs>
   <circle cx="32" cy="32" r="32" fill="url(#g)"/>
-  <path d="M32 46.5c-.6 0-1.2-.2-1.6-.6C24.6 40.9 19 35.9 19 29.6c0-4 3.1-7.1 7-7.1 2.3 0 4.5 1.1 5.9 2.9l.1.1.1-.1a7.4 7.4 0 0 1 5.9-2.9c3.9 0 7 3.1 7 7.1 0 6.3-5.6 11.3-11.4 16.3-.4.4-1 .6-1.6.6Z" fill="#fff"/>
+  <g mask="url(#sillon)">
+    <ellipse cx="32" cy="35.5" rx="17" ry="18" fill="#FFF7F4"/>
+    <path d="M33 20 L 39.5 11" stroke="#FFF7F4" stroke-width="3.4"
+          fill="none" stroke-linecap="round"/>
+  </g>
 </svg>
