@@ -150,13 +150,17 @@ jobs:
         id: check
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+          # Le nom de l'application n'est pas un secret : il est dans l'adresse
+          # publique du site. L'exiger comme tel doublait la surface d'erreur
+          # sans rien protéger — et c'est exactement là qu'elle s'est produite.
+          # Il ne reste donc qu'une seule chose à poser : la clé.
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME || secrets.HEROKU_APP_NAME || 'plum' }}
         run: |
-          if [ -n "$HEROKU_API_KEY" ] && [ -n "$HEROKU_APP_NAME" ]; then
+          if [ -n "$HEROKU_API_KEY" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Rien n'a été déployé : HEROKU_API_KEY ou HEROKU_APP_NAME est absent. Ce job est vert parce qu'il n'avait rien à faire, pas parce qu'une version est partie."
+            echo "::warning::Rien n'a été déployé : HEROKU_API_KEY est absent. Ce job est vert parce qu'il n'avait rien à faire, pas parce qu'une version est partie."
           fi
 
           # Écrit noir sur blanc sur la page du run : c'est là qu'on regarde
@@ -169,10 +173,19 @@ jobs:
             else
               echo "**Aucune version n'a été déployée par ce job.**"
               echo
-              echo "Les secrets \`HEROKU_API_KEY\` et \`HEROKU_APP_NAME\` ne sont pas"
-              echo "posés, donc cette chaîne est dormante — c'est son état normal tant"
-              echo "que le dépôt déploie par \`heroku.yml\`. Le vert de ce job ne dit"
-              echo "donc rien de la production."
+              echo "Le secret \`HEROKU_API_KEY\` est vide côté workflow."
+              echo
+              echo "Il se pose dans **Settings → Secrets and variables → Actions**,"
+              echo "onglet **Secrets**, bouton *New repository secret*. Trois pièges,"
+              echo "dans l'ordre où ils se produisent :"
+              echo "- l'onglet voisin **Variables** n'est pas lu par \`secrets.*\` ;"
+              echo "- les sections **Dependabot** et **Codespaces** ont leurs propres"
+              echo "  listes, invisibles d'un workflow ;"
+              echo "- un secret posé sur un **Environment** n'est visible que d'un job"
+              echo "  qui déclare cet environnement."
+              echo
+              echo "Le nom de l'application n'est plus requis : il vaut \`plum\` par"
+              echo "défaut."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -187,7 +200,11 @@ jobs:
         if: steps.check.outputs.ready == 'true'
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+          # Le nom de l'application n'est pas un secret : il est dans l'adresse
+          # publique du site. L'exiger comme tel doublait la surface d'erreur
+          # sans rien protéger — et c'est exactement là qu'elle s'est produite.
+          # Il ne reste donc qu'une seule chose à poser : la clé.
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME || secrets.HEROKU_APP_NAME || 'plum' }}
         run: |
           stack=$(curl -fsS "https://api.heroku.com/apps/$HEROKU_APP_NAME" \
             -H "Accept: application/vnd.heroku+json; version=3" \
@@ -210,7 +227,11 @@ jobs:
         if: steps.check.outputs.ready == 'true'
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+          # Le nom de l'application n'est pas un secret : il est dans l'adresse
+          # publique du site. L'exiger comme tel doublait la surface d'erreur
+          # sans rien protéger — et c'est exactement là qu'elle s'est produite.
+          # Il ne reste donc qu'une seule chose à poser : la clé.
+          HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME || secrets.HEROKU_APP_NAME || 'plum' }}
         run: |
           echo "$HEROKU_API_KEY" | docker login --username=_ --password-stdin registry.heroku.com
           image="registry.heroku.com/$HEROKU_APP_NAME/web"

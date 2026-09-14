@@ -209,28 +209,51 @@ a:focus-visible {
 .langues {
   display: flex;
   align-items: center;
-  gap: 2px;
+  /* Les cibles tactiles se chevauchaient à 2 px d'écart une fois qu'elles
+     débordent de leur pastille. Six px les séparent sans écarter les
+     pastilles visibles. */
+  gap: 6px;
   margin-inline-start: auto;
 }
 
 /*
- * 44 px de côté : la cible tactile que recommande Apple, et que l'ancienne
- * version — 24 px de haut — n'atteignait pas. Sur un téléphone, trois liens
- * serrés dont on rate deux fois sur trois valent moins que deux liens.
+ * Deux tailles, et c'est délibéré : la pastille qu'on voit fait 28 px, la
+ * cible qu'on touche en fait 44.
+ *
+ * 44 px est le minimum que recommande Apple, et l'avant-dernière version —
+ * 24 px de haut — ne l'atteignait pas : sur un téléphone, trois liens serrés
+ * qu'on rate deux fois sur trois valent moins que deux liens. Mais 44 px de
+ * rond plein, c'est une pastille qui pèse plus que le nom du produit à côté
+ * d'elle.
+ *
+ * Le `::after` résout les deux : il étend la zone sensible à 44 px sans rien
+ * peindre. Réduire simplement la pastille rendrait le doigt à son problème
+ * d'avant.
  */
 .langue {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 28px;
+  min-height: 28px;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-decoration: none;
   color: var(--secondary-text);
   transition: background-color 120ms ease, color 120ms ease;
+}
+
+.langue::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: 44px;
+  height: 44px;
 }
 
 .langue:hover {
