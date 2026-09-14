@@ -19,10 +19,20 @@ use crate::state::AppState;
 /// dictionary.
 const SIGN_IN_QUOTA: Quota = Quota::new(10, 15 * 60);
 
-/// Sign-ups are keyed by address too, which does nothing against a script
-/// with many addresses — that needs the IP — but stops the same one being
-/// hammered while someone works out our error messages.
+/// Cinq par heure et par adresse, ce qui empêche de marteler la même mais
+/// rien de plus : un script qui change d'adresse à chaque essai repart dans un
+/// seau neuf. C'est le second quota qui tient la porte.
 const SIGN_UP_QUOTA: Quota = Quota::new(5, 60 * 60);
+
+/// Dix par heure et par adresse IP, quelle que soit l'adresse email.
+///
+/// Sans lui, créer des comptes ne coûte rien — et chaque compte peut déposer
+/// six photos. Le gigaoctet du plan Postgres se remplirait en un jour, et le
+/// décodage de chaque image occuperait le seul dyno pendant ce temps-là.
+///
+/// Dix laisse passer un foyer, un bureau ou un café derrière une même adresse ;
+/// ça arrête une boucle.
+const SIGN_UP_PER_IP: Quota = Quota::new(10, 60 * 60);
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -35,10 +45,14 @@ pub fn router() -> Router<AppState> {
 
 async fn sign_up(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<SignUpRequest>,
 ) -> ApiResult<Json<SessionResponse>> {
     let email = normalise_email(&request.email);
     enforce(&state, "sign-up", &email, SIGN_UP_QUOTA).await?;
+    if let Some(ip) = crate::rate_limit::client_ip(&headers) {
+        enforce(&state, "sign-up-ip", &ip, SIGN_UP_PER_IP).await?;
+    }
 
     if !looks_like_an_address(&email) {
         return Err(ApiError::BadRequest("Adresse email invalide.".into()));
@@ -285,7 +299,12 @@ pub fn authenticate(state: &AppState, headers: &HeaderMap) -> ApiResult<super::t
     state.tokens.verify(raw).map_err(|_| ApiError::Unauthorized)
 }
 
-async fn enforce(state: &AppState, bucket: &str, key: &str, quota: Quota) -> ApiResult<()> {
+pub(crate) async fn enforce(
+    state: &AppState,
+    bucket: &str,
+    key: &str,
+    quota: Quota,
+) -> ApiResult<()> {
     let decision = state.limiter.check(&format!("{bucket}:{key}"), quota).await;
 
     if decision.allowed {

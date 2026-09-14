@@ -550,3 +550,63 @@ async fn deleting_an_account_takes_everything_that_depends_on_it() {
     let (after, _) = call(&app, request("GET", "/api/v1/me", Some(&token), None)).await;
     assert_eq!(after, StatusCode::UNAUTHORIZED);
 }
+
+/// La limite par adresse email ne fait rien contre un script qui en change à
+/// chaque essai. C'est celle par adresse IP qui tient la porte — et sans
+/// elle, créer des comptes ne coûte rien, or chaque compte peut déposer six
+/// photos dans un gigaoctet de base.
+#[tokio::test]
+async fn sign_ups_from_one_address_are_cut_off_however_many_emails() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+
+    let mut refused = None;
+    for attempt in 1..=20 {
+        // Une adresse email neuve à chaque tour : le quota par email ne peut
+        // pas être celui qui répond.
+        let body = sign_up_body(&unique_email("ip-rafale"));
+        let mut req = post("/api/v1/auth/sign-up", body);
+        req.headers_mut()
+            .insert("x-forwarded-for", "203.0.113.7".parse().unwrap());
+        let (status, _) = call(&app, req).await;
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            refused = Some(attempt);
+            break;
+        }
+    }
+
+    assert!(
+        refused.is_some(),
+        "vingt inscriptions depuis une même adresse IP sont passées"
+    );
+}
+
+/// Heroku *ajoute* l'adresse d'origine à droite : un client qui envoie son
+/// propre en-tête voit la sienne poussée devant. Lire la première rendrait la
+/// limite contournable en une ligne de `curl`.
+#[tokio::test]
+async fn a_forged_forwarded_header_does_not_open_a_fresh_bucket() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+
+    let mut refused = false;
+    for attempt in 0..20 {
+        let body = sign_up_body(&unique_email("ip-forge"));
+        let mut req = post("/api/v1/auth/sign-up", body);
+        // La partie de gauche change à chaque tour, celle du routeur non.
+        req.headers_mut().insert(
+            "x-forwarded-for",
+            format!("10.0.0.{attempt}, 198.51.100.4").parse().unwrap(),
+        );
+        let (status, _) = call(&app, req).await;
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            refused = true;
+            break;
+        }
+    }
+
+    assert!(
+        refused,
+        "changer la partie falsifiable de l'en-tête a suffi à repartir à zéro"
+    );
+}
