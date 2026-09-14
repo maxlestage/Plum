@@ -11,6 +11,23 @@
   --mint: #4fc3a1;
 
   --canvas: #fff7f4;
+  /*
+   * L'encre posée *sur* le prune, et qui ne suit pas le thème.
+   *
+   * `--canvas` bascule vers le quasi-noir en thème sombre : l'utiliser sur une
+   * pastille prune donnait 1,97:1, c'est-à-dire illisible, alors que le même
+   * code donnait 9,22:1 en thème clair. Le fond de la pastille ne changeant
+   * pas d'un thème à l'autre, son texte ne doit pas changer non plus.
+   */
+  --on-plum: #fff7f4;
+  /*
+   * Le fond de la pastille. En thème clair c'est le prune de la marque ; en
+   * thème sombre il faut l'éclaircir, sinon la forme ne se détache plus du
+   * fond — 1,97:1 mesuré, là où une forme d'interface demande 3. Éclairci à
+   * #9c4486 elle donne 3,28:1 contre le fond et garde 5,54:1 avec son texte,
+   * les deux seuils tenus.
+   */
+  --pastille: var(--plum);
   --surface: #ffffff;
   --primary-text: #1f1320;
   --secondary-text: #7a6b78;
@@ -24,6 +41,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --pastille: #9c4486;
     --canvas: #140c14;
     --surface: #241826;
     --primary-text: #f6eef4;
@@ -184,4 +202,54 @@ a:focus-visible {
 
 .skip-link:focus {
   left: 0;
+}
+
+/* ---- La bascule de langue ---------------------------------------------- */
+
+.langues {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline-start: auto;
+}
+
+/*
+ * 44 px de côté : la cible tactile que recommande Apple, et que l'ancienne
+ * version — 24 px de haut — n'atteignait pas. Sur un téléphone, trois liens
+ * serrés dont on rate deux fois sur trois valent moins que deux liens.
+ */
+.langue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: var(--secondary-text);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.langue:hover {
+  color: var(--plum);
+  background: color-mix(in srgb, var(--plum) 8%, transparent);
+}
+
+.langue:focus-visible {
+  outline: 2px solid var(--plum);
+  outline-offset: 2px;
+}
+
+/* Pleine, pas teintée : c'est ce qui rend la langue courante lisible d'un
+   coup d'œil au lieu de demander une comparaison entre trois nuances. */
+.langue--active {
+  background: var(--pastille);
+  color: var(--on-plum);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .langue { transition: none; }
 }
