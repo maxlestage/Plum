@@ -83,10 +83,12 @@ async fn deck(
         None
     };
 
-    Ok(Json(Page {
-        items: candidates.into_iter().map(candidate_into_profile).collect(),
-        next_cursor,
-    }))
+    let mut items: Vec<ProfileResponse> =
+        candidates.into_iter().map(candidate_into_profile).collect();
+    // Une requête pour les vingt cartes, pas vingt.
+    crate::photos::routes::attach(&state, &mut items.iter_mut().collect::<Vec<_>>()).await?;
+
+    Ok(Json(Page { items, next_cursor }))
 }
 
 async fn swipe_route(
@@ -181,15 +183,18 @@ async fn swipe_route(
     // se perd quand personne n'écoute.
     if let Some(model) = &created {
         if let Some(mine) = profile::Entity::find_by_id(viewer).one(&state.db).await? {
+            // Le profil de celui qui vient de balayer : c'est lui que l'autre
+            // découvre, pas le sien — photos comprises, sans quoi la carte
+            // « c'est un match » s'ouvrirait sur un dégradé.
+            let mut profile = ProfileResponse::own(mine);
+            crate::photos::routes::attach_one(&state, &mut profile).await?;
             announce_match(
                 &state,
                 target,
                 MatchResponse {
                     id: model.id,
                     matched_at: model.matched_at.into(),
-                    // Le profil de celui qui vient de balayer : c'est lui que
-                    // l'autre découvre, pas le sien.
-                    profile: ProfileResponse::own(mine),
+                    profile,
                     conversation_id: None,
                 },
             );
@@ -197,14 +202,19 @@ async fn swipe_route(
     }
 
     let matched = created.is_some();
+    let mut r#match = created.map(|model| MatchResponse {
+        id: model.id,
+        matched_at: model.matched_at.into(),
+        profile: ProfileResponse::own(target_profile),
+        conversation_id: None,
+    });
+    if let Some(found) = r#match.as_mut() {
+        crate::photos::routes::attach_one(&state, &mut found.profile).await?;
+    }
+
     let response = SwipeOutcome {
         matched,
-        r#match: created.map(|model| MatchResponse {
-            id: model.id,
-            matched_at: model.matched_at.into(),
-            profile: ProfileResponse::own(target_profile),
-            conversation_id: None,
-        }),
+        r#match,
         likes_remaining: None,
     };
 

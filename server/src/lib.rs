@@ -6,6 +6,7 @@ pub mod entities;
 pub mod error;
 pub mod live;
 pub mod matches;
+pub mod photos;
 pub mod profile;
 pub mod rate_limit;
 pub mod state;
@@ -55,6 +56,9 @@ pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
         // Hors de `/api/v1` : une mise à niveau WebSocket n'est pas une
         // requête versionnée, et le client la cherche à la racine.
         .merge(live::routes::router())
+        // Hors de `/api/v1` et sans jeton : `AsyncImage` fait une requête nue.
+        // L'adresse est la clé — un UUID tiré au sort ne s'énumère pas.
+        .merge(photos::routes::public_router())
         .nest(
             "/api/v1",
             // An unknown path under /api must not fall through to the site:
@@ -65,6 +69,7 @@ pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
                 .merge(discovery::routes::router())
                 .merge(matches::routes::router())
                 .merge(chat::routes::router())
+                .merge(photos::routes::router())
                 .fallback(unknown_api_route),
         )
         .layer(TraceLayer::new_for_http())

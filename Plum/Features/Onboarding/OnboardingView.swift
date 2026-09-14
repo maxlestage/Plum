@@ -29,8 +29,11 @@ struct OnboardingView: View {
         .onChange(of: pickedPhoto) { _, item in
             guard let item else { return }
             Task { @MainActor in
-                if let data = try? await item.loadTransferable(type: Data.self) {
-                    await viewModel?.addPhoto(data)
+                // Converti ici : le sélecteur rend le fichier d'origine, et
+                // sur un iPhone c'est du HEIC que le serveur ne lit pas.
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let jpeg = PhotoPreparation.jpeg(from: data) {
+                    await viewModel?.addPhoto(jpeg)
                 }
                 pickedPhoto = nil
             }

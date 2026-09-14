@@ -113,6 +113,10 @@ export const es: Copy = {
         body: "Los criterios de búsqueda permiten inferir la orientación sexual, que el RGPD sitúa entre las categorías especiales del artículo 9. Es justamente el punto que exige una revisión jurídica, y la razón por la que esta página sigue siendo un borrador.",
       },
       {
+        title: "Las fotos",
+        body: "Se recodifican al llegar, lo que borra los metadatos de la cámara — incluidas las coordenadas GPS que una foto de teléfono suele llevar sin que nadie lo note. La dirección de una foto no se puede adivinar, pero tampoco está protegida por contraseña: se abre sin haber iniciado sesión, como en todas partes donde las fotos pasan por una caché. Quien haya conseguido un enlace conserva por tanto la imagen, incluso después de deshacer un match. Borrar la foto, o la cuenta, la retira del servidor.",
+      },
+      {
         title: "Eliminación",
         body: "Desde los ajustes de la aplicación, en cualquier momento, sin solicitud que presentar.",
       },
