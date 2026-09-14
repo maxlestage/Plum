@@ -105,6 +105,46 @@ for (const language of languages) {
   }
 }
 
+/**
+ * La racine, qui est l'adresse qu'on partage.
+ *
+ * `/` n'est pas une page : l'application y choisit une langue et renvoie vers
+ * `/fr/`. Mais c'est une redirection côté client, donc un robot qui n'exécute
+ * pas de JavaScript s'arrête là — et il y trouvait le gabarit brut, sans
+ * `canonical` ni `hreflang`, précisément sur l'adresse la plus liée du site.
+ *
+ * Elle porte donc maintenant les annotations de la version française, vers
+ * laquelle elle mène.
+ */
+{
+  const { title, description } = meta.fr;
+  const alternates = [...languages, "x-default"]
+    .map((entry) => {
+      const target = entry === "x-default" ? "fr" : entry;
+      return `<link rel="alternate" hreflang="${entry}" href="${absolute(pathFor(target, "home"))}" />`;
+    })
+    .join("\n    ");
+
+  const root = template
+    .replace(
+      /<meta\s+property="og:description"[\s\S]*?\/>/,
+      `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="fr" />\n    <link rel="canonical" href="${absolute(pathFor("fr", "home"))}" />\n    ${alternates}`,
+    );
+
+  if (!root.includes('rel="canonical"')) {
+    console.error("prerender : la racine n'a pas reçu son canonical");
+    process.exit(1);
+  }
+  fs.writeFileSync(path.join(dist, "index.html"), root);
+  written++;
+  // `title` et `description` du gabarit sont déjà ceux de l'accueil français,
+  // donc rien à y réécrire — vérifié plutôt que supposé.
+  if (!root.includes(`<title>${escapeHtml(title)}</title>`)) {
+    console.error("prerender : le gabarit ne porte plus le titre français");
+    process.exit(1);
+  }
+}
+
 // A shell that made none of its substitutions would ship silently and look
 // fine to a person while staying wrong for every crawler.
 const sample = fs.readFileSync(
