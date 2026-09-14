@@ -26,12 +26,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# L'application, ses extensions et le code qu'elles partagent. Sans les deux
+# L'application, la montre, les extensions et le code qu'elles partagent. Sans les deux
 # derniers, un bouton-icône ajouté dans un widget échapperait au contrôle —
 # et c'est là qu'on en ajoute sans y penser, faute de l'avoir sous les yeux.
 SOURCES = [
     directory
-    for directory in (ROOT / "Plum", ROOT / "PlumShared", ROOT / "PlumWidgets")
+    for directory in (ROOT / "Plum", ROOT / "PlumShared", ROOT / "PlumWidgets", ROOT / "PlumWatch")
     if directory.is_dir()
 ]
 
