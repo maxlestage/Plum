@@ -49,6 +49,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let limiter = build_limiter(config.redis_url.as_deref()).await;
     tracing::info!("limitation de débit : {}", limiter.describe());
+    match config.admin_token {
+        Some(_) => tracing::info!("file de modération ouverte sur /api/v1/admin/reports"),
+        None => tracing::info!("file de modération fermée (ADMIN_TOKEN absent)"),
+    }
 
     let site = config.site_dir.clone().map(std::path::PathBuf::from);
     match site.as_deref().filter(|path| path.is_dir()) {

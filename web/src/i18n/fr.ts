@@ -41,12 +41,20 @@ export const fr: Copy = {
       body: "Le deck trie par distance et par vos critères. C'est tout. Rien n'est vendu, rien n'est mis en avant contre paiement.",
     },
     {
-      title: "Signaler est toujours à un geste",
-      body: "Depuis une carte, depuis un profil complet, depuis une conversation. Bloquer retire la personne des deux côtés, immédiatement.",
+      title: "Bloquer ferme la conversation",
+      body: "Pas seulement le deck : le fil disparaît des deux côtés, les messages avec, et la personne bloquée ne peut plus écrire ni faire clignoter « en train d'écrire ». Un blocage qui laisserait la conversation ouverte ne serait qu'un filtre.",
+    },
+    {
+      title: "Un signalement est lu",
+      body: "Il n'atterrit pas dans une table que personne n'ouvre. Ce qui est regardé, c'est le nombre de personnes différentes qui ont signalé quelqu'un — un signalement isolé peut être un dépit, plusieurs sont un motif.",
     },
     {
       title: "Les distances restent vagues",
       body: "Moins d'un kilomètre, puis au kilomètre près, puis arrondies par tranches de cinq. Assez pour savoir si c'est le même quartier, jamais assez pour trouver quelqu'un.",
+    },
+    {
+      title: "Les profils ne s'aspirent pas",
+      body: "Un compte ne peut pas parcourir le deck sans fin pour en récolter les prénoms, les biographies et les photos : le nombre de profils servis par jour est plafonné, très au-dessus de ce qu'une personne regarde et très en dessous de ce qu'un script voudrait.",
     },
     {
       title: "Utilisable sans voir l'écran",
@@ -84,7 +92,7 @@ export const fr: Copy = {
       },
       {
         title: "Signalement",
-        body: "Chaque profil peut être signalé ou bloqué depuis une carte, depuis le profil complet et depuis la conversation. Bloquer retire la personne des deux côtés immédiatement.",
+        body: "Chaque profil peut être signalé ou bloqué depuis une carte, depuis le profil complet et depuis la conversation. Bloquer ferme le fil des deux côtés — la conversation et ses messages disparaissent, et la personne bloquée ne peut plus rien envoyer. Les signalements sont relus.",
       },
       {
         title: "Fin du compte",
@@ -132,7 +140,7 @@ export const fr: Copy = {
       },
       {
         title: "Signaler quelqu'un",
-        body: "Depuis l'application, sur la carte, le profil complet ou la conversation. C'est plus rapide et mieux tracé que par écrit.",
+        body: "Depuis l'application, sur la carte, le profil complet ou la conversation. Un signalement va dans une file qui est relue ; ce qui compte le plus, c'est le nombre de personnes différentes qui ont signalé quelqu'un. Bloquer, en plus de signaler, referme la conversation immédiatement.",
       },
       {
         title: "État du service",

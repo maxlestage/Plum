@@ -41,12 +41,20 @@ export const en: Copy = {
       body: "The deck sorts by distance and by your filters. That's all. Nothing is sold, and nobody is promoted for paying.",
     },
     {
-      title: "Reporting is always one tap away",
-      body: "From a card, from a full profile, from a conversation. Blocking removes the person on both sides, immediately.",
+      title: "Blocking closes the conversation",
+      body: "Not just the deck: the thread disappears on both sides, messages included, and the blocked person can no longer write or make a typing indicator blink. A block that left the conversation open would only be a filter.",
+    },
+    {
+      title: "A report gets read",
+      body: "It does not land in a table nobody opens. What gets looked at is how many different people reported someone — one report may be a grudge, several are a pattern.",
     },
     {
       title: "Distances stay vague",
       body: "Under a kilometre, then to the nearest kilometre, then rounded to the nearest five. Enough to know whether it's the same neighbourhood, never enough to find someone.",
+    },
+    {
+      title: "Profiles cannot be harvested",
+      body: "One account cannot page through the deck forever to collect names, bios and photos: the number of profiles served per day is capped, far above what a person looks at and far below what a script would want.",
     },
     {
       title: "Usable without seeing the screen",
@@ -84,7 +92,7 @@ export const en: Copy = {
       },
       {
         title: "Reporting",
-        body: "Any profile can be reported or blocked from a card, from the full profile and from the conversation. Blocking removes the person on both sides immediately.",
+        body: "Any profile can be reported or blocked from a card, from the full profile and from the conversation. Blocking closes the thread on both sides — the conversation and its messages disappear, and the blocked person can no longer send anything. Reports are reviewed.",
       },
       {
         title: "Closing your account",
@@ -132,7 +140,7 @@ export const en: Copy = {
       },
       {
         title: "Reporting someone",
-        body: "From the app: on the card, the full profile or the conversation. It is faster and better recorded than in writing.",
+        body: "From the app: on the card, the full profile or the conversation. A report goes into a queue that gets reviewed; what matters most is how many different people reported someone. Blocking, on top of reporting, closes the conversation immediately.",
       },
       {
         title: "Service status",

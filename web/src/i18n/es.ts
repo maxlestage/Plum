@@ -41,12 +41,20 @@ export const es: Copy = {
       body: "El mazo ordena por distancia y por tus criterios. Nada más. No se vende nada, y nadie aparece antes por pagar.",
     },
     {
-      title: "Denunciar está siempre a un gesto",
-      body: "Desde una tarjeta, desde un perfil completo, desde una conversación. Bloquear retira a la persona por ambos lados, de inmediato.",
+      title: "Bloquear cierra la conversación",
+      body: "No solo el mazo: el hilo desaparece por ambos lados, con los mensajes, y quien está bloqueado ya no puede escribir ni hacer parpadear «escribiendo». Un bloqueo que dejara la conversación abierta sería solo un filtro.",
+    },
+    {
+      title: "Una denuncia se lee",
+      body: "No acaba en una tabla que nadie abre. Lo que se mira es cuántas personas distintas han denunciado a alguien: una denuncia aislada puede ser despecho, varias son un motivo.",
     },
     {
       title: "Las distancias quedan vagas",
       body: "Menos de un kilómetro, luego al kilómetro, luego redondeadas de cinco en cinco. Bastante para saber si es el mismo barrio, nunca bastante para encontrar a alguien.",
+    },
+    {
+      title: "Los perfiles no se pueden aspirar",
+      body: "Una cuenta no puede recorrer el mazo sin fin para recolectar nombres, biografías y fotos: el número de perfiles servidos por día está limitado, muy por encima de lo que mira una persona y muy por debajo de lo que querría un script.",
     },
     {
       title: "Utilizable sin ver la pantalla",
@@ -84,7 +92,7 @@ export const es: Copy = {
       },
       {
         title: "Denuncias",
-        body: "Cualquier perfil puede denunciarse o bloquearse desde una tarjeta, desde el perfil completo y desde la conversación. Bloquear retira a la persona por ambos lados de inmediato.",
+        body: "Cualquier perfil puede denunciarse o bloquearse desde una tarjeta, desde el perfil completo y desde la conversación. Bloquear cierra el hilo por ambos lados: la conversación y sus mensajes desaparecen, y quien está bloqueado ya no puede enviar nada. Las denuncias se revisan.",
       },
       {
         title: "Cierre de la cuenta",
@@ -132,7 +140,7 @@ export const es: Copy = {
       },
       {
         title: "Denunciar a alguien",
-        body: "Desde la aplicación, en la tarjeta, el perfil completo o la conversación. Es más rápido y queda mejor registrado que por escrito.",
+        body: "Desde la aplicación, en la tarjeta, el perfil completo o la conversación. Una denuncia va a una cola que se revisa; lo que más cuenta es cuántas personas distintas han denunciado a alguien. Bloquear, además de denunciar, cierra la conversación de inmediato.",
       },
       {
         title: "Estado del servicio",
