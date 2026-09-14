@@ -222,14 +222,43 @@ Les points qui ne se lisent pas dans la liste des routes :
 - Une conversation à laquelle on n'appartient pas répond « introuvable »
   plutôt qu'« interdit ».
 
-**Pas fait** : les photos, qui demandent un stockage objet, et le WebSocket du
-direct — les messages s'échangent aujourd'hui par requêtes, pas en flux. `photos` est donc toujours un
-tableau vide dans les réponses — présent parce que le modèle Swift le déclare
-non optionnel, vide parce que les photos demandent un stockage objet : le
-système de fichiers d'un dyno est éphémère et ne peut pas les garder. Servir
-des téléversements qui disparaissent au prochain redémarrage serait pire que
-de ne pas les servir.
+**Fait aussi** : le direct — `GET /ws`, hors de `/api/v1` parce qu'une mise à
+niveau WebSocket n'est pas une requête versionnée.
 
-**À revoir avec plusieurs dynos** : les migrations tournent au démarrage. Avec
-une seule dyno c'est correct ; avec plusieurs, deux se marcheraient dessus et
-il faudra une phase `release`.
+- **Authentifié par l'en-tête `Authorization`**, comme le reste. Pas de jeton
+  dans l'URL : une adresse se retrouve dans les journaux des serveurs
+  mandataires et dans l'historique, un en-tête non.
+- **Le serveur pousse `message`, `read`, `typing` et `match`** ; le client
+  n'envoie que `typing`. Envoyer un message ou marquer un fil comme lu reste
+  une requête : ces deux-là doivent pouvoir échouer franchement et rendre la
+  ressource écrite, ce qu'une trame sans réponse ne sait pas faire.
+- **Le direct n'est jamais la source de vérité.** Tout ce qui passe par là est
+  déjà en base, et le client le relira au chargement suivant. C'est ce qui
+  autorise à ne rien garantir sur la livraison — et à rester silencieux quand
+  le destinataire n'est pas connecté.
+- **« Untel écrit » est vérifié en base**, pas cru sur parole : sans ça,
+  deviner un identifiant de conversation suffirait à faire clignoter l'écran
+  de deux inconnus.
+- **Un battement toutes les 30 secondes.** Le routeur Heroku ferme une
+  connexion restée muette 55 secondes, et une conversation peut très bien
+  rester calme plus longtemps.
+- Les tests de cette tranche montent un vrai serveur sur un vrai port : une
+  poignée de main WebSocket ne survit pas à `tower::oneshot`.
+
+**Pas fait** : les photos, qui demandent un stockage objet. `photos` est donc
+toujours un tableau vide dans les réponses — présent parce que le modèle Swift
+le déclare non optionnel, vide parce que le système de fichiers d'un dyno est
+éphémère et ne peut pas les garder. Servir des téléversements qui
+disparaissent au prochain redémarrage serait pire que de ne pas les servir.
+
+**À revoir avec plusieurs dynos** : deux choses.
+
+- Les migrations tournent au démarrage. Avec une seule dyno c'est correct ;
+  avec plusieurs, deux se marcheraient dessus et il faudra une phase
+  `release`.
+- **Le registre des sockets est en mémoire, donc par dyno.** Avec une seule,
+  tout le monde est sur la même instance et c'est complet ; avec plusieurs,
+  deux personnes tombées sur des dynos différents ne se verraient pas écrire.
+  Il faudra alors relayer par Redis, déjà provisionné. C'est écrit ici plutôt
+  que découvert plus tard : une limite nommée est une décision, une limite tue
+  est un bug qui attend.

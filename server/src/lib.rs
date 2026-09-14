@@ -4,6 +4,7 @@ pub mod config;
 pub mod discovery;
 pub mod entities;
 pub mod error;
+pub mod live;
 pub mod matches;
 pub mod profile;
 pub mod rate_limit;
@@ -51,6 +52,9 @@ pub fn app(state: AppState) -> Router {
 pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
     let api = Router::new()
         .route("/health", get(health))
+        // Hors de `/api/v1` : une mise à niveau WebSocket n'est pas une
+        // requête versionnée, et le client la cherche à la racine.
+        .merge(live::routes::router())
         .nest(
             "/api/v1",
             // An unknown path under /api must not fall through to the site:
