@@ -32,6 +32,19 @@ pub const MAX_PHOTOS: u64 = 6;
 /// une et en renvoyer une autre indéfiniment.
 const UPLOAD_QUOTA: Quota = Quota::new(20, 60 * 60);
 
+/// Le poids au-delà duquel on cesse d'accepter des photos.
+///
+/// Les quotas précédents comptent *qui* envoie, et se contournent donc en
+/// changeant d'identité — une adresse email neuve, une adresse IP neuve. Cette
+/// limite-ci compte la ressource elle-même : elle tient quel que soit le
+/// nombre de comptes.
+///
+/// 700 Mio sur le gigaoctet du plan, ce qui laisse de quoi respirer aux
+/// profils, aux messages et aux index. Passé ce seuil, l'envoi est refusé avec
+/// un message qui dit ce qui se passe — et le reste de l'application continue
+/// de fonctionner, ce qu'une base pleine ne permettrait plus.
+const STORAGE_BUDGET: i64 = 700 * 1024 * 1024;
+
 /// Les routes authentifiées, sous `/api/v1`.
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -76,6 +89,11 @@ async fn upload(
     // décodage, et refuser une fois les douze mégaoctets ingérés ne coûterait
     // pas moins cher qu'accepter.
     enforce(&state, "photo-upload", &viewer.to_string(), UPLOAD_QUOTA).await?;
+    if storage_is_full(&state, STORAGE_BUDGET).await? {
+        return Err(ApiError::BadRequest(
+            "Les photos ne rentrent plus. Réessayez plus tard.".into(),
+        ));
+    }
 
     // Le premier champ, quel que soit son nom : le client envoie `file`, et
     // rien ne gagne à refuser un envoi par ailleurs valide pour une étiquette.
@@ -304,6 +322,31 @@ async fn serve(State(state): State<AppState>, Path(id): Path<Uuid>) -> Response 
     );
 
     (headers, found.bytes).into_response()
+}
+
+/// La table des photos a-t-elle dépassé son budget ?
+///
+/// `pg_total_relation_size` plutôt qu'une somme sur les octets : c'est une
+/// lecture du catalogue, pas un parcours de table, et elle compte le stockage
+/// externe où Postgres range réellement les `bytea` — qu'une somme sur la
+/// colonne ne verrait pas de la même façon.
+pub async fn storage_is_full(state: &AppState, budget: i64) -> ApiResult<bool> {
+    use sea_orm::{ConnectionTrait, Statement};
+
+    let row = state
+        .db
+        .query_one(Statement::from_string(
+            state.db.get_database_backend(),
+            "SELECT pg_total_relation_size('photos') AS taille",
+        ))
+        .await?;
+
+    let taille: i64 = match row {
+        Some(row) => row.try_get("", "taille").unwrap_or(0),
+        // Table absente : rien de stocké, donc rien à refuser.
+        None => 0,
+    };
+    Ok(taille >= budget)
 }
 
 /// Accroche leurs photos à une page de profils.

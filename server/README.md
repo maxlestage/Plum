@@ -144,6 +144,21 @@ Heroku ajoute l'adresse d'origine à droite de la liste, donc tout ce qui
 précède a été envoyé par le client et se falsifie ; lire la première rendrait
 la limite contournable en une ligne de `curl`, ce qu'un test vérifie.
 
+**Une limite par adresse ne suffit pas, et c'est mesuré.** Depuis une machine
+ordinaire, l'adresse de sortie tournait sur sept adresses d'un même bloc — donc
+sept seaux, donc sept fois le quota. Changer d'adresse n'est pas une attaque,
+c'est le fonctionnement normal de tout hébergeur, de tout VPN, de tout
+mandataire. L'inscription est donc aussi comptée **par bloc** — /24 en IPv4,
+/64 en IPv6 — avec un quota bien plus large, parce qu'un bloc peut abriter tout
+un opérateur mobile derrière un NAT partagé.
+
+**Et une limite qui ne dépend d'aucune identité.** Les quotas ci-dessus
+comptent *qui* envoie ; on en change. Le dernier compte la ressource : au-delà
+de 700 Mio de photos — lus par `pg_total_relation_size`, une lecture du
+catalogue et non un parcours de table — l'envoi est refusé. Le reste de
+l'application continue de fonctionner, ce qu'une base pleine ne permettrait
+plus.
+
 **Fait aussi** : le profil et ses préférences — `GET`/`PATCH /me/profile`,
 `GET`/`PATCH /me/preferences`, `POST /me/profile/complete`,
 `PATCH /me/location`.
