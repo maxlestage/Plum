@@ -129,12 +129,28 @@ async fn redis_check(
     quota: Quota,
 ) -> redis::RedisResult<Decision> {
     let namespaced = format!("plum:rl:{key}");
-    let (count, ttl): (u32, i64) = redis::pipe()
+
+    // `SET … NX` pose le compteur *et* son échéance, et seulement s'il
+    // n'existe pas encore. L'`EXPIRE` inconditionnel d'avant repoussait
+    // l'échéance à chaque requête : le compteur ne retombait donc qu'après une
+    // fenêtre entière de silence, et quelqu'un qui atteignait la limite puis
+    // continuait d'essayer se bloquait lui-même sans fin — pendant que le
+    // message lui disait de réessayer dans un instant.
+    //
+    // `SET NX` plutôt qu'`EXPIRE NX`, qui demanderait Redis 7 : celui-ci
+    // fonctionne depuis toujours.
+    let (_, count, ttl): (bool, u32, i64) = redis::pipe()
         .atomic()
-        .incr(&namespaced, 1)
-        .expire(&namespaced, quota.window.as_secs() as i64)
-        .ignore()
-        .ttl(&namespaced)
+        .cmd("SET")
+        .arg(&namespaced)
+        .arg(0)
+        .arg("EX")
+        .arg(quota.window.as_secs())
+        .arg("NX")
+        .cmd("INCR")
+        .arg(&namespaced)
+        .cmd("TTL")
+        .arg(&namespaced)
         .query_async(&mut manager)
         .await?;
 
@@ -292,5 +308,78 @@ mod blocs {
     #[test]
     fn something_unreadable_is_still_a_key() {
         assert_eq!(client_block("pas-une-adresse"), "pas-une-adresse");
+    }
+}
+
+/// Les tests du limiteur Redis, sautés sans `TEST_REDIS_URL`.
+///
+/// Ils existent parce que les deux implémentations avaient divergé, et que
+/// c'est celle de production qui avait tort : l'`EXPIRE` posé à chaque requête
+/// repoussait l'échéance, donc le compteur ne retombait qu'après une fenêtre
+/// entière de silence. La version en mémoire, elle, gardait bien l'instant de
+/// départ. Une seule des deux était testée.
+#[cfg(test)]
+mod redis_tests {
+    use super::*;
+
+    fn url() -> Option<String> {
+        std::env::var("TEST_REDIS_URL")
+            .ok()
+            .filter(|u| !u.is_empty())
+    }
+
+    async fn limiter(url: &str) -> RateLimiter {
+        let client = redis::Client::open(url).expect("client redis");
+        let manager = redis::aio::ConnectionManager::new(client)
+            .await
+            .expect("connexion redis");
+        RateLimiter::Redis(Box::new(manager))
+    }
+
+    #[tokio::test]
+    async fn the_window_does_not_move_when_someone_keeps_knocking() {
+        let Some(url) = url() else { return };
+        let limiter = limiter(&url).await;
+        let quota = Quota::new(3, 2);
+        let key = format!("essai-fenetre-{}", uuid::Uuid::new_v4());
+
+        for _ in 0..4 {
+            limiter.check(&key, quota).await;
+        }
+        assert!(!limiter.check(&key, quota).await.allowed, "seau plein");
+
+        // On frappe *pendant* toute la fenêtre, et c'est tout l'objet du test :
+        // dormir en silence ne prouverait rien, puisque l'échéance finirait par
+        // tomber d'elle-même. C'est l'obstination qui révélait le défaut —
+        // chaque tentative repoussait l'échéance d'une fenêtre entière.
+        let jusqu_a = std::time::Instant::now() + std::time::Duration::from_millis(2_600);
+        while std::time::Instant::now() < jusqu_a {
+            limiter.check(&key, quota).await;
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+
+        assert!(
+            limiter.check(&key, quota).await.allowed,
+            "la fenêtre ne s'est jamais refermée : s'obstiner suffisait à rester \
+             bloqué sans fin, pendant que le message disait de réessayer dans un \
+             instant"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_limit_is_the_limit() {
+        let Some(url) = url() else { return };
+        let limiter = limiter(&url).await;
+        let quota = Quota::new(3, 60);
+        let key = format!("essai-plafond-{}", uuid::Uuid::new_v4());
+
+        let verdicts: Vec<bool> = {
+            let mut v = Vec::new();
+            for _ in 0..5 {
+                v.push(limiter.check(&key, quota).await.allowed);
+            }
+            v
+        };
+        assert_eq!(verdicts, vec![true, true, true, false, false]);
     }
 }
