@@ -288,6 +288,9 @@ pub mod deck_ages {
     pub const BLOCK_ERASES: i32 = 48;
     pub const BLOCK_LEFTOVER: i32 = 49;
     pub const BLOCK_LEFTOVER_LIST: i32 = 50;
+    pub const FLOOD: i32 = 51;
+    pub const ORDINARY_PACE: i32 = 52;
+    pub const RETRY_COST: i32 = 53;
 }
 
 /// A patch of the planet no other test run is using.

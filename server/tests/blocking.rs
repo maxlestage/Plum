@@ -203,10 +203,11 @@ async fn blocking_deletes_the_match_and_its_messages_rather_than_hiding_them() {
 
 /// Un blocage posé en base, sans passer par la route.
 ///
-/// C'est l'état que la production contient déjà : les blocages enregistrés
-/// avant que `POST /profiles/{id}/block` supprime le match ont laissé ce
-/// match derrière eux. C'est aussi, à la milliseconde près, l'état d'une
-/// course entre un message en vol et un blocage qui vient d'être posé.
+/// C'est l'état que laissait l'ancien code : jusqu'à ce changement,
+/// `POST /profiles/{id}/block` écrivait sa ligne sans toucher au match. Tout
+/// blocage déjà enregistré en production a donc encore le sien. C'est aussi,
+/// à la milliseconde près, l'état d'une course entre un message en vol et un
+/// blocage qui vient d'être posé.
 ///
 /// Sans ce raccourci, les trois barrières secondaires ne seraient vérifiées
 /// par rien : la suppression du match les masque toutes, et les retirer une à

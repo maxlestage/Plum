@@ -405,6 +405,112 @@ async fn a_stranger_cannot_read_or_write_in_someone_elses_conversation() {
     assert!(mine["items"].as_array().unwrap().is_empty());
 }
 
+/// Rien n'encadrait l'envoi : un compte pouvait remplir une conversation — et
+/// la base — aussi vite que le réseau le permettait, pendant que le socket
+/// poussait tout en direct chez l'autre. L'inondation est la forme de
+/// harcèlement la moins chère à produire.
+#[tokio::test]
+async fn a_flood_of_messages_is_stopped_before_it_fills_the_thread() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let t = thread(&app, "inondation", FLOOD).await;
+
+    // Le quota est de soixante par minute. On en envoie soixante-cinq : le
+    // plafond doit tomber avant la fin, et rester tombé.
+    let mut refused = 0;
+    let mut accepted = 0;
+    for n in 0..65 {
+        let (status, body) = call(
+            &app,
+            request(
+                "POST",
+                &format!("/api/v1/conversations/{}/messages", t.id),
+                Some(&t.a),
+                Some(json!({ "client_id": uuid::Uuid::new_v4(), "body": format!("message {n}") })),
+            ),
+        )
+        .await;
+        match status {
+            StatusCode::OK => accepted += 1,
+            StatusCode::TOO_MANY_REQUESTS => refused += 1,
+            other => panic!("réponse inattendue {other} : {body}"),
+        }
+    }
+
+    assert_eq!(accepted, 60, "le quota doit laisser passer soixante messages");
+    assert_eq!(refused, 5, "et refuser le reste");
+}
+
+/// Une conversation ordinaire ne doit jamais rencontrer ce plafond. Un quota
+/// qui gêne celui qui écrit normalement est un quota mal réglé.
+#[tokio::test]
+async fn an_ordinary_exchange_never_meets_the_ceiling() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let t = thread(&app, "echange", ORDINARY_PACE).await;
+
+    // Vingt allers-retours d'affilée : plus vif que tout ce qu'on écrit à la
+    // main, et encore loin du plafond.
+    for n in 0..20 {
+        for token in [&t.a, &t.b] {
+            let (status, body) = call(
+                &app,
+                request(
+                    "POST",
+                    &format!("/api/v1/conversations/{}/messages", t.id),
+                    Some(token),
+                    Some(json!({ "client_id": uuid::Uuid::new_v4(), "body": format!("oui {n}") })),
+                ),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "tour {n} : {body}");
+        }
+    }
+}
+
+/// Le renvoi après une coupure ne doit rien coûter : ce n'est pas un nouveau
+/// message, c'est le même qui arrive enfin. Sans ça, quelqu'un dans un tunnel
+/// paierait pour la connexion qu'il n'a pas.
+#[tokio::test]
+async fn a_retry_after_a_dropped_connection_costs_nothing() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let t = thread(&app, "renvoi", RETRY_COST).await;
+
+    let client_id = uuid::Uuid::new_v4();
+    let payload = json!({ "client_id": client_id, "body": "tu es là ?" });
+
+    // Le même message cent fois, comme un client qui réessaie sans relâche.
+    for n in 0..100 {
+        let (status, body) = call(
+            &app,
+            request(
+                "POST",
+                &format!("/api/v1/conversations/{}/messages", t.id),
+                Some(&t.a),
+                Some(payload.clone()),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "renvoi {n} : {body}");
+    }
+
+    // Et le quota est intact : cinquante-neuf nouveaux messages passent encore.
+    for n in 0..59 {
+        let (status, body) = call(
+            &app,
+            request(
+                "POST",
+                &format!("/api/v1/conversations/{}/messages", t.id),
+                Some(&t.a),
+                Some(json!({ "client_id": uuid::Uuid::new_v4(), "body": format!("suite {n}") })),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "message {n} après les renvois : {body}");
+    }
+}
+
 #[tokio::test]
 async fn the_chat_routes_refuse_an_anonymous_caller() {
     let Some(db) = database().await else { return };

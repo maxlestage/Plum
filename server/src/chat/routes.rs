@@ -11,11 +11,12 @@ use sea_orm::{
 use uuid::Uuid;
 
 use super::types::*;
-use crate::auth::routes::authenticate;
+use crate::auth::routes::{authenticate, enforce};
 use crate::entities::{block, conversation, match_pair, message, profile};
 use crate::error::{ApiError, ApiResult};
 use crate::live::routes::{announce_message, announce_read};
 use crate::profile::types::ProfileResponse;
+use crate::rate_limit::Quota;
 use crate::state::AppState;
 
 const DEFAULT_LIMIT: u64 = 30;
@@ -23,6 +24,17 @@ const MAX_LIMIT: u64 = 100;
 /// Assez pour dire quelque chose, pas assez pour coller un roman dans une
 /// bulle. Le client n'impose rien, donc c'est ici que ça se joue.
 const MAX_BODY: usize = 2_000;
+/// Soixante messages par minute et par expéditeur.
+///
+/// Rien n'encadrait l'envoi. Un compte pouvait remplir une conversation — et
+/// la base — aussi vite que le réseau le permettait, et le socket poussait
+/// tout en direct : le téléphone d'en face vibrait sans discontinuer. C'est
+/// l'inondation, la forme de harcèlement la moins chère à produire.
+///
+/// Soixante parce qu'une conversation animée en compte dix ou vingt à la
+/// minute : la marge est de trois fois, personne ne rencontrera ce plafond en
+/// écrivant. Un script, lui, le touche à la seconde.
+const MESSAGE_QUOTA: Quota = Quota::new(60, 60);
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -358,6 +370,11 @@ async fn send_message(
     {
         return Ok(Json(already.into()));
     }
+
+    // Le quota se compte ici, après le rejeu : quelqu'un dans un tunnel qui
+    // renvoie le même message ne doit pas payer pour la connexion qu'il n'a
+    // pas. Ce n'est pas un nouveau message, c'est le même qui arrive enfin.
+    enforce(&state, "messages", &claims.sub.to_string(), MESSAGE_QUOTA).await?;
 
     let now = Utc::now();
     let written = message::ActiveModel {

@@ -104,10 +104,12 @@ async fn list(
 
     // Bloquer supprime le match ; cette liste ne devrait donc rien avoir à
     // filtrer. Elle filtre quand même, en une requête bornée à la page, parce
-    // que les blocages posés avant que la suppression existe ont laissé des
-    // matchs derrière eux en production. Une liste de matchs qui affiche
-    // encore quelqu'un qu'on a bloqué est un manquement visible, pas un détail
-    // de cohérence.
+    // que le blocage n'a pas toujours supprimé : jusqu'à ce changement il se
+    // contentait d'écrire sa ligne. Tout blocage déjà enregistré a donc encore
+    // son match — combien, on ne le sait pas d'ici, et c'est justement
+    // pourquoi on ne parie pas dessus. Une liste de matchs qui affiche encore
+    // quelqu'un qu'on a bloqué est un manquement visible, pas un détail de
+    // cohérence.
     let walls = block::Entity::find()
         .filter(
             Condition::any()
