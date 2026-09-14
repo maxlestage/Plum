@@ -406,3 +406,48 @@ async fn deleting_the_account_takes_the_photos_with_it() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
+
+/// Six photos ne plafonnent rien : on peut en retirer une et en renvoyer une
+/// autre indéfiniment, et chaque envoi décode jusqu'à douze mégaoctets sur le
+/// seul dyno.
+#[tokio::test]
+async fn a_flood_of_uploads_is_cut_off() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let (token, _) = sign_up_and_token(&app, "photo-rafale").await;
+
+    let mut refused = None;
+    for attempt in 1..=25 {
+        let (status, _) = call(&app, upload_request(&token, jpeg(400, 300))).await;
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            refused = Some(attempt);
+            break;
+        }
+        // Retirer au fur et à mesure : sans ça le plafond de six photos
+        // répondrait à notre place et le test ne prouverait rien.
+        if attempt % 5 == 0 {
+            let (_, profile) = call(
+                &app,
+                request("GET", "/api/v1/me/profile", Some(&token), None),
+            )
+            .await;
+            for photo in profile["photos"].as_array().unwrap() {
+                call(
+                    &app,
+                    request(
+                        "DELETE",
+                        &format!("/api/v1/me/photos/{}", photo["id"].as_str().unwrap()),
+                        Some(&token),
+                        None,
+                    ),
+                )
+                .await;
+            }
+        }
+    }
+
+    assert!(
+        refused.is_some(),
+        "vingt-cinq envois sont passés : rien ne borne le décodage"
+    );
+}

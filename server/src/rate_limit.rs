@@ -18,6 +18,26 @@ pub struct Quota {
     pub window: Duration,
 }
 
+/// L'adresse du client telle que le routeur d'hébergement l'a vue.
+///
+/// Heroku **ajoute** l'adresse d'origine à droite de `X-Forwarded-For` : si le
+/// client en envoyait déjà un, le sien est poussé devant et celui du routeur
+/// se retrouve en dernier. C'est donc la dernière valeur qu'on lit, et elle
+/// seule — tout ce qui précède vient du client et se falsifie à volonté.
+///
+/// Absente, on rend `None` plutôt qu'une clé commune : sans en-tête on n'est
+/// pas derrière le routeur, donc en local ou dans les tests, et mettre tout le
+/// monde dans le même seau y bloquerait la deuxième inscription venue.
+pub fn client_ip(headers: &axum::http::HeaderMap) -> Option<String> {
+    headers
+        .get("x-forwarded-for")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.rsplit(',').next())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
 impl Quota {
     pub const fn new(limit: u32, window_seconds: u64) -> Self {
         Self {

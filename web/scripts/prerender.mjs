@@ -17,6 +17,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { render } from "../dist-server/entry-server.js";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(here, "..", "dist");
 
@@ -138,9 +140,22 @@ for (const language of languages) {
         `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="${language}" />\n    ${preview(language)}\n    <link rel="canonical" href="${absolute(pathFor(language, page))}" />\n    ${alternates}`,
       );
 
+    // Le corps, rendu ici plutôt que laissé au navigateur. Sans lui, un robot
+    // qui n'exécute pas de JavaScript voit le bon titre et rien dessous.
+    const body = render(pathFor(language, page));
+    if (!body.includes("</")) {
+      console.error(
+        `prerender : ${pathFor(language, page)} n'a rien rendu — l'arbre React a dû changer`,
+      );
+      process.exit(1);
+    }
+
     const directory = path.join(dist, pathFor(language, page));
     fs.mkdirSync(directory, { recursive: true });
-    fs.writeFileSync(path.join(directory, "index.html"), html);
+    fs.writeFileSync(
+      path.join(directory, "index.html"),
+      html.replace('<div id="root"></div>', `<div id="root">${body}</div>`),
+    );
     written++;
   }
 }
@@ -199,6 +214,9 @@ for (const expected of [
   `hreflang="fr" href="${origin}/fr/confidentialite/"`,
   `og:image" content="${origin}/partage.png"`,
   'name="twitter:card" content="summary_large_image"',
+  // Le corps rendu : sans cette ligne, une régression de l'étape SSR
+  // repasserait en silence et ne se verrait qu'au référencement.
+  "Privacidad",
 ]) {
   if (!sample.includes(expected)) {
     console.error(

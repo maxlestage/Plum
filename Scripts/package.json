@@ -1,0 +1,12 @@
+{
+  "name": "plum-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Les vérifications qui parlent à un déploiement réel. Séparées du site pour ne pas alourdir sa construction d'une dépendance qui ne le concerne pas.",
+  "scripts": {
+    "verifier": "node verifier-photos.mjs && node verifier-direct.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

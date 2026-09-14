@@ -12,15 +12,25 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use super::encode::{self, PhotoError, MAX_UPLOAD};
-use crate::auth::routes::authenticate;
+use crate::auth::routes::{authenticate, enforce};
 use crate::entities::photo;
 use crate::error::{ApiError, ApiResult};
 use crate::profile::types::{PhotoResponse, ProfileResponse};
+use crate::rate_limit::Quota;
 use crate::state::AppState;
 
 /// Ce que le client affiche déjà comme maximum. Reposé ici : une limite qui
 /// n'existe que dans l'application n'existe pas.
 pub const MAX_PHOTOS: u64 = 6;
+
+/// Vingt envois par heure et par compte.
+///
+/// Six photos et de quoi se raviser plusieurs fois : personne de réel n'ira
+/// au bout. Ce que ça arrête est une boucle — chaque envoi décode jusqu'à
+/// douze mégaoctets et réencode, ce qui occupe le seul dyno pendant ce
+/// temps-là. Le plafond de six photos ne suffisait pas : on peut en retirer
+/// une et en renvoyer une autre indéfiniment.
+const UPLOAD_QUOTA: Quota = Quota::new(20, 60 * 60);
 
 /// Les routes authentifiées, sous `/api/v1`.
 pub fn router() -> Router<AppState> {
@@ -62,6 +72,10 @@ async fn upload(
 ) -> ApiResult<Json<PhotoResponse>> {
     let claims = authenticate(&state, &headers)?;
     let viewer = claims.sub;
+    // Avant de lire le corps, pas après : l'intérêt est d'épargner le
+    // décodage, et refuser une fois les douze mégaoctets ingérés ne coûterait
+    // pas moins cher qu'accepter.
+    enforce(&state, "photo-upload", &viewer.to_string(), UPLOAD_QUOTA).await?;
 
     // Le premier champ, quel que soit son nom : le client envoie `file`, et
     // rien ne gagne à refuser un envoi par ailleurs valide pour une étiquette.

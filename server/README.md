@@ -54,6 +54,22 @@ Les migrations, elles, ne doivent tourner qu'une fois : un verrou consultatif
 Postgres les sérialise. Le verrou vaut mieux qu'une cellule locale au processus
 parce qu'il tient aussi entre deux `cargo test` lancés en même temps.
 
+## Vérifier un déploiement réel
+
+`Scripts/parcours.sh` couvre l'API en HTTP. Deux vérifications de plus parlent
+à un déploiement complet, socket et photos compris — ce qu'aucun test
+d'intégration ne touche, puisqu'ils montent le serveur eux-mêmes :
+
+```sh
+cd Scripts && npm install     # une fois, pour `ws`
+node verifier-photos.mjs      # envoi, réduction, service, suppression
+node verifier-direct.mjs      # socket, évènements, garde-fous
+```
+
+Par défaut elles visent la production ; `PLUM_HOST` et `PLUM_TLS=0` les
+pointent ailleurs. Elles créent leurs comptes et les effacent en partant,
+même quand une vérification échoue.
+
 ## Le parcours de bout en bout
 
 ```bash
@@ -114,6 +130,19 @@ suppositions approchaient. Mots de passe en Argon2id, jetons de
 rafraîchissement stockés en empreinte seulement, barrière 18+ vérifiée côté
 serveur, et énumération des comptes fermée — une adresse inconnue et un
 mauvais mot de passe répondent exactement la même chose.
+
+**Trois quotas, et deux d'entre eux comptent l'adresse IP plutôt que l'email.**
+Compter par adresse email n'arrête rien : un script qui en change à chaque
+essai repart dans un seau neuf. L'inscription est donc aussi limitée à dix par
+heure et par adresse IP, et l'envoi de photos à vingt par heure et par compte.
+Sans ces deux-là, créer des comptes ne coûte rien et chaque compte peut déposer
+six photos : le gigaoctet du plan Postgres se remplirait en un jour, et le
+décodage de chaque image occuperait le seul dyno pendant ce temps.
+
+L'adresse vient de la **dernière** valeur de `X-Forwarded-For`. Le routeur
+Heroku ajoute l'adresse d'origine à droite de la liste, donc tout ce qui
+précède a été envoyé par le client et se falsifie ; lire la première rendrait
+la limite contournable en une ligne de `curl`, ce qu'un test vérifie.
 
 **Fait aussi** : le profil et ses préférences — `GET`/`PATCH /me/profile`,
 `GET`/`PATCH /me/preferences`, `POST /me/profile/complete`,
@@ -293,6 +322,14 @@ niveau WebSocket n'est pas une requête versionnée.
 Les adresses des photos doivent être absolues — `AsyncImage` ne résout pas un
 chemin relatif — et sans elle le serveur se rabat sur `http://127.0.0.1:{PORT}`,
 ce qui donne des photos introuvables depuis un téléphone.
+
+**Le site est rendu à la construction.** Les douze pages traduites partent
+avec leur corps déjà en HTML ; le navigateur hydrate ensuite. Auparavant elles
+portaient les bonnes métadonnées et un `<body>` vide — ce que les aperçus de
+lien toléraient, puisqu'ils lisent les balises, mais pas les moteurs qui
+n'exécutent pas le JavaScript. La racine reste une coquille : elle n'est pas
+une page, seulement une redirection vers la langue détectée, donc il n'y a
+rien à y rendre.
 
 **Pas fait** : les notifications poussées, qui demandent un certificat APNs et
 donc un compte développeur Apple — la seule chose ici que je ne peux pas poser
