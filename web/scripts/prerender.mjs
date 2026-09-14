@@ -31,7 +31,19 @@ const pages = ["home", "terms", "privacy", "help"];
 const site = JSON.parse(
   fs.readFileSync(path.join(here, "..", "src", "i18n", "site.json"), "utf8"),
 );
-const { slugs, meta } = site;
+const { slugs, meta, origin } = site;
+
+/**
+ * Une adresse absolue.
+ *
+ * Google ignore un `hreflang` relatif, et recommande un `canonical` absolu.
+ * Les coquilles sont précisément ce que les robots lisent — l'application, à
+ * l'exécution, les réécrit déjà en absolu à partir de `window.location.origin`,
+ * donc l'erreur ne se voyait que là où elle comptait.
+ */
+function absolute(pathname) {
+  return `${origin}${pathname}`;
+}
 
 /** `&` first, or it would double-escape the entities added after it. */
 function escapeHtml(value) {
@@ -61,7 +73,7 @@ for (const language of languages) {
     const alternates = [...languages, "x-default"]
       .map((entry) => {
         const target = entry === "x-default" ? "fr" : entry;
-        return `<link rel="alternate" hreflang="${entry}" href="${pathFor(target, page)}" />`;
+        return `<link rel="alternate" hreflang="${entry}" href="${absolute(pathFor(target, page))}" />`;
       })
       .join("\n    ");
 
@@ -83,7 +95,7 @@ for (const language of languages) {
       )
       .replace(
         /<meta\s+property="og:description"[\s\S]*?\/>/,
-        `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="${language}" />\n    <link rel="canonical" href="${pathFor(language, page)}" />\n    ${alternates}`,
+        `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="${language}" />\n    <link rel="canonical" href="${absolute(pathFor(language, page))}" />\n    ${alternates}`,
       );
 
     const directory = path.join(dist, pathFor(language, page));
@@ -103,7 +115,8 @@ for (const expected of [
   '<html lang="es">',
   "Privacidad — Plum",
   'hreflang="x-default"',
-  'rel="canonical" href="/es/privacidad/"',
+  `rel="canonical" href="${origin}/es/privacidad/"`,
+  `hreflang="fr" href="${origin}/fr/confidentialite/"`,
 ]) {
   if (!sample.includes(expected)) {
     console.error(
