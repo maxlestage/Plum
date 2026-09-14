@@ -115,6 +115,19 @@ rafraîchissement stockés en empreinte seulement, barrière 18+ vérifiée côt
 serveur, et énumération des comptes fermée — une adresse inconnue et un
 mauvais mot de passe répondent exactement la même chose.
 
+**Trois quotas, et deux d'entre eux comptent l'adresse IP plutôt que l'email.**
+Compter par adresse email n'arrête rien : un script qui en change à chaque
+essai repart dans un seau neuf. L'inscription est donc aussi limitée à dix par
+heure et par adresse IP, et l'envoi de photos à vingt par heure et par compte.
+Sans ces deux-là, créer des comptes ne coûte rien et chaque compte peut déposer
+six photos : le gigaoctet du plan Postgres se remplirait en un jour, et le
+décodage de chaque image occuperait le seul dyno pendant ce temps.
+
+L'adresse vient de la **dernière** valeur de `X-Forwarded-For`. Le routeur
+Heroku ajoute l'adresse d'origine à droite de la liste, donc tout ce qui
+précède a été envoyé par le client et se falsifie ; lire la première rendrait
+la limite contournable en une ligne de `curl`, ce qu'un test vérifie.
+
 **Fait aussi** : le profil et ses préférences — `GET`/`PATCH /me/profile`,
 `GET`/`PATCH /me/preferences`, `POST /me/profile/complete`,
 `PATCH /me/location`.
