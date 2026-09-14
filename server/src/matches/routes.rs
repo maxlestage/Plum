@@ -116,7 +116,14 @@ async fn list(
                 conversation_id: None,
             })
         })
-        .collect();
+        .collect::<Vec<MatchResponse>>();
+
+    let mut items = items;
+    crate::photos::routes::attach(
+        &state,
+        &mut items.iter_mut().map(|m| &mut m.profile).collect::<Vec<_>>(),
+    )
+    .await?;
 
     Ok(Json(MatchesPage {
         items,

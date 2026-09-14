@@ -102,6 +102,7 @@ déploiement en le signalant. Rien ne casse avant que Heroku n'existe.
 | `REFRESH_TOKEN_TTL_DAYS` | 60 par défaut. |
 | `REDIS_URL` | **Facultatif.** Sans lui, la limitation de débit compte dans le processus — donc par dyno, ce qui est plus faible mais démarre sans add-on. Heroku Key-Value Store présente un certificat auto-signé : l'URL `rediss://` doit porter `#insecure`, et le serveur le signale au démarrage si elle ne l'a pas. |
 | `DATABASE_MAX_CONNECTIONS` | 10 par défaut. Heroku Postgres Essential-0 en autorise **20 pour tout le compte**, pas par dyno : dépasser ce plafond produit une erreur qui ne nomme ni le plan ni la limite. |
+| `PUBLIC_BASE_URL` | L'adresse publique du déploiement, sans barre finale. Elle sert à écrire les adresses des photos, qui doivent être absolues : `AsyncImage` ne résout pas un chemin relatif. Sans elle, le serveur se rabat sur `http://127.0.0.1:{PORT}` — utile pour un `cargo run`, inutilisable depuis un téléphone. |
 
 ## Ce qui est fait, ce qui ne l'est pas
 
@@ -250,11 +251,44 @@ niveau WebSocket n'est pas une requête versionnée.
 - Les tests de cette tranche montent un vrai serveur sur un vrai port : une
   poignée de main WebSocket ne survit pas à `tower::oneshot`.
 
-**Pas fait** : les photos, qui demandent un stockage objet. `photos` est donc
-toujours un tableau vide dans les réponses — présent parce que le modèle Swift
-le déclare non optionnel, vide parce que le système de fichiers d'un dyno est
-éphémère et ne peut pas les garder. Servir des téléversements qui
-disparaissent au prochain redémarrage serait pire que de ne pas les servir.
+**Fait aussi** : les photos — `POST /me/photos`, `PATCH /me/photos/order`,
+`DELETE /me/photos/{id}`, et `GET /photos/{id}` pour les octets.
+
+- **Les octets vivent dans Postgres**, pas dans un stockage objet. Ce n'est
+  pas l'endroit habituel et c'est assumé : un stockage objet est un service
+  payant de plus. Le plafond est mesuré plutôt qu'estimé — une photo réduite
+  pèse de l'ordre de 150 Kio, un test le vérifie à chaque exécution, et le
+  gigaoctet du plan Postgres fait donc de l'ordre du millier de profils à six
+  photos. Le jour où l'on s'en approche, seule la table change : l'adresse
+  publique reste `/photos/{id}` et le client ne verra rien.
+- **Rien n'est stocké tel qu'il arrive.** Le décodage sert de contrôle — un
+  fichier qui n'est pas une image échoue là plutôt que d'être rangé puis
+  servi — et le réencodage borne la taille, uniformise le format et **efface
+  les métadonnées**. Ce dernier point est la raison principale : une photo
+  sortie d'un téléphone porte ses coordonnées GPS dans son EXIF, et les
+  publier sur une application de rencontres donnerait l'adresse de qui les
+  publie.
+- **Les adresses ne sont pas authentifiées**, parce qu'`AsyncImage` fait une
+  requête nue. L'adresse est donc la clé : un UUID tiré au sort, cent
+  vingt-deux bits, qui ne s'énumère pas. La contrepartie est écrite plutôt que
+  découverte, ici et sur la page de confidentialité — qui détient un lien
+  garde l'image, y compris après un match défait.
+- **Le HEIC est refusé**, avec un message qui dit quoi faire. Le lire
+  demanderait une bibliothèque C ; l'iPhone a déjà le décodeur, donc
+  l'application convertit avant d'envoyer.
+- **Une page de deck ne charge jamais les octets.** Construire vingt adresses
+  ne demande que des identifiants ; charger la colonne d'octets ferait
+  traverser une vingtaine de mégaoctets à chaque ouverture, pour n'en afficher
+  aucun à ce moment-là.
+
+**Variable à poser** : `PUBLIC_BASE_URL`, l'adresse publique du déploiement.
+Les adresses des photos doivent être absolues — `AsyncImage` ne résout pas un
+chemin relatif — et sans elle le serveur se rabat sur `http://127.0.0.1:{PORT}`,
+ce qui donne des photos introuvables depuis un téléphone.
+
+**Pas fait** : les notifications poussées, qui demandent un certificat APNs et
+donc un compte développeur Apple — la seule chose ici que je ne peux pas poser
+moi-même.
 
 **À revoir avec plusieurs dynos** : deux choses.
 
