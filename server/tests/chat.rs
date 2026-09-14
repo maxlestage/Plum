@@ -437,7 +437,10 @@ async fn a_flood_of_messages_is_stopped_before_it_fills_the_thread() {
         }
     }
 
-    assert_eq!(accepted, 60, "le quota doit laisser passer soixante messages");
+    assert_eq!(
+        accepted, 60,
+        "le quota doit laisser passer soixante messages"
+    );
     assert_eq!(refused, 5, "et refuser le reste");
 }
 
@@ -507,7 +510,11 @@ async fn a_retry_after_a_dropped_connection_costs_nothing() {
             ),
         )
         .await;
-        assert_eq!(status, StatusCode::OK, "message {n} après les renvois : {body}");
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "message {n} après les renvois : {body}"
+        );
     }
 }
 
