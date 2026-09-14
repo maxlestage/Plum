@@ -1,4 +1,21 @@
-/** The app's logo, drawn rather than shipped as an image so it stays sharp. */
+/**
+ * La marque : deux disques qui se chevauchent, et au milieu une troisième
+ * forme que ni l'un ni l'autre n'a dessinée.
+ *
+ * Chaque moitié est un disque dont on retire un second disque décalé — d'où
+ * le `fillRule="evenodd"` : ce qui appartient à l'un *ou* à l'autre, jamais
+ * aux deux. C'est ce qui donne l'épaisseur variable d'un trait de plume,
+ * épais sur les flancs et affiné en haut et en bas.
+ *
+ * La même géométrie, aux mêmes coordonnées dans le même repère de 64 unités,
+ * est écrite dans `public/favicon.svg` et dans `Scripts/generate_appicon.py`.
+ * Trois rendus d'un seul dessin : si l'un change, les deux autres doivent
+ * suivre.
+ *
+ * Aucun dégradé et aucun identifiant : la marque est en aplat, donc rien à
+ * référencer, donc rien à faire entrer en collision quand elle paraît deux
+ * fois sur la même page.
+ */
 export function PlumMark({ size = 64 }: { size?: number }) {
   return (
     <svg
@@ -8,16 +25,16 @@ export function PlumMark({ size = 64 }: { size?: number }) {
       role="img"
       aria-label="Plum"
     >
-      <defs>
-        <linearGradient id="plum-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#E8608C" />
-          <stop offset="100%" stopColor="#6B2D5C" />
-        </linearGradient>
-      </defs>
-      <circle cx="32" cy="32" r="32" fill="url(#plum-mark)" />
+      <circle cx="32" cy="32" r="32" fill="#40183A" />
       <path
-        d="M32 46.5c-.6 0-1.2-.2-1.6-.6C24.6 40.9 19 35.9 19 29.6c0-4 3.1-7.1 7-7.1 2.3 0 4.5 1.1 5.9 2.9l.1.1.1-.1a7.4 7.4 0 0 1 5.9-2.9c3.9 0 7 3.1 7 7.1 0 6.3-5.6 11.3-11.4 16.3-.4.4-1 .6-1.6.6Z"
-        fill="#fff"
+        d="M23.5 14.5 a17.5 17.5 0 1 0 0 35 a17.5 17.5 0 1 0 0 -35 Z M30 16.8 a15.2 15.2 0 1 1 0 30.4 a15.2 15.2 0 1 1 0 -30.4 Z"
+        fill="#FFF7F4"
+        fillRule="evenodd"
+      />
+      <path
+        d="M40.5 14.5 a17.5 17.5 0 1 1 0 35 a17.5 17.5 0 1 1 0 -35 Z M34 16.8 a15.2 15.2 0 1 0 0 30.4 a15.2 15.2 0 1 0 0 -30.4 Z"
+        fill="#FFF7F4"
+        fillRule="evenodd"
       />
     </svg>
   );
