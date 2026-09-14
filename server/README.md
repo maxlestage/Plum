@@ -323,6 +323,14 @@ Les adresses des photos doivent être absolues — `AsyncImage` ne résout pas u
 chemin relatif — et sans elle le serveur se rabat sur `http://127.0.0.1:{PORT}`,
 ce qui donne des photos introuvables depuis un téléphone.
 
+**Le site est rendu à la construction.** Les douze pages traduites partent
+avec leur corps déjà en HTML ; le navigateur hydrate ensuite. Auparavant elles
+portaient les bonnes métadonnées et un `<body>` vide — ce que les aperçus de
+lien toléraient, puisqu'ils lisent les balises, mais pas les moteurs qui
+n'exécutent pas le JavaScript. La racine reste une coquille : elle n'est pas
+une page, seulement une redirection vers la langue détectée, donc il n'y a
+rien à y rendre.
+
 **Pas fait** : les notifications poussées, qui demandent un certificat APNs et
 donc un compte développeur Apple — la seule chose ici que je ne peux pas poser
 moi-même.

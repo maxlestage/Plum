@@ -9,4 +9,5 @@ Scripts/
 server/target/
 web/node_modules/
 web/dist/
+web/dist-server/
 *.md

@@ -34,6 +34,7 @@ fastlane/test_output
 server/target/
 
 ## Site
+web/dist-server/
 web/node_modules/
 Scripts/node_modules/
 web/dist/
