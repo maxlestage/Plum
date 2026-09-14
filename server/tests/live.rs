@@ -297,6 +297,34 @@ async fn typing_reaches_the_other_participant() {
     assert_eq!(event["conversation_id"], thread.id);
 }
 
+/// Le client se tait trois secondes entre deux annonces, mais c'est une
+/// politesse qu'un client hostile n'a pas — et chaque annonce coûte deux
+/// lectures en base.
+#[tokio::test]
+async fn a_flood_of_typing_frames_is_relayed_once() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let address = listening(app.clone()).await;
+
+    let thread = thread(&app, "rafale", LIVE).await;
+    let mut writer = open_socket(address, &thread.a).await;
+    let mut reader = open_socket(address, &thread.b).await;
+
+    let frame = || {
+        Message::Text(
+            json!({ "type": "typing", "conversation_id": thread.id })
+                .to_string()
+                .into(),
+        )
+    };
+    for _ in 0..20 {
+        writer.send(frame()).await.expect("trame envoyée");
+    }
+
+    assert_eq!(next_event(&mut reader).await["type"], "typing");
+    stays_quiet(&mut reader).await;
+}
+
 /// Sans la vérification en base, deviner un identifiant de conversation
 /// suffirait à faire clignoter « en train d'écrire » chez des inconnus.
 ///

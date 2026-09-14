@@ -26,6 +26,14 @@ use crate::state::AppState;
 /// les minutes et le client passerait son temps à se reconnecter.
 const HEARTBEAT: Duration = Duration::from_secs(30);
 
+/// Le rythme maximal auquel une connexion peut annoncer une frappe.
+///
+/// Chaque annonce coûte deux lectures en base pour vérifier l'appartenance.
+/// Le client s'impose déjà un silence de trois secondes, mais c'est une
+/// politesse qu'un client hostile n'a pas : la seule limite qui tienne est
+/// celle du serveur.
+const TYPING_INTERVAL: Duration = Duration::from_secs(1);
+
 pub fn router() -> Router<AppState> {
     Router::new().route("/ws", get(open))
 }
@@ -90,6 +98,9 @@ async fn serve(socket: WebSocket, state: AppState, viewer: Uuid) {
     // fait tomber l'autre : un socket à moitié vivant ne sert personne.
     let mut pushing = tokio::spawn(async move {
         let mut beat = tokio::time::interval(HEARTBEAT);
+        // Sans ça, un envoi bloqué cinq minutes serait suivi d'une rafale de
+        // dix battements d'un coup.
+        beat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         // Le premier `tick` d'un `interval` part immédiatement ; sauté, sans
         // quoi chaque connexion s'ouvrirait sur un ping inutile.
         beat.tick().await;
@@ -109,6 +120,7 @@ async fn serve(socket: WebSocket, state: AppState, viewer: Uuid) {
 
     let pulling_state = state.clone();
     let mut pulling = tokio::spawn(async move {
+        let mut last_typing: Option<tokio::time::Instant> = None;
         while let Some(Ok(frame)) = stream.next().await {
             // Le client iOS émet des trames binaires (`URLSessionWebSocketTask`
             // encode du JSON en `Data`), un client web enverrait du texte. Les
@@ -125,6 +137,13 @@ async fn serve(socket: WebSocket, state: AppState, viewer: Uuid) {
             };
             match command {
                 ClientCommand::Typing { conversation_id } => {
+                    let now = tokio::time::Instant::now();
+                    if last_typing.is_some_and(|last| now - last < TYPING_INTERVAL) {
+                        // Jetée avant la base, pas après : l'intérêt de la
+                        // limite est justement d'épargner les deux requêtes.
+                        continue;
+                    }
+                    last_typing = Some(now);
                     relay_typing(&pulling_state, viewer, conversation_id).await;
                 }
             }

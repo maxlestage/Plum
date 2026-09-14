@@ -19,6 +19,17 @@ pub struct Hub {
     connections: Arc<Mutex<HashMap<Uuid, Vec<Connection>>>>,
 }
 
+/// Combien de fenêtres une même personne peut tenir ouvertes.
+///
+/// Un téléphone, une tablette, et de la marge pour une reconnexion qui se
+/// chevauche. Au-delà, la plus ancienne part : sans plafond, un client qui
+/// rouvre en boucle ferait grossir la table jusqu'à la mémoire du dyno, et
+/// chaque évènement coûterait une écriture par fenêtre fantôme.
+///
+/// Évincer plutôt que refuser : une personne dont le réseau saute ne doit
+/// jamais se retrouver enfermée dehors par ses propres connexions mortes.
+const MAX_WINDOWS: usize = 8;
+
 #[derive(Clone)]
 struct Connection {
     id: Uuid,
@@ -34,10 +45,13 @@ impl Hub {
     pub fn join(&self, user: Uuid, sender: UnboundedSender<String>) -> Uuid {
         let id = Uuid::new_v4();
         let mut guard = self.connections.lock().expect("hub empoisonné");
-        guard
-            .entry(user)
-            .or_default()
-            .push(Connection { id, sender });
+        let list = guard.entry(user).or_default();
+        list.push(Connection { id, sender });
+        if list.len() > MAX_WINDOWS {
+            // La plus ancienne : son propriétaire verra le socket tomber et se
+            // reconnectera, ce que le client sait déjà faire.
+            list.remove(0);
+        }
         id
     }
 
@@ -132,6 +146,31 @@ mod tests {
 
         hub.send(user, &Ping { r#type: "ping" });
         assert!(rx2.try_recv().is_ok(), "l'autre fenêtre reçoit toujours");
+    }
+
+    /// Sans plafond, un client qui rouvre en boucle ferait grossir la table
+    /// jusqu'à la mémoire du dyno.
+    #[test]
+    fn beyond_the_cap_the_oldest_window_is_evicted() {
+        let hub = Hub::new();
+        let user = Uuid::new_v4();
+        let (first, mut oldest) = unbounded_channel();
+        hub.join(user, first);
+
+        let mut kept = Vec::new();
+        for _ in 0..MAX_WINDOWS {
+            let (tx, rx) = unbounded_channel();
+            hub.join(user, tx);
+            kept.push(rx);
+        }
+
+        assert_eq!(hub.connections_for(user), MAX_WINDOWS);
+        hub.send(user, &Ping { r#type: "ping" });
+        assert!(
+            oldest.try_recv().is_err(),
+            "la plus ancienne aurait dû être évincée"
+        );
+        assert!(kept.last_mut().unwrap().try_recv().is_ok());
     }
 
     /// Sans ça, la table garderait une entrée par personne ayant ouvert

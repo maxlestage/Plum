@@ -242,6 +242,11 @@ niveau WebSocket n'est pas une requête versionnée.
 - **Un battement toutes les 30 secondes.** Le routeur Heroku ferme une
   connexion restée muette 55 secondes, et une conversation peut très bien
   rester calme plus longtemps.
+- **Deux plafonds que le client ne peut pas contourner** : huit fenêtres par
+  personne — au-delà, la plus ancienne est évincée plutôt que la nouvelle
+  refusée, pour qu'un réseau qui saute n'enferme personne dehors — et une
+  annonce de frappe par seconde et par connexion. Le client s'impose déjà
+  trois secondes ; c'est une politesse qu'un client hostile n'a pas.
 - Les tests de cette tranche montent un vrai serveur sur un vrai port : une
   poignée de main WebSocket ne survit pas à `tower::oneshot`.
 
