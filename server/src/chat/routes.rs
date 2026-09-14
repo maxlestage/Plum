@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use super::types::*;
 use crate::auth::routes::authenticate;
-use crate::entities::{conversation, match_pair, message, profile};
+use crate::entities::{block, conversation, match_pair, message, profile};
 use crate::error::{ApiError, ApiResult};
 use crate::live::routes::{announce_message, announce_read};
 use crate::profile::types::ProfileResponse;
@@ -39,6 +39,12 @@ pub fn router() -> Router<AppState> {
 ///
 /// Introuvable plutôt qu'interdit : confirmer l'existence d'un match auquel on
 /// n'appartient pas renseignerait déjà.
+///
+/// Un blocage, dans un sens ou dans l'autre, referme la conversation. Bloquer
+/// supprime déjà le match, donc ce contrôle est une seconde barrière — mais
+/// c'est celle qui compte : elle couvre la course entre un message en vol et
+/// un blocage qui vient d'être posé, et elle tient même si un chemin futur
+/// oubliait de supprimer le match.
 async fn my_match(state: &AppState, viewer: Uuid, id: Uuid) -> ApiResult<match_pair::Model> {
     let found = match_pair::Entity::find_by_id(id)
         .one(&state.db)
@@ -48,7 +54,36 @@ async fn my_match(state: &AppState, viewer: Uuid, id: Uuid) -> ApiResult<match_p
     if found.lower_id != viewer && found.upper_id != viewer {
         return Err(ApiError::NotFound);
     }
+    if blocked_between(state, found.lower_id, found.upper_id).await? {
+        return Err(ApiError::NotFound);
+    }
     Ok(found)
+}
+
+/// Un blocage existe-t-il entre ces deux-là, dans un sens ou dans l'autre ?
+///
+/// Dans les deux sens, délibérément : celui qui bloque ne veut plus rien
+/// recevoir, et celui qui est bloqué ne doit pas pouvoir continuer d'écrire.
+/// Une barrière à sens unique laisserait exactement le harcèlement qu'elle
+/// prétend arrêter.
+pub async fn blocked_between(state: &AppState, a: Uuid, b: Uuid) -> ApiResult<bool> {
+    let found = block::Entity::find()
+        .filter(
+            Condition::any()
+                .add(
+                    Condition::all()
+                        .add(block::Column::BlockerId.eq(a))
+                        .add(block::Column::BlockedId.eq(b)),
+                )
+                .add(
+                    Condition::all()
+                        .add(block::Column::BlockerId.eq(b))
+                        .add(block::Column::BlockedId.eq(a)),
+                ),
+        )
+        .one(&state.db)
+        .await?;
+    Ok(found.is_some())
 }
 
 /// La conversation dont on fait partie, avec son match.
@@ -172,6 +207,17 @@ async fn list_conversations(
         .filter(mine)
         .all(&state.db)
         .await?;
+
+    // La liste ne passe pas par `my_match`, donc elle doit écarter les
+    // bloqués elle-même — sans quoi une conversation fermée resterait
+    // affichée, et son dernier message avec.
+    let mut visible = Vec::with_capacity(pairs.len());
+    for pair in pairs {
+        if !blocked_between(&state, pair.lower_id, pair.upper_id).await? {
+            visible.push(pair);
+        }
+    }
+    let pairs = visible;
     let pair_ids: Vec<Uuid> = pairs.iter().map(|p| p.id).collect();
 
     let mut select =

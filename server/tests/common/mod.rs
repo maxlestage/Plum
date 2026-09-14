@@ -279,6 +279,15 @@ pub mod deck_ages {
     pub const LIVE_MATCH: i32 = 40;
     pub const CURSOR: i32 = 31;
     pub const REPORTING: i32 = 32;
+    pub const BLOCK_CUTS: i32 = 42;
+    pub const BLOCK_SILENCE: i32 = 43;
+    pub const BLOCK_LIST: i32 = 44;
+    pub const BLOCK_TYPING: i32 = 45;
+    pub const BLOCK_EITHER_WAY: i32 = 46;
+    pub const BLOCK_VERDICTS: i32 = 47;
+    pub const BLOCK_ERASES: i32 = 48;
+    pub const BLOCK_LEFTOVER: i32 = 49;
+    pub const BLOCK_LEFTOVER_LIST: i32 = 50;
 }
 
 /// A patch of the planet no other test run is using.
