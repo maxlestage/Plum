@@ -34,6 +34,19 @@ const SIGN_UP_QUOTA: Quota = Quota::new(5, 60 * 60);
 /// ça arrête une boucle.
 const SIGN_UP_PER_IP: Quota = Quota::new(10, 60 * 60);
 
+/// Quarante par heure et par bloc d'adresses.
+///
+/// Le quota par adresse exacte ne tient pas seul : changer d'adresse est le
+/// comportement normal de tout hébergeur et de tout mandataire. Mesuré depuis
+/// une machine ordinaire, sept adresses d'un même bloc ont suffi à le
+/// multiplier par sept — et un /24 entier le multiplierait par deux cent
+/// cinquante-six.
+///
+/// Quarante plutôt que dix parce qu'un bloc peut abriter tout un opérateur
+/// mobile derrière un NAT partagé : ce quota-ci doit laisser vivre un
+/// quartier, pas un foyer.
+const SIGN_UP_PER_BLOCK: Quota = Quota::new(40, 60 * 60);
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/auth/sign-up", post(sign_up))
@@ -52,6 +65,8 @@ async fn sign_up(
     enforce(&state, "sign-up", &email, SIGN_UP_QUOTA).await?;
     if let Some(ip) = crate::rate_limit::client_ip(&headers) {
         enforce(&state, "sign-up-ip", &ip, SIGN_UP_PER_IP).await?;
+        let block = crate::rate_limit::client_block(&ip);
+        enforce(&state, "sign-up-block", &block, SIGN_UP_PER_BLOCK).await?;
     }
 
     if !looks_like_an_address(&email) {

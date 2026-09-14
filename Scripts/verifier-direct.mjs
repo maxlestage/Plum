@@ -32,12 +32,31 @@ async function call(method, path, token, body) {
   return [r.status, text ? JSON.parse(text) : null];
 }
 
+/// Une inscription, ou un arrêt qui dit pourquoi.
+///
+/// Ces vérifications créent plusieurs comptes par exécution, depuis une seule
+/// adresse IP — et l'inscription est limitée à dix par heure et par adresse.
+/// Lancées trois fois de suite, elles se heurtent donc à leur propre
+/// garde-fou. Sans ce contrôle, l'échec arrivait sous la forme d'un
+/// « cannot read properties of undefined », ce qui n'aide personne.
 async function signup(name, gender) {
   const email = `ws-${crypto.randomUUID().slice(0, 12)}@plum.app`;
-  const [, b] = await call("POST", "/auth/sign-up", null, {
+  const [status, b] = await call("POST", "/auth/sign-up", null, {
     email, password: crypto.randomUUID(), display_name: name,
     birth_date: "1996-04-12T00:00:00Z", gender,
   });
+  if (status === 429) {
+    console.error(
+      "\nArrêt : l'inscription est limitée à dix par heure et par adresse IP.\n" +
+      "        C'est le garde-fou qui fonctionne, pas une panne. Réessayez plus\n" +
+      "        tard, ou visez un serveur local avec PLUM_HOST et PLUM_TLS=0.",
+    );
+    process.exit(2);
+  }
+  if (status !== 200 || !b?.tokens) {
+    console.error(`\nArrêt : l'inscription a répondu ${status} — ${JSON.stringify(b)}`);
+    process.exit(2);
+  }
   return [b.tokens.access_token, b.user.id];
 }
 

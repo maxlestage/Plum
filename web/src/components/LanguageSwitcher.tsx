@@ -5,62 +5,54 @@ import type { PageKey } from "../i18n/routes";
 import { pathFor } from "../i18n/routes";
 
 /**
- * Plain links, not a `<select>`.
+ * Trois codes courts, la langue courante en pastille pleine.
  *
- * A select needs JavaScript to navigate and gives a crawler nothing to
- * follow; three links are crawlable, middle-clickable, and work the same on a
- * phone. They keep you on the page you were reading rather than dropping you
- * back on the home page, which is the thing that makes a switcher annoying.
+ * Des liens, pas un `<select>` : un menu déroulant demande du JavaScript pour
+ * naviguer et ne donne rien à suivre à un robot. Trois liens s'explorent, se
+ * clique-molettent, et fonctionnent pareil sur un téléphone. Ils gardent la
+ * page qu'on lisait plutôt que de renvoyer à l'accueil, ce qui est justement
+ * ce qui rend un sélecteur agaçant.
+ *
+ * Le code est ce qu'on voit ; le nom complet est ce qu'on entend. « FR » lu à
+ * voix haute par un lecteur d'écran ne veut rien dire — `aria-label` porte
+ * donc l'endonyme, « Français », et la langue de ce mot est déclarée avec lui,
+ * sans quoi une voix française prononcerait « Español » à la française.
  */
 export function LanguageSwitcher({ page }: { page: PageKey }) {
   const current = useLanguage();
   const copy = useCopy();
 
   return (
-    <nav
-      aria-label={copy.nav.languageLabel}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
-        marginInlineStart: "auto",
-      }}
-    >
-      {languages.map((language) =>
-        language === current ? (
+    <nav className="langues" aria-label={copy.nav.languageLabel}>
+      {languages.map((language) => {
+        const code = language.toUpperCase();
+        const name = languageNames[language];
+
+        return language === current ? (
           <span
             key={language}
+            className="langue langue--active"
             aria-current="true"
-            style={{
-              padding: "4px 8px",
-              borderRadius: 999,
-              fontSize: "0.85rem",
-              fontWeight: 700,
-              background: "color-mix(in srgb, var(--plum) 12%, transparent)",
-              color: "var(--plum)",
-            }}
+            aria-label={name}
+            lang={language}
           >
-            {languageNames[language]}
+            {code}
           </span>
         ) : (
           <Link
             key={language}
             to={pathFor(language, page)}
-            // `hreflang` tells a browser and a crawler what is on the other
-            // end before they follow it.
+            className="langue"
+            // `hreflang` dit au navigateur et au robot ce qu'il y a au bout
+            // avant qu'ils y aillent ; `lang` dit comment prononcer l'étiquette.
             hrefLang={language}
-            className="muted"
-            style={{
-              padding: "4px 8px",
-              borderRadius: 999,
-              fontSize: "0.85rem",
-              textDecoration: "none",
-            }}
+            lang={language}
+            aria-label={name}
           >
-            {languageNames[language]}
+            {code}
           </Link>
-        ),
-      )}
+        );
+      })}
     </nav>
   );
 }
