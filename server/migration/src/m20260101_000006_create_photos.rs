@@ -12,12 +12,13 @@ impl MigrationTrait for Migration {
         //
         // Ce n'est pas l'endroit habituel, et c'est assumé : un stockage objet
         // est un service payant de plus, et l'application n'est pas lancée.
-        // Le plafond est connu et mesuré, pas estimé : le plan Postgres tient
-        // un gigaoctet, une photo réduite pèse de l'ordre de 150 Kio (le test
-        // `a_stored_photo_weighs_what_the_ceiling_assumes` le vérifie à chaque
-        // exécution), et six photos par profil font donc de l'ordre du millier
-        // de profils. Le jour où l'on s'en approche, seule cette table change :
-        // l'adresse publique d'une photo reste `/photos/{id}`, et le client ne
+        // Le plafond est connu et **borné**, pas estimé : le plan Postgres
+        // tient un gigaoctet et une photo stockée ne peut pas dépasser 200 Kio
+        // — l'encodeur baisse la qualité jusqu'à y tenir, et deux tests le
+        // vérifient, dont un sur le pire cas qui comprime le plus mal. Six
+        // photos par profil font donc de l'ordre du millier de profils même
+        // dans le pire cas. Le jour où l'on s'en approche, seule cette table
+        // change : l'adresse publique reste `/photos/{id}`, et le client ne
         // verra rien.
         //
         // `bytea` plutôt qu'un chemin sur disque : le système de fichiers d'un

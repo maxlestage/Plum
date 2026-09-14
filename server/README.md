@@ -256,11 +256,19 @@ niveau WebSocket n'est pas une requête versionnée.
 
 - **Les octets vivent dans Postgres**, pas dans un stockage objet. Ce n'est
   pas l'endroit habituel et c'est assumé : un stockage objet est un service
-  payant de plus. Le plafond est mesuré plutôt qu'estimé — une photo réduite
-  pèse de l'ordre de 150 Kio, un test le vérifie à chaque exécution, et le
+  payant de plus. Le plafond est **borné**, pas estimé : une photo stockée ne
+  peut pas dépasser 200 Kio, parce que l'encodeur baisse la qualité jusqu'à y
+  tenir. Une photo ordinaire fait 60 Kio et ne descend jamais sous la première
+  qualité ; seules les images qui comprimeraient mal sont retouchées. Le
   gigaoctet du plan Postgres fait donc de l'ordre du millier de profils à six
-  photos. Le jour où l'on s'en approche, seule la table change : l'adresse
-  publique reste `/photos/{id}` et le client ne verra rien.
+  photos **même dans le pire cas**. Le jour où l'on s'en approche, seule la
+  table change : l'adresse publique reste `/photos/{id}` et le client ne verra
+  rien.
+
+  Ce garde-fou a été ajouté après coup : la première version promettait
+  150 Kio et en produisait 401 sur un motif à arêtes vives, ce que la mesure
+  contre la production a montré. La promesse a été rendue vraie plutôt que
+  réécrite à la baisse.
 - **Rien n'est stocké tel qu'il arrive.** Le décodage sert de contrôle — un
   fichier qui n'est pas une image échoue là plutôt que d'être rangé puis
   servi — et le réencodage borne la taille, uniformise le format et **efface

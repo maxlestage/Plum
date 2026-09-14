@@ -23,9 +23,23 @@ use std::io::Cursor;
 /// verra, et chacun se paie deux fois : en place et en temps de chargement.
 pub const LONG_EDGE: u32 = 1200;
 
-/// La qualité JPEG. 80 est le point où l'on cesse de voir la différence et où
-/// le poids cesse de baisser vite.
-const QUALITY: u8 = 80;
+/// Les qualités JPEG essayées, dans l'ordre.
+///
+/// 80 est le point où l'on cesse de voir la différence et où le poids cesse de
+/// baisser vite — mais le poids d'un JPEG dépend d'abord de ce qu'il y a
+/// dedans, pas du réglage. Une photo douce tombe à 60 Kio à ce réglage ; un
+/// motif à arêtes vives en fait 400, mesuré contre la production. Sans
+/// deuxième passe, le plafond de stockage annoncé ne vaudrait que pour les
+/// images faciles.
+const QUALITIES: [u8; 5] = [80, 66, 52, 40, 30];
+
+/// Le poids visé. Au-delà, on retente moins fin.
+///
+/// C'est ce chiffre qui rend vraie la phrase « de l'ordre du millier de
+/// profils » : six photos par profil, un gigaoctet de plan. Le changer sans
+/// changer l'autre rendrait la documentation fausse, et le test de poids le
+/// dira.
+const BUDGET: usize = 200 * 1024;
 
 /// Ce qu'on accepte de recevoir avant même de décoder.
 ///
@@ -97,10 +111,20 @@ pub fn prepare(raw: &[u8]) -> Result<Encoded, PhotoError> {
     // d'un PNG ressortent en noir.
     let flattened = DynamicImage::ImageRgb8(resized.to_rgb8());
 
+    // La première qualité qui tient dans le budget, sinon la dernière. Deux
+    // réencodages de plus dans le pire cas, sur une image déjà réduite : le
+    // coût se compte en millisecondes, et il est payé une fois pour une photo
+    // qui sera servie des milliers de fois.
     let mut bytes = Vec::new();
-    flattened
-        .write_with_encoder(JpegEncoder::new_with_quality(&mut bytes, QUALITY))
-        .map_err(|_| PhotoError::Unreadable)?;
+    for (index, quality) in QUALITIES.iter().enumerate() {
+        bytes.clear();
+        flattened
+            .write_with_encoder(JpegEncoder::new_with_quality(&mut bytes, *quality))
+            .map_err(|_| PhotoError::Unreadable)?;
+        if bytes.len() <= BUDGET || index == QUALITIES.len() - 1 {
+            break;
+        }
+    }
 
     Ok(Encoded {
         width: flattened.width(),
@@ -258,9 +282,35 @@ mod poids {
         );
 
         assert!(
-            kio < 300,
+            kio <= BUDGET / 1024,
             "une photo pèse {kio} Kio : le plafond annoncé dans la migration \
              ne tient plus, corrigez l'un ou l'autre"
         );
+    }
+
+    /// Le cas qui a fait ajouter la deuxième passe : un motif à arêtes vives
+    /// pesait 401 Kio, mesuré contre la production, alors que la documentation
+    /// promettait de l'ordre de 150.
+    #[test]
+    fn even_the_worst_case_stays_within_the_budget() {
+        let mut canvas = RgbImage::new(1800, 1350);
+        for (x, y, pixel) in canvas.enumerate_pixels_mut() {
+            // Une dent de scie à haute fréquence : ce que le JPEG comprime le
+            // plus mal sans être du bruit pur.
+            *pixel = Rgb([
+                ((x * 7) % 256) as u8,
+                ((y * 5) % 256) as u8,
+                ((x + y) % 256) as u8,
+            ]);
+        }
+        let mut raw = Vec::new();
+        DynamicImage::ImageRgb8(canvas)
+            .write_to(&mut Cursor::new(&mut raw), ImageFormat::Png)
+            .unwrap();
+
+        let prepared = prepare(&raw).expect("une image difficile");
+        let kio = prepared.bytes.len() / 1024;
+        println!("pire cas : {kio} Kio");
+        assert!(kio <= BUDGET / 1024, "le pire cas pèse {kio} Kio");
     }
 }
