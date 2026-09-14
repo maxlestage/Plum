@@ -719,3 +719,143 @@ async fn distances_are_coarse_enough_not_to_locate_anyone() {
         "le curseur expose {km}, une précision que la réponse refuse"
     );
 }
+
+/// Rien ne bornait le deck : un compte pouvait le parcourir page après page
+/// aussi vite que le réseau le permettait, et repartir avec le nom, la ville,
+/// la biographie et l'adresse des photos de tout son rayon. Les adresses de
+/// photos s'ouvrent sans jeton — une fois récoltées, elles restent valables.
+///
+/// Le budget est réglé bas ici : à sa valeur réelle il faudrait peupler mille
+/// profils, et le plafond ne serait donc éprouvé par rien.
+#[tokio::test]
+async fn the_deck_stops_handing_out_profiles_past_its_daily_budget() {
+    let Some(db) = database().await else { return };
+    // Quatre profils de budget, six candidats : la récolte doit buter.
+    let app = plum_server::app(state_with_deck_budget(db, 4));
+    let here = private_cluster();
+
+    let (viewer, _) = candidate(&app, "budget-vue", DECK_BUDGET, "woman", Some(here)).await;
+    for n in 0..6 {
+        candidate(&app, &format!("budget-{n}"), DECK_BUDGET, "man", Some(here)).await;
+    }
+    only_see_age(&app, &viewer, DECK_BUDGET, "everyone").await;
+
+    // Deux pages de deux : quatre profils, le budget exactement.
+    let mut vus = 0;
+    let mut cursor: Option<String> = None;
+    for tour in 0..2 {
+        let chemin = match &cursor {
+            Some(c) => format!("/api/v1/discovery/deck?limit=2&cursor={c}"),
+            None => "/api/v1/discovery/deck?limit=2".to_owned(),
+        };
+        let (status, body) = call(&app, request("GET", &chemin, Some(&viewer), None)).await;
+        assert_eq!(status, StatusCode::OK, "tour {tour} : {body}");
+        vus += body["items"].as_array().unwrap().len();
+        cursor = body["next_cursor"].as_str().map(str::to_owned);
+    }
+    assert_eq!(vus, 4, "le budget doit laisser passer ses quatre profils");
+
+    // Le cinquième dépasse : la page est retenue, pas livrée avec un
+    // avertissement.
+    let chemin = match &cursor {
+        Some(c) => format!("/api/v1/discovery/deck?limit=2&cursor={c}"),
+        None => "/api/v1/discovery/deck?limit=2".to_owned(),
+    };
+    let (status, body) = call(&app, request("GET", &chemin, Some(&viewer), None)).await;
+    assert_eq!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS,
+        "la récolte doit buter : {body}"
+    );
+    assert!(
+        body.get("retry_after_seconds").is_some() || body.get("message").is_some(),
+        "le refus doit dire quelque chose : {body}"
+    );
+}
+
+/// Le compteur suit les profils rendus, pas les requêtes.
+///
+/// C'est tout l'intérêt : sinon celui qu'on cherche à borner choisirait la
+/// taille de ses pages, et cinquante profils par appel coûteraient autant que
+/// deux.
+///
+/// La première version de ce test faisait quatre appels d'un profil contre un
+/// budget de quatre — ce qui coûte quatre dans les deux comptages et ne
+/// distinguait donc rien. Il passait avec le bug qu'il prétendait interdire.
+/// Le cas qui sépare vraiment est l'inverse : **un seul appel qui ramène plus
+/// de profils que le budget entier**. Compté par profil, il est refusé ;
+/// compté par requête, il ne coûte qu'un et passe.
+#[tokio::test]
+async fn the_budget_counts_profiles_and_not_requests() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state_with_deck_budget(db, 4));
+    let here = private_cluster();
+
+    let (viewer, _) = candidate(&app, "compte-vue", DECK_ORDINARY, "woman", Some(here)).await;
+    for n in 0..6 {
+        candidate(
+            &app,
+            &format!("compte-{n}"),
+            DECK_ORDINARY,
+            "man",
+            Some(here),
+        )
+        .await;
+    }
+    only_see_age(&app, &viewer, DECK_ORDINARY, "everyone").await;
+
+    // Un appel, six profils disponibles, quatre de budget.
+    let (status, body) = call(
+        &app,
+        request(
+            "GET",
+            "/api/v1/discovery/deck?limit=50",
+            Some(&viewer),
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS,
+        "une page de six profils doit coûter six, pas un : {body}"
+    );
+}
+
+/// Et surtout : une session ordinaire ne doit jamais rencontrer ce plafond.
+/// Un quota qui gêne celui qui se sert de l'application est un quota mal réglé.
+#[tokio::test]
+async fn an_ordinary_session_never_meets_the_deck_budget() {
+    let Some(db) = database().await else { return };
+    // Le budget réel.
+    let app = plum_server::app(state(db));
+    let here = private_cluster();
+
+    let (viewer, _) = candidate(&app, "ordinaire-vue", DECK_ORDINARY, "woman", Some(here)).await;
+    for n in 0..8 {
+        candidate(
+            &app,
+            &format!("ordinaire-{n}"),
+            DECK_ORDINARY,
+            "man",
+            Some(here),
+        )
+        .await;
+    }
+    only_see_age(&app, &viewer, DECK_ORDINARY, "everyone").await;
+
+    // Vingt ouvertures du deck d'affilée : plus que n'importe quelle session.
+    for tour in 0..20 {
+        let (status, body) = call(
+            &app,
+            request(
+                "GET",
+                "/api/v1/discovery/deck?limit=20",
+                Some(&viewer),
+                None,
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "tour {tour} : {body}");
+    }
+}

@@ -16,6 +16,7 @@ use crate::entities::{block, match_pair, profile, report, swipe};
 use crate::error::{ApiError, ApiResult};
 use crate::live::routes::announce_match;
 use crate::profile::types::ProfileResponse;
+use crate::rate_limit::Quota;
 use crate::state::AppState;
 
 /// The client asks for 20. The cap is what stops someone asking for a
@@ -23,6 +24,29 @@ use crate::state::AppState;
 const DEFAULT_LIMIT: u32 = 20;
 const MAX_LIMIT: u32 = 50;
 const MAX_REASON: usize = 500;
+
+/// La fenêtre du budget de deck. Le nombre, lui, vient de la configuration.
+///
+/// Rien ne bornait le deck. Un compte pouvait le parcourir page après page
+/// aussi vite que le réseau le permettait, et repartir avec le nom, l'âge, la
+/// ville, la biographie et l'adresse des photos de toutes les personnes dans
+/// son rayon. Les adresses de photos, elles, s'ouvrent sans jeton : une fois
+/// récoltées, elles restent valables. Dans une application de rencontres, ce
+/// sont des visages.
+///
+/// Mille, parce que ce plafond ne doit jamais rencontrer quelqu'un qui se sert
+/// de l'application : mille profils en une journée, personne ne les regarde.
+/// Ce n'est délibérément pas un quota de « likes » — celui-là reste absent,
+/// et pour la raison dite dans `SwipeOutcome` : ce serait deviner un modèle
+/// économique. Celui-ci ne limite pas ce qu'on peut faire, il limite ce qu'on
+/// peut emporter.
+///
+/// Il faut dire ce qu'il ne fait pas. Sur une base d'utilisateurs petite, il
+/// ne rend pas la récolte impossible : il la fait durer des jours au lieu de
+/// minutes, et il la rend visible dans les journaux. Le mur, lui, demanderait
+/// de lier la pagination aux verdicts rendus — un changement de comportement
+/// du deck, qui n'est pas à prendre sans y regarder.
+const DECK_WINDOW_SECONDS: u64 = 24 * 60 * 60;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -69,6 +93,25 @@ async fn deck(
     // One more than asked for: if it comes back, there is another page, and
     // we know it without a second count query.
     let mut candidates = query_deck(&state.db, claims.sub, limit + 1, cursor).await?;
+
+    // Compté après la requête, sur ce qui part vraiment : un deck épuisé qui
+    // rend trois profils ne coûte pas cinquante. Et compté avant de répondre,
+    // pour que le dépassement retienne la page plutôt que de la livrer en
+    // annonçant qu'elle n'aurait pas dû partir.
+    let served = candidates.len().min(limit as usize) as u32;
+    let decision = state
+        .limiter
+        .check_cost(
+            &format!("deck:{}", claims.sub),
+            Quota::new(state.config.deck_daily_budget, DECK_WINDOW_SECONDS),
+            served.max(1),
+        )
+        .await;
+    if !decision.allowed {
+        return Err(ApiError::RateLimited {
+            retry_after_seconds: decision.retry_after.as_secs().max(1),
+        });
+    }
 
     let next_cursor = if candidates.len() as u32 > limit {
         candidates.truncate(limit as usize);
