@@ -17,7 +17,6 @@ import Foundation
 /// c'est ici qu'on branchera le jeton de poussée.
 protocol MatchActivityPresenting: Sendable {
     func begin(matchId: UUID, displayName: String, conversationId: UUID?, matchedAt: Date) async
-    func markStarted(matchId: UUID) async
     func end(matchId: UUID) async
 }
 
@@ -62,15 +61,6 @@ struct MatchActivityService: MatchActivityPresenting {
         )
     }
 
-    func markStarted(matchId: UUID) async {
-        guard let activity = Self.activity(for: matchId) else { return }
-        let state = MatchActivityAttributes.ContentState(
-            matchedAt: activity.content.state.matchedAt,
-            hasStarted: true
-        )
-        await activity.update(.init(state: state, staleDate: nil))
-    }
-
     func end(matchId: UUID) async {
         guard let activity = Self.activity(for: matchId) else { return }
         // `.after` et non `.immediate` : la carte reste quelques secondes en
@@ -98,15 +88,10 @@ struct MatchActivityService: MatchActivityPresenting {
 /// une activité ne serait vérifiée par rien, et c'est elle qui compte.
 actor RecordingMatchActivityService: MatchActivityPresenting {
     private(set) var begun: [UUID] = []
-    private(set) var started: [UUID] = []
     private(set) var ended: [UUID] = []
 
     func begin(matchId: UUID, displayName: String, conversationId: UUID?, matchedAt: Date) async {
         begun.append(matchId)
-    }
-
-    func markStarted(matchId: UUID) async {
-        started.append(matchId)
     }
 
     func end(matchId: UUID) async {

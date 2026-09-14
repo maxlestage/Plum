@@ -28,10 +28,24 @@ APP_TARGET = "Plum"
 # they host nothing, they launch the app.
 TEST_TARGETS = [("PlumTests", "unit"), ("PlumUITests", "ui")]
 
-# Les extensions de l'application. Comme pour les cibles de test, une entrée
+# Ce que l'application embarque. Comme pour les cibles de test, une entrée
 # dont le dossier n'existe pas est simplement ignorée : ajouter une extension
-# se réduit à créer son dossier.
-EXTENSION_TARGETS = [("PlumWidgets", "widget")]
+# ou l'application de montre se réduit à créer son dossier.
+EXTENSION_TARGETS = [("PlumWidgets", "widget"), ("PlumWatch", "watch")]
+
+# Où chaque sorte se range dans le paquet de l'application, et sous quel
+# suffixe elle est produite.
+#
+# Les deux nombres sont des `dstSubfolderSpec`, une énumération que le format
+# `pbxproj` n'expose que par des entiers : 13 pour `PlugIns`, 16 pour un
+# chemin donné explicitement. Ils n'ont pas de constante nommée ailleurs que
+# dans Xcode lui-même.
+EMBED_RULES = {
+    "widget": {"suffix": "appex", "dst": "", "spec": 13,
+               "phase": "Embed Foundation Extensions"},
+    "watch": {"suffix": "app", "dst": "$(CONTENTS_FOLDER_PATH)/Watch", "spec": 16,
+              "phase": "Embed Watch Content"},
+}
 
 # Le code compilé dans l'application *et* dans ses extensions.
 #
@@ -42,6 +56,9 @@ EXTENSION_TARGETS = [("PlumWidgets", "widget")]
 SHARED_DIR = "PlumShared"
 BUNDLE_ID = "app.plum.ios"
 DEPLOYMENT_TARGET = "17.0"
+# watchOS 10 : la version qui a apporté les piles de widgets et le nouveau
+# style de navigation dont l'application de montre se sert.
+WATCH_DEPLOYMENT_TARGET = "10.0"
 SWIFT_VERSION = "5.0"
 XCODE_COMPATIBILITY = "Xcode 15.0"
 OBJECT_VERSION = 56
@@ -229,11 +246,13 @@ class ProjectWriter:
                         f"{{isa = PBXBuildFile; fileRef = {self.file_ref_id(node)} /* {node.name} */; }};"
                     )
 
-            for name, _ in self.extension_targets:
+            for name, kind in self.extension_targets:
+                regle = EMBED_RULES[kind]
+                produit = f"{name}.{regle['suffix']}"
                 self.emit(
                     f"\t\t{identifier('embedfile', name)} "
-                    f"/* {name}.appex in Embed Foundation Extensions */ = {{isa = PBXBuildFile; "
-                    f"fileRef = {self.extension_product_ids[name]} /* {name}.appex */; "
+                    f"/* {produit} in {regle['phase']} */ = {{isa = PBXBuildFile; "
+                    f"fileRef = {self.extension_product_ids[name]} /* {produit} */; "
                     f"settings = {{ATTRIBUTES = (RemoveHeadersOnCopy, ); }}; }};"
                 )
 
@@ -252,11 +271,16 @@ class ProjectWriter:
                     f"{{isa = PBXFileReference; explicitFileType = wrapper.cfbundle; "
                     f"includeInIndex = 0; path = {name}.xctest; sourceTree = BUILT_PRODUCTS_DIR; }};"
                 )
-            for name, _ in self.extension_targets:
+            for name, kind in self.extension_targets:
+                regle = EMBED_RULES[kind]
+                type_fichier = (
+                    '"wrapper.app-extension"' if kind == "widget" else "wrapper.application"
+                )
                 self.emit(
-                    f"\t\t{self.extension_product_ids[name]} /* {name}.appex */ = "
-                    f"{{isa = PBXFileReference; explicitFileType = \"wrapper.app-extension\"; "
-                    f"includeInIndex = 0; path = {name}.appex; sourceTree = BUILT_PRODUCTS_DIR; }};"
+                    f"\t\t{self.extension_product_ids[name]} /* {name}.{regle['suffix']} */ = "
+                    f"{{isa = PBXFileReference; explicitFileType = {type_fichier}; "
+                    f"includeInIndex = 0; path = {name}.{regle['suffix']}; "
+                    f"sourceTree = BUILT_PRODUCTS_DIR; }};"
                 )
             # Dédoublonné : un fichier partagé est compilé par plusieurs cibles
             # mais n'a qu'une référence. En écrire deux fait refuser le projet.
@@ -331,8 +355,11 @@ class ProjectWriter:
             self.emit("\t\t\tisa = PBXGroup;")
             self.emit("\t\t\tchildren = (")
             self.emit(f"\t\t\t\t{self.app_product_id} /* {APP_TARGET}.app */,")
-            for name, _ in self.extension_targets:
-                self.emit(f"\t\t\t\t{self.extension_product_ids[name]} /* {name}.appex */,")
+            for name, kind in self.extension_targets:
+                self.emit(
+                    f"\t\t\t\t{self.extension_product_ids[name]} "
+                    f"/* {name}.{EMBED_RULES[kind]['suffix']} */,"
+                )
             for name, _ in self.test_targets:
                 self.emit(f"\t\t\t\t{self.test_product_ids[name]} /* {name}.xctest */,")
             self.emit("\t\t\t);")
@@ -371,8 +398,12 @@ class ProjectWriter:
             # L'application embarque ses extensions ; sans cette phase elles
             # sont construites et jamais livrées, ce qui ne casse aucun build
             # et ne marche pas sur l'appareil.
-            if name == APP_TARGET and self.extension_targets:
-                self.emit(f"\t\t\t\t{identifier('embed', APP_TARGET)} /* Embed Foundation Extensions */,")
+            if name == APP_TARGET:
+                for kind in sorted({k for _, k in self.extension_targets}):
+                    self.emit(
+                        f"\t\t\t\t{identifier('embed', APP_TARGET, kind)} "
+                        f"/* {EMBED_RULES[kind]['phase']} */,"
+                    )
             self.emit("\t\t\t);")
             self.emit("\t\t\tbuildRules = (")
             self.emit("\t\t\t);")
@@ -397,12 +428,15 @@ class ProjectWriter:
                     for name, _ in self.extension_targets
                 ],
             )
-            for name, _ in self.extension_targets:
+            for name, kind in self.extension_targets:
+                regle = EMBED_RULES[kind]
                 emit_target(
                     name,
                     self.extension_product_ids[name],
-                    f"{name}.appex",
-                    "com.apple.product-type.app-extension",
+                    f"{name}.{regle['suffix']}",
+                    "com.apple.product-type.app-extension"
+                    if kind == "widget"
+                    else "com.apple.product-type.application",
                     [],
                 )
             for name, kind in self.test_targets:
@@ -478,35 +512,40 @@ class ProjectWriter:
         self.section(isa, body)
 
     def write_embed_phase(self) -> None:
-        """La phase qui place les `.appex` dans `PlugIns` de l'application.
+        """Les phases qui rangent les produits embarqués dans l'application.
 
-        Sans elle, l'extension se construit, le projet est valide, la CI est
-        verte — et rien ne s'exécute sur l'appareil, parce que le paquet livré
-        ne la contient pas. C'est une panne silencieuse : elle ne se voit qu'à
-        l'usage.
+        Une par sorte : une extension va dans `PlugIns`, une application de
+        montre dans `Watch/`. Sans ces phases, tout se construit, le projet
+        est valide, la CI est verte — et rien n'arrive sur l'appareil, parce
+        que le paquet livré ne les contient pas. C'est une panne qui ne se
+        voit qu'à l'usage.
         """
         if not self.extension_targets:
             return
 
+        sortes = sorted({kind for _, kind in self.extension_targets})
+
         def body():
-            self.emit(
-                f"\t\t{identifier('embed', APP_TARGET)} /* Embed Foundation Extensions */ = {{"
-            )
-            self.emit("\t\t\tisa = PBXCopyFilesBuildPhase;")
-            self.emit("\t\t\tbuildActionMask = 2147483647;")
-            self.emit('\t\t\tdstPath = "";')
-            # 13 = PlugIns. Le nombre n'a pas de constante nommée dans le
-            # format ; il est documenté par l'usage et par Xcode lui-même.
-            self.emit("\t\t\tdstSubfolderSpec = 13;")
-            self.emit("\t\t\tfiles = (")
-            for name, _ in self.extension_targets:
+            for kind in sortes:
+                regle = EMBED_RULES[kind]
+                membres = [n for n, k in self.extension_targets if k == kind]
                 self.emit(
-                    f"\t\t\t\t{identifier('embedfile', name)} /* {name}.appex in Embed Foundation Extensions */,"
+                    f"\t\t{identifier('embed', APP_TARGET, kind)} /* {regle['phase']} */ = {{"
                 )
-            self.emit("\t\t\t);")
-            self.emit("\t\t\tname = \"Embed Foundation Extensions\";")
-            self.emit("\t\t\trunOnlyForDeploymentPostprocessing = 0;")
-            self.emit("\t\t};")
+                self.emit("\t\t\tisa = PBXCopyFilesBuildPhase;")
+                self.emit("\t\t\tbuildActionMask = 2147483647;")
+                self.emit(f"\t\t\tdstPath = {quoted(regle['dst'])};")
+                self.emit(f"\t\t\tdstSubfolderSpec = {regle['spec']};")
+                self.emit("\t\t\tfiles = (")
+                for name in membres:
+                    self.emit(
+                        f"\t\t\t\t{identifier('embedfile', name)} "
+                        f"/* {name}.{regle['suffix']} in {regle['phase']} */,"
+                    )
+                self.emit("\t\t\t);")
+                self.emit(f"\t\t\tname = {quoted(regle['phase'])};")
+                self.emit("\t\t\trunOnlyForDeploymentPostprocessing = 0;")
+                self.emit("\t\t};")
 
         self.section("PBXCopyFilesBuildPhase", body)
 
@@ -673,7 +712,48 @@ class ProjectWriter:
             "TARGETED_DEVICE_FAMILY": "1",
         }
 
-    def extension_settings(self, name: str) -> dict[str, str]:
+    def extension_settings(self, name: str, kind: str = "widget") -> dict[str, str]:
+        if kind == "watch":
+            return self.watch_settings(name)
+        return self.widget_settings(name)
+
+    def watch_settings(self, name: str) -> dict[str, str]:
+        """Une application de montre à cible unique, embarquée dans l'iPhone.
+
+        `WKApplication` la déclare comme telle — c'est la forme moderne, sans
+        la paire application/extension qu'exigeait watchOS 6. Et
+        `WKCompanionAppBundleIdentifier` la relie à l'application qui la
+        transporte : sans lui, elle s'installe et ne trouve jamais son
+        téléphone.
+
+        `SDKROOT` doit être écrasé ici : le projet entier vise `iphoneos`, et
+        une cible qui hérite de ce réglage compile pour le mauvais appareil
+        sans que rien ne le dise avant l'édition de liens.
+        """
+        return {
+            "CODE_SIGN_STYLE": "Automatic",
+            "CURRENT_PROJECT_VERSION": "1",
+            "ENABLE_PREVIEWS": "YES",
+            "GENERATE_INFOPLIST_FILE": "YES",
+            "INFOPLIST_KEY_CFBundleDisplayName": "Plum",
+            "INFOPLIST_KEY_UISupportedInterfaceOrientations": (
+                '(\n\t\t\t\t\tUIInterfaceOrientationPortrait,'
+                '\n\t\t\t\t\tUIInterfaceOrientationPortraitUpsideDown,\n\t\t\t\t)'
+            ),
+            "INFOPLIST_KEY_WKApplication": "YES",
+            "INFOPLIST_KEY_WKCompanionAppBundleIdentifier": BUNDLE_ID,
+            "MARKETING_VERSION": "1.0",
+            "PRODUCT_BUNDLE_IDENTIFIER": f"{BUNDLE_ID}.watchkitapp",
+            "PRODUCT_NAME": '"$(TARGET_NAME)"',
+            "SDKROOT": "watchos",
+            "SKIP_INSTALL": "YES",
+            "SWIFT_EMIT_LOC_STRINGS": "YES",
+            "SWIFT_VERSION": SWIFT_VERSION,
+            "TARGETED_DEVICE_FAMILY": "4",
+            "WATCHOS_DEPLOYMENT_TARGET": WATCH_DEPLOYMENT_TARGET,
+        }
+
+    def widget_settings(self, name: str) -> dict[str, str]:
         """Les réglages d'une extension de widget.
 
         `SKIP_INSTALL = YES` parce qu'une extension n'est pas installée pour
@@ -764,8 +844,8 @@ class ProjectWriter:
             emit_configuration("project", PROJECT_NAME, "Release", self.project_settings(debug=False))
             emit_configuration("target", APP_TARGET, "Debug", self.app_settings(debug=True))
             emit_configuration("target", APP_TARGET, "Release", self.app_settings(debug=False))
-            for name, _ in self.extension_targets:
-                settings = self.extension_settings(name)
+            for name, kind in self.extension_targets:
+                settings = self.extension_settings(name, kind)
                 emit_configuration("target", name, "Debug", settings)
                 emit_configuration("target", name, "Release", settings)
             for name, kind in self.test_targets:
