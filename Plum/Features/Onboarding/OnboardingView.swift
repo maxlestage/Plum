@@ -104,7 +104,7 @@ struct OnboardingView: View {
                       GridItem(.flexible(), spacing: PlumTheme.Spacing.m)],
             spacing: PlumTheme.Spacing.m
         ) {
-            ForEach(viewModel.photos) { photo in
+            ForEach(Array(viewModel.photos.enumerated()), id: \.element.id) { rang, photo in
                 RemoteImage(url: photo.url, seed: photo.id.uuidString)
                     .frame(height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: PlumTheme.Radius.medium, style: .continuous))
@@ -116,6 +116,7 @@ struct OnboardingView: View {
                                 .font(.title3)
                                 .foregroundStyle(.white, .black.opacity(0.45))
                         }
+                        .accessibilityLabel(Text("Supprimer la photo \(rang + 1)"))
                         .padding(PlumTheme.Spacing.s)
                     }
             }
