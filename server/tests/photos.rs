@@ -451,3 +451,31 @@ async fn a_flood_of_uploads_is_cut_off() {
         "vingt-cinq envois sont passés : rien ne borne le décodage"
     );
 }
+
+/// Les quotas par compte et par adresse comptent *qui* envoie, et se
+/// contournent donc en changeant d'identité. Celui-ci compte la ressource : il
+/// tient quel que soit le nombre de comptes.
+///
+/// Le budget est passé en paramètre plutôt que fixé, faute de quoi il faudrait
+/// écrire sept cents mébioctets dans la base pour vérifier une comparaison.
+#[tokio::test]
+async fn the_storage_budget_is_what_holds_when_identities_are_free() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db.clone()));
+    let state = common::state(db);
+    let (token, _) = sign_up_and_token(&app, "photo-budget").await;
+    upload(&app, &token, (800, 600)).await;
+
+    assert!(
+        !plum_server::photos::routes::storage_is_full(&state, 700 * 1024 * 1024)
+            .await
+            .expect("la taille se lit"),
+        "une photo ne remplit pas sept cents mébioctets"
+    );
+    assert!(
+        plum_server::photos::routes::storage_is_full(&state, 0)
+            .await
+            .expect("la taille se lit"),
+        "un budget nul devrait être dépassé dès la première photo"
+    );
+}
