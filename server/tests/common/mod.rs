@@ -271,6 +271,8 @@ pub mod deck_ages {
     pub const EMPTY_REWIND: i32 = 36;
     pub const NOMAD: i32 = 37;
     pub const PRECISION: i32 = 38;
+    pub const LIVE: i32 = 39;
+    pub const LIVE_MATCH: i32 = 40;
     pub const CURSOR: i32 = 31;
     pub const REPORTING: i32 = 32;
 }

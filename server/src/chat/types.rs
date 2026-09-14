@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::entities::message;
 use crate::profile::types::ProfileResponse;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub struct MessageResponse {
     pub id: Uuid,

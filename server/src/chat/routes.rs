@@ -14,6 +14,7 @@ use super::types::*;
 use crate::auth::routes::authenticate;
 use crate::entities::{conversation, match_pair, message, profile};
 use crate::error::{ApiError, ApiResult};
+use crate::live::routes::{announce_message, announce_read};
 use crate::profile::types::ProfileResponse;
 use crate::state::AppState;
 
@@ -286,7 +287,7 @@ async fn send_message(
     Json(request): Json<SendMessageRequest>,
 ) -> ApiResult<Json<MessageResponse>> {
     let claims = authenticate(&state, &headers)?;
-    let (row, _) = my_conversation(&state, claims.sub, id).await?;
+    let (row, pair) = my_conversation(&state, claims.sub, id).await?;
 
     let body = request.body.trim();
     if body.is_empty() {
@@ -332,7 +333,13 @@ async fn send_message(
     .update(&state.db)
     .await?;
 
-    Ok(Json(written.into()))
+    let response = MessageResponse::from(written);
+    // Après l'écriture, jamais avant : pousser d'abord ferait apparaître chez
+    // l'autre une bulle qu'un échec de la base aurait fait disparaître au
+    // rechargement.
+    announce_message(&state, pair.other(claims.sub), response.clone());
+
+    Ok(Json(response))
 }
 
 /// Marque comme lus les messages reçus, jamais les siens.
@@ -342,20 +349,37 @@ async fn mark_read(
     Path(id): Path<Uuid>,
 ) -> ApiResult<()> {
     let claims = authenticate(&state, &headers)?;
-    let (row, _) = my_conversation(&state, claims.sub, id).await?;
+    let (row, pair) = my_conversation(&state, claims.sub, id).await?;
 
-    message::Entity::update_many()
-        .col_expr(
-            message::Column::ReadAt,
-            sea_orm::sea_query::Expr::value(chrono::DateTime::<chrono::FixedOffset>::from(
-                Utc::now(),
-            )),
-        )
+    // Relevés avant la mise à jour : après, ils ne se distinguent plus des
+    // messages lus il y a une heure, et l'horodatage ne suffit pas à les
+    // retrouver — deux lectures dans la même microseconde se confondraient.
+    let freshly_read: Vec<Uuid> = message::Entity::find()
+        .select_only()
+        .column(message::Column::Id)
         .filter(message::Column::ConversationId.eq(row.id))
         .filter(message::Column::SenderId.ne(claims.sub))
         .filter(message::Column::ReadAt.is_null())
+        .into_tuple()
+        .all(&state.db)
+        .await?;
+
+    if freshly_read.is_empty() {
+        return Ok(());
+    }
+
+    let now = Utc::now();
+    message::Entity::update_many()
+        .col_expr(
+            message::Column::ReadAt,
+            sea_orm::sea_query::Expr::value(chrono::DateTime::<chrono::FixedOffset>::from(now)),
+        )
+        .filter(message::Column::Id.is_in(freshly_read.clone()))
         .exec(&state.db)
         .await?;
+
+    // À celui qui avait écrit : c'est lui que l'accusé de lecture concerne.
+    announce_read(&state, pair.other(claims.sub), &freshly_read, now);
 
     Ok(())
 }
