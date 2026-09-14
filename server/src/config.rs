@@ -19,6 +19,14 @@ pub struct Config {
     /// Where the built presentation site lives. Absent in a plain `cargo run`,
     /// present in the image.
     pub site_dir: Option<String>,
+    /// Combien de profils le deck accepte de rendre par compte et par jour.
+    ///
+    /// Réglable par l'environnement pour deux raisons, dans cet ordre : sans
+    /// cela le plafond serait impossible à éprouver autrement qu'en peuplant
+    /// mille profils, donc il ne serait éprouvé par rien ; et un exploitant
+    /// qui voit passer une récolte doit pouvoir resserrer sans réécrire le
+    /// serveur. La valeur par défaut est celle qui compte : mille.
+    pub deck_daily_budget: u32,
     /// L'adresse publique de ce déploiement, sans barre finale.
     ///
     /// Elle sert à écrire les adresses des photos, qui doivent être absolues :
@@ -72,6 +80,11 @@ impl Config {
                 .filter(|url| !url.is_empty())
                 .map(|url| normalise_redis_url(&url)),
             site_dir: env::var("SITE_DIR").ok().filter(|path| !path.is_empty()),
+            deck_daily_budget: env::var("DECK_DAILY_BUDGET")
+                .ok()
+                .and_then(|raw| raw.parse().ok())
+                .filter(|budget| *budget > 0)
+                .unwrap_or(1_000),
             public_base_url: env::var("PUBLIC_BASE_URL")
                 .ok()
                 .filter(|url| !url.is_empty())
