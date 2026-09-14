@@ -131,6 +131,16 @@ pub fn state(db: DatabaseConnection) -> AppState {
     state_with_deck_budget(db, 1_000)
 }
 
+/// Le jeton d'administration des tests. Trente-deux caractères, comme le
+/// serveur l'exige — un jeton plus court serait ignoré, et la suite
+/// vérifierait alors une porte fermée en croyant l'avoir ouverte.
+pub const ADMIN_TOKEN: &str = "jeton-de-test-de-trente-deux-car";
+
+/// Le même état, avec la file de modération ouverte.
+pub fn state_with_admin(db: DatabaseConnection) -> AppState {
+    build_state(db, 1_000, Some(ADMIN_TOKEN.to_owned()))
+}
+
 /// Le même état, avec un budget de deck choisi.
 ///
 /// Le budget réel est de mille profils par jour : l'éprouver tel quel
@@ -138,6 +148,14 @@ pub fn state(db: DatabaseConnection) -> AppState {
 /// rendre réglable est ce qui permet de le vérifier — et un exploitant peut
 /// s'en servir pour resserrer sans réécrire le serveur.
 pub fn state_with_deck_budget(db: DatabaseConnection, deck_daily_budget: u32) -> AppState {
+    build_state(db, deck_daily_budget, None)
+}
+
+fn build_state(
+    db: DatabaseConnection,
+    deck_daily_budget: u32,
+    admin_token: Option<String>,
+) -> AppState {
     AppState::new(
         db,
         Config {
@@ -153,6 +171,7 @@ pub fn state_with_deck_budget(db: DatabaseConnection, deck_daily_budget: u32) ->
             // elle doit être stable et reconnaissable.
             public_base_url: "https://plum.test".into(),
             deck_daily_budget,
+            admin_token,
         },
         // Each test builds its own app, so each gets a fresh limiter and one
         // test's attempts cannot exhaust another's quota.
@@ -301,6 +320,9 @@ pub mod deck_ages {
     pub const BLOCK_LEFTOVER_LIST: i32 = 50;
     pub const DECK_BUDGET: i32 = 54;
     pub const DECK_ORDINARY: i32 = 55;
+    pub const MODERATION: i32 = 56;
+    pub const MODERATION_SHUT: i32 = 57;
+    pub const MODERATION_PATTERN: i32 = 58;
     pub const FLOOD: i32 = 51;
     pub const ORDINARY_PACE: i32 = 52;
     pub const RETRY_COST: i32 = 53;

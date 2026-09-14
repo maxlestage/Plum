@@ -27,6 +27,19 @@ APP_TARGET = "Plum"
 # drive the app through XCUITest and are wired differently from unit tests:
 # they host nothing, they launch the app.
 TEST_TARGETS = [("PlumTests", "unit"), ("PlumUITests", "ui")]
+
+# Les extensions de l'application. Comme pour les cibles de test, une entrée
+# dont le dossier n'existe pas est simplement ignorée : ajouter une extension
+# se réduit à créer son dossier.
+EXTENSION_TARGETS = [("PlumWidgets", "widget")]
+
+# Le code compilé dans l'application *et* dans ses extensions.
+#
+# Une Live Activity se décrit par un type que les deux côtés doivent
+# connaître : l'application la démarre, l'extension la dessine. Le partager
+# par un dossier plutôt que par un cadriciel évite d'introduire une cible de
+# plus pour trois structures.
+SHARED_DIR = "PlumShared"
 BUNDLE_ID = "app.plum.ios"
 DEPLOYMENT_TARGET = "17.0"
 SWIFT_VERSION = "5.0"
@@ -137,6 +150,24 @@ class ProjectWriter:
             name: list(tree.walk_files()) for name, tree in self.test_trees.items()
         }
 
+        self.extension_targets = [
+            (name, kind) for name, kind in EXTENSION_TARGETS if (ROOT / name).is_dir()
+        ]
+        self.extension_trees = {
+            name: build_tree(ROOT / name) for name, _ in self.extension_targets
+        }
+
+        # Le dossier partagé, s'il existe : compilé par l'application et par
+        # chaque extension, mais déclaré une seule fois dans le projet.
+        self.shared_tree = build_tree(ROOT / SHARED_DIR) if (ROOT / SHARED_DIR).is_dir() else None
+        self.shared_files = list(self.shared_tree.walk_files()) if self.shared_tree else []
+
+        self.app_files = self.app_files + self.shared_files
+        self.extension_files = {
+            name: list(self.extension_trees[name].walk_files()) + self.shared_files
+            for name, _ in self.extension_targets
+        }
+
         # Object ids, all derived from stable strings.
         self.project_id = identifier("project", PROJECT_NAME)
         self.main_group_id = identifier("group", "<root>")
@@ -145,17 +176,26 @@ class ProjectWriter:
         self.test_product_ids = {
             name: identifier("product", name) for name, _ in self.test_targets
         }
+        self.extension_product_ids = {
+            name: identifier("product", name) for name, _ in self.extension_targets
+        }
 
     @property
     def all_targets(self) -> list[tuple[str, list]]:
         """Every target paired with the files it compiles, app first."""
-        return [(APP_TARGET, self.app_files)] + [
-            (name, self.test_files[name]) for name, _ in self.test_targets
-        ]
+        return (
+            [(APP_TARGET, self.app_files)]
+            + [(name, self.extension_files[name]) for name, _ in self.extension_targets]
+            + [(name, self.test_files[name]) for name, _ in self.test_targets]
+        )
 
     @property
     def target_names(self) -> list[str]:
-        return [APP_TARGET] + [name for name, _ in self.test_targets]
+        return (
+            [APP_TARGET]
+            + [name for name, _ in self.extension_targets]
+            + [name for name, _ in self.test_targets]
+        )
 
     # -- emitting helpers -------------------------------------------------
 
@@ -189,6 +229,14 @@ class ProjectWriter:
                         f"{{isa = PBXBuildFile; fileRef = {self.file_ref_id(node)} /* {node.name} */; }};"
                     )
 
+            for name, _ in self.extension_targets:
+                self.emit(
+                    f"\t\t{identifier('embedfile', name)} "
+                    f"/* {name}.appex in Embed Foundation Extensions */ = {{isa = PBXBuildFile; "
+                    f"fileRef = {self.extension_product_ids[name]} /* {name}.appex */; "
+                    f"settings = {{ATTRIBUTES = (RemoveHeadersOnCopy, ); }}; }};"
+                )
+
         self.section("PBXBuildFile", body)
 
     def write_file_references(self) -> None:
@@ -204,10 +252,23 @@ class ProjectWriter:
                     f"{{isa = PBXFileReference; explicitFileType = wrapper.cfbundle; "
                     f"includeInIndex = 0; path = {name}.xctest; sourceTree = BUILT_PRODUCTS_DIR; }};"
                 )
+            for name, _ in self.extension_targets:
+                self.emit(
+                    f"\t\t{self.extension_product_ids[name]} /* {name}.appex */ = "
+                    f"{{isa = PBXFileReference; explicitFileType = \"wrapper.app-extension\"; "
+                    f"includeInIndex = 0; path = {name}.appex; sourceTree = BUILT_PRODUCTS_DIR; }};"
+                )
+            # Dédoublonné : un fichier partagé est compilé par plusieurs cibles
+            # mais n'a qu'une référence. En écrire deux fait refuser le projet.
+            deja = set()
             for _, files in self.all_targets:
                 for node in files:
+                    ref = self.file_ref_id(node)
+                    if ref in deja:
+                        continue
+                    deja.add(ref)
                     self.emit(
-                        f"\t\t{self.file_ref_id(node)} /* {node.name} */ = "
+                        f"\t\t{ref} /* {node.name} */ = "
                         f"{{isa = PBXFileReference; lastKnownFileType = {file_type(node.path)}; "
                         f"path = {quoted(node.name)}; sourceTree = \"<group>\"; }};"
                     )
@@ -254,6 +315,10 @@ class ProjectWriter:
             self.emit("\t\t\tisa = PBXGroup;")
             self.emit("\t\t\tchildren = (")
             self.emit(f"\t\t\t\t{self.group_id(self.app_tree)} /* {APP_TARGET} */,")
+            if self.shared_tree:
+                self.emit(f"\t\t\t\t{self.group_id(self.shared_tree)} /* {SHARED_DIR} */,")
+            for name, _ in self.extension_targets:
+                self.emit(f"\t\t\t\t{self.group_id(self.extension_trees[name])} /* {name} */,")
             for name, _ in self.test_targets:
                 self.emit(f"\t\t\t\t{self.group_id(self.test_trees[name])} /* {name} */,")
             self.emit(f"\t\t\t\t{self.products_group_id} /* Products */,")
@@ -266,6 +331,8 @@ class ProjectWriter:
             self.emit("\t\t\tisa = PBXGroup;")
             self.emit("\t\t\tchildren = (")
             self.emit(f"\t\t\t\t{self.app_product_id} /* {APP_TARGET}.app */,")
+            for name, _ in self.extension_targets:
+                self.emit(f"\t\t\t\t{self.extension_product_ids[name]} /* {name}.appex */,")
             for name, _ in self.test_targets:
                 self.emit(f"\t\t\t\t{self.test_product_ids[name]} /* {name}.xctest */,")
             self.emit("\t\t\t);")
@@ -274,6 +341,10 @@ class ProjectWriter:
             self.emit("\t\t};")
 
             emit_group(self.app_tree)
+            if self.shared_tree:
+                emit_group(self.shared_tree)
+            for name, _ in self.extension_targets:
+                emit_group(self.extension_trees[name])
             for name, _ in self.test_targets:
                 emit_group(self.test_trees[name])
 
@@ -297,6 +368,11 @@ class ProjectWriter:
             self.emit(f"\t\t\t\t{identifier('sources', name)} /* Sources */,")
             self.emit(f"\t\t\t\t{identifier('frameworks', name)} /* Frameworks */,")
             self.emit(f"\t\t\t\t{identifier('resources', name)} /* Resources */,")
+            # L'application embarque ses extensions ; sans cette phase elles
+            # sont construites et jamais livrées, ce qui ne casse aucun build
+            # et ne marche pas sur l'appareil.
+            if name == APP_TARGET and self.extension_targets:
+                self.emit(f"\t\t\t\t{identifier('embed', APP_TARGET)} /* Embed Foundation Extensions */,")
             self.emit("\t\t\t);")
             self.emit("\t\t\tbuildRules = (")
             self.emit("\t\t\t);")
@@ -316,8 +392,19 @@ class ProjectWriter:
                 self.app_product_id,
                 f"{APP_TARGET}.app",
                 "com.apple.product-type.application",
-                [],
+                [
+                    identifier("dependency", APP_TARGET, name)
+                    for name, _ in self.extension_targets
+                ],
             )
+            for name, _ in self.extension_targets:
+                emit_target(
+                    name,
+                    self.extension_product_ids[name],
+                    f"{name}.appex",
+                    "com.apple.product-type.app-extension",
+                    [],
+                )
             for name, kind in self.test_targets:
                 emit_target(
                     name,
@@ -390,8 +477,55 @@ class ProjectWriter:
 
         self.section(isa, body)
 
+    def write_embed_phase(self) -> None:
+        """La phase qui place les `.appex` dans `PlugIns` de l'application.
+
+        Sans elle, l'extension se construit, le projet est valide, la CI est
+        verte — et rien ne s'exécute sur l'appareil, parce que le paquet livré
+        ne la contient pas. C'est une panne silencieuse : elle ne se voit qu'à
+        l'usage.
+        """
+        if not self.extension_targets:
+            return
+
+        def body():
+            self.emit(
+                f"\t\t{identifier('embed', APP_TARGET)} /* Embed Foundation Extensions */ = {{"
+            )
+            self.emit("\t\t\tisa = PBXCopyFilesBuildPhase;")
+            self.emit("\t\t\tbuildActionMask = 2147483647;")
+            self.emit('\t\t\tdstPath = "";')
+            # 13 = PlugIns. Le nombre n'a pas de constante nommée dans le
+            # format ; il est documenté par l'usage et par Xcode lui-même.
+            self.emit("\t\t\tdstSubfolderSpec = 13;")
+            self.emit("\t\t\tfiles = (")
+            for name, _ in self.extension_targets:
+                self.emit(
+                    f"\t\t\t\t{identifier('embedfile', name)} /* {name}.appex in Embed Foundation Extensions */,"
+                )
+            self.emit("\t\t\t);")
+            self.emit("\t\t\tname = \"Embed Foundation Extensions\";")
+            self.emit("\t\t\trunOnlyForDeploymentPostprocessing = 0;")
+            self.emit("\t\t};")
+
+        self.section("PBXCopyFilesBuildPhase", body)
+
     def write_target_dependency(self) -> None:
         def body():
+            # L'application dépend de ses extensions : elles doivent être
+            # construites avant d'être embarquées. C'est l'inverse d'une cible
+            # de test, qui dépend de l'application.
+            for name, _ in self.extension_targets:
+                proxy_id = identifier("proxy", APP_TARGET, name)
+                self.emit(
+                    f"\t\t{identifier('dependency', APP_TARGET, name)} "
+                    f"/* PBXTargetDependency */ = {{"
+                )
+                self.emit("\t\t\tisa = PBXTargetDependency;")
+                self.emit(f"\t\t\ttarget = {identifier('target', name)} /* {name} */;")
+                self.emit(f"\t\t\ttargetProxy = {proxy_id} /* PBXContainerItemProxy */;")
+                self.emit("\t\t};")
+
             for name, _ in self.test_targets:
                 proxy_id = identifier("proxy", name, APP_TARGET)
                 self.emit(
@@ -407,6 +541,18 @@ class ProjectWriter:
 
     def write_container_proxy(self) -> None:
         def body():
+            for name, _ in self.extension_targets:
+                self.emit(
+                    f"\t\t{identifier('proxy', APP_TARGET, name)} "
+                    f"/* PBXContainerItemProxy */ = {{"
+                )
+                self.emit("\t\t\tisa = PBXContainerItemProxy;")
+                self.emit(f"\t\t\tcontainerPortal = {self.project_id} /* Project object */;")
+                self.emit("\t\t\tproxyType = 1;")
+                self.emit(f"\t\t\tremoteGlobalIDString = {identifier('target', name)};")
+                self.emit(f"\t\t\tremoteInfo = {name};")
+                self.emit("\t\t};")
+
             for name, _ in self.test_targets:
                 self.emit(
                     f"\t\t{identifier('proxy', name, APP_TARGET)} "
@@ -513,6 +659,10 @@ class ProjectWriter:
             "INFOPLIST_KEY_UIApplicationSceneManifest_Generation": "YES",
             "INFOPLIST_KEY_UILaunchScreen_Generation": "YES",
             "INFOPLIST_KEY_UISupportedInterfaceOrientations": '"UIInterfaceOrientationPortrait"',
+            # Sans cette clé, `Activity.request` lève `unsupportedTarget` à
+            # l'exécution — et rien au moment de la compilation. C'est une
+            # panne qui ne se voit qu'une fois l'application entre les mains.
+            "INFOPLIST_KEY_NSSupportsLiveActivities": "YES",
             "LD_RUNPATH_SEARCH_PATHS": '(\n\t\t\t\t\t"$(inherited)",\n\t\t\t\t\t"@executable_path/Frameworks",\n\t\t\t\t)',
             "MARKETING_VERSION": "1.0",
             "PRODUCT_BUNDLE_IDENTIFIER": BUNDLE_ID,
@@ -520,6 +670,52 @@ class ProjectWriter:
             "SWIFT_VERSION": SWIFT_VERSION,
             # iPhone only: the deck and the tab bar are a phone design, and
             # claiming iPad without an iPad layout is a known rejection.
+            "TARGETED_DEVICE_FAMILY": "1",
+        }
+
+    def extension_settings(self, name: str) -> dict[str, str]:
+        """Les réglages d'une extension de widget.
+
+        `SKIP_INSTALL = YES` parce qu'une extension n'est pas installée pour
+        elle-même : elle voyage dans l'application qui l'embarque. Et le
+        chemin de recherche remonte de deux crans — l'appex vit dans
+        `Plum.app/PlugIns/`, donc ses cadriciels sont deux dossiers plus haut.
+        """
+        return {
+            "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
+            "CODE_SIGN_STYLE": "Automatic",
+            "CURRENT_PROJECT_VERSION": "1",
+            "GENERATE_INFOPLIST_FILE": "YES",
+            "INFOPLIST_KEY_CFBundleDisplayName": "Plum",
+            "INFOPLIST_KEY_NSHumanReadableCopyright": '""',
+            # Le `NSExtension` de l'extension vient d'un fichier, pas d'un
+            # réglage. `INFOPLIST_KEY_NSExtensionPointIdentifier` a été essayé
+            # d'abord : la valeur arrivait bien dans la configuration de la
+            # cible — vérifié dans le `pbxproj` — et ne produisait aucun
+            # dictionnaire dans le paquet. Les clés générées ne savent pas
+            # écrire de structure imbriquée.
+            #
+            # Sans ce dictionnaire, le simulateur refuse d'installer
+            # *l'application entière*, pas seulement l'extension, avec
+            # « extensionDictionary must be set in placeholder attributes ».
+            # Rien n'en avertit à la compilation : le Swift est correct, les
+            # quatre cibles se construisent, et l'échec se lit comme une panne
+            # du simulateur.
+            #
+            # `GENERATE_INFOPLIST_FILE` reste à `YES` : Xcode fusionne le
+            # fichier avec les clés qu'il génère.
+            "INFOPLIST_FILE": f"{name}/Info.plist",
+            "LD_RUNPATH_SEARCH_PATHS": (
+                '(\n\t\t\t\t\t"$(inherited)",\n\t\t\t\t\t'
+                '"@executable_path/Frameworks",\n\t\t\t\t\t'
+                '"@executable_path/../../Frameworks",\n\t\t\t\t)'
+            ),
+            "MARKETING_VERSION": "1.0",
+            "PRODUCT_BUNDLE_IDENTIFIER": f"{BUNDLE_ID}.widgets",
+            "PRODUCT_NAME": '"$(TARGET_NAME)"',
+            "SKIP_INSTALL": "YES",
+            "SWIFT_EMIT_LOC_STRINGS": "YES",
+            "SWIFT_VERSION": SWIFT_VERSION,
             "TARGETED_DEVICE_FAMILY": "1",
         }
 
@@ -568,6 +764,10 @@ class ProjectWriter:
             emit_configuration("project", PROJECT_NAME, "Release", self.project_settings(debug=False))
             emit_configuration("target", APP_TARGET, "Debug", self.app_settings(debug=True))
             emit_configuration("target", APP_TARGET, "Release", self.app_settings(debug=False))
+            for name, _ in self.extension_targets:
+                settings = self.extension_settings(name)
+                emit_configuration("target", name, "Debug", settings)
+                emit_configuration("target", name, "Release", settings)
             for name, kind in self.test_targets:
                 settings = self.test_settings(name, kind)
                 emit_configuration("target", name, "Debug", settings)
@@ -618,6 +818,7 @@ class ProjectWriter:
 
         self.write_build_files()
         self.write_container_proxy()
+        self.write_embed_phase()
         self.write_file_references()
         self.write_frameworks_phase()
         self.write_groups()
@@ -782,9 +983,13 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    summary = ", ".join(
-        f"{len(writer.test_files[name])} dans {name}" for name, _ in writer.test_targets
-    )
+    parts = [
+        f"{len(writer.extension_files[name])} dans {name}"
+        for name, _ in writer.extension_targets
+    ] + [f"{len(writer.test_files[name])} dans {name}" for name, _ in writer.test_targets]
+    if writer.shared_files:
+        parts.append(f"{len(writer.shared_files)} partagés")
+    summary = ", ".join(parts)
     print(
         f"{PROJECT_NAME}.xcodeproj écrit : "
         f"{len(writer.app_files)} fichiers dans {APP_TARGET}"

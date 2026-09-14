@@ -26,7 +26,14 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCES = ROOT / "Plum"
+# L'application, ses extensions et le code qu'elles partagent. Sans les deux
+# derniers, un bouton-icône ajouté dans un widget échapperait au contrôle —
+# et c'est là qu'on en ajoute sans y penser, faute de l'avoir sous les yeux.
+SOURCES = [
+    directory
+    for directory in (ROOT / "Plum", ROOT / "PlumShared", ROOT / "PlumWidgets")
+    if directory.is_dir()
+]
 
 # Combien de lignes après l'ouverture du bouton on considère comme faisant
 # partie de sa déclaration. Quatorze couvre un `label:` sur plusieurs lignes
@@ -40,7 +47,7 @@ VARIABLE_DIRECTE = re.compile(r"Button\s*\(\s*[a-z]")
 
 def muets() -> list[tuple[Path, int, str]]:
     trouves: list[tuple[Path, int, str]] = []
-    for fichier in sorted(SOURCES.rglob("*.swift")):
+    for fichier in sorted(f for racine in SOURCES for f in racine.rglob("*.swift")):
         lignes = fichier.read_text(encoding="utf-8").split("\n")
         for index, ligne in enumerate(lignes):
             if not OUVERTURE.search(ligne):
@@ -76,7 +83,8 @@ def main() -> int:
 
     boutons = sum(
         len(OUVERTURE.findall(f.read_text(encoding="utf-8")))
-        for f in SOURCES.rglob("*.swift")
+        for racine in SOURCES
+        for f in racine.rglob("*.swift")
     )
     print(f"✓ accessibilité — {boutons} boutons, aucun muet")
     return 0
