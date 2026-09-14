@@ -11,6 +11,9 @@ final class DiscoveryViewModel {
     private(set) var newMatch: Match?
     private(set) var likesRemaining: Int?
     private(set) var canRewind = false
+    /// Ce que l'écran doit dire quand un blocage ou un signalement n'a pas
+    /// abouti. `nil` tant qu'il n'y a rien à dire.
+    private(set) var safetyFailure: String?
 
     /// Refill once the deck gets this short, so the stack never visibly runs
     /// dry mid-session.
@@ -106,14 +109,51 @@ final class DiscoveryViewModel {
         }
     }
 
+    /// Signalement et blocage : la carte part tout de suite, mais elle revient
+    /// si le serveur n'a rien enregistré.
+    ///
+    /// Le `try?` d'avant avalait l'échec. La carte disparaissait, l'utilisateur
+    /// croyait la personne écartée, et elle réapparaissait au prochain
+    /// chargement du deck sans explication. Sur un geste de sécurité, c'est le
+    /// pire des silences : on laisse quelqu'un se croire protégé alors qu'il ne
+    /// l'est pas. Ici l'échec se voit, et le geste peut être refait.
     func report(_ profile: Profile, reason: String) async {
-        profiles.removeAll { $0.id == profile.id }
-        try? await discovery.report(profileId: profile.id, reason: reason)
+        await applySafely(
+            to: profile,
+            notice: "Le signalement n'est pas parti. Vérifiez votre connexion et réessayez."
+        ) {
+            try await self.discovery.report(profileId: profile.id, reason: reason)
+        }
     }
 
     func block(_ profile: Profile) async {
+        await applySafely(
+            to: profile,
+            notice: "Le blocage n'a pas été enregistré. Vérifiez votre connexion et réessayez."
+        ) {
+            try await self.discovery.block(profileId: profile.id)
+        }
+    }
+
+    func dismissSafetyFailure() {
+        safetyFailure = nil
+    }
+
+    private func applySafely(
+        to profile: Profile,
+        notice: String,
+        _ action: () async throws -> Void
+    ) async {
+        let wasAt = profiles.firstIndex { $0.id == profile.id }
         profiles.removeAll { $0.id == profile.id }
-        try? await discovery.block(profileId: profile.id)
+        do {
+            try await action()
+        } catch {
+            // Remise à sa place, pas en tête : la carte reprend le rang
+            // qu'elle avait, sinon un échec réordonnerait le deck.
+            profiles.insert(profile, at: min(wasAt ?? 0, profiles.count))
+            safetyFailure = notice
+        }
     }
 
     func dismissMatch() {

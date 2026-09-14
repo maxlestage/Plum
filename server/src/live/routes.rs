@@ -182,6 +182,18 @@ async fn relay_typing(state: &AppState, viewer: Uuid, conversation_id: Uuid) {
         return;
     }
 
+    // Un blocage referme la conversation. Bloquer supprime le match, donc ce
+    // relais s'arrête déjà plus haut — sauf pendant la poignée de
+    // millisecondes où le blocage vient d'être posé et où la frappe est déjà
+    // partie. C'est peu, mais c'est précisément le moment où la personne
+    // bloquée est encore devant son écran.
+    if crate::chat::routes::blocked_between(state, pair.lower_id, pair.upper_id)
+        .await
+        .unwrap_or(true)
+    {
+        return;
+    }
+
     state.hub.send(
         pair.other(viewer),
         &LiveEvent::Typing {

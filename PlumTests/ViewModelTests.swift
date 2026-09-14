@@ -139,6 +139,7 @@ final class ChatViewModelTests: XCTestCase {
         ChatViewModel(
             conversation: SampleData.conversations[0],
             chat: DemoChatService(),
+            discovery: DemoDiscoveryService(),
             currentUserId: SampleData.currentUser.id
         )
     }
@@ -205,6 +206,7 @@ final class ChatDeliveryTests: XCTestCase {
         ChatViewModel(
             conversation: SampleData.conversations[0],
             chat: DemoChatService(),
+            discovery: DemoDiscoveryService(),
             currentUserId: SampleData.currentUser.id
         )
     }
@@ -344,6 +346,7 @@ final class ChatTypingNoticeTests: XCTestCase {
         let viewModel = ChatViewModel(
             conversation: SampleData.conversations[0],
             chat: chat,
+            discovery: DemoDiscoveryService(),
             currentUserId: SampleData.currentUser.id
         )
 
@@ -363,6 +366,7 @@ final class ChatTypingNoticeTests: XCTestCase {
         let viewModel = ChatViewModel(
             conversation: SampleData.conversations[0],
             chat: chat,
+            discovery: DemoDiscoveryService(),
             currentUserId: SampleData.currentUser.id
         )
 

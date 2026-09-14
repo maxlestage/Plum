@@ -11,11 +11,12 @@ use sea_orm::{
 use uuid::Uuid;
 
 use super::types::*;
-use crate::auth::routes::authenticate;
-use crate::entities::{conversation, match_pair, message, profile};
+use crate::auth::routes::{authenticate, enforce};
+use crate::entities::{block, conversation, match_pair, message, profile};
 use crate::error::{ApiError, ApiResult};
 use crate::live::routes::{announce_message, announce_read};
 use crate::profile::types::ProfileResponse;
+use crate::rate_limit::Quota;
 use crate::state::AppState;
 
 const DEFAULT_LIMIT: u64 = 30;
@@ -23,6 +24,17 @@ const MAX_LIMIT: u64 = 100;
 /// Assez pour dire quelque chose, pas assez pour coller un roman dans une
 /// bulle. Le client n'impose rien, donc c'est ici que ça se joue.
 const MAX_BODY: usize = 2_000;
+/// Soixante messages par minute et par expéditeur.
+///
+/// Rien n'encadrait l'envoi. Un compte pouvait remplir une conversation — et
+/// la base — aussi vite que le réseau le permettait, et le socket poussait
+/// tout en direct : le téléphone d'en face vibrait sans discontinuer. C'est
+/// l'inondation, la forme de harcèlement la moins chère à produire.
+///
+/// Soixante parce qu'une conversation animée en compte dix ou vingt à la
+/// minute : la marge est de trois fois, personne ne rencontrera ce plafond en
+/// écrivant. Un script, lui, le touche à la seconde.
+const MESSAGE_QUOTA: Quota = Quota::new(60, 60);
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -39,6 +51,12 @@ pub fn router() -> Router<AppState> {
 ///
 /// Introuvable plutôt qu'interdit : confirmer l'existence d'un match auquel on
 /// n'appartient pas renseignerait déjà.
+///
+/// Un blocage, dans un sens ou dans l'autre, referme la conversation. Bloquer
+/// supprime déjà le match, donc ce contrôle est une seconde barrière — mais
+/// c'est celle qui compte : elle couvre la course entre un message en vol et
+/// un blocage qui vient d'être posé, et elle tient même si un chemin futur
+/// oubliait de supprimer le match.
 async fn my_match(state: &AppState, viewer: Uuid, id: Uuid) -> ApiResult<match_pair::Model> {
     let found = match_pair::Entity::find_by_id(id)
         .one(&state.db)
@@ -48,7 +66,36 @@ async fn my_match(state: &AppState, viewer: Uuid, id: Uuid) -> ApiResult<match_p
     if found.lower_id != viewer && found.upper_id != viewer {
         return Err(ApiError::NotFound);
     }
+    if blocked_between(state, found.lower_id, found.upper_id).await? {
+        return Err(ApiError::NotFound);
+    }
     Ok(found)
+}
+
+/// Un blocage existe-t-il entre ces deux-là, dans un sens ou dans l'autre ?
+///
+/// Dans les deux sens, délibérément : celui qui bloque ne veut plus rien
+/// recevoir, et celui qui est bloqué ne doit pas pouvoir continuer d'écrire.
+/// Une barrière à sens unique laisserait exactement le harcèlement qu'elle
+/// prétend arrêter.
+pub async fn blocked_between(state: &AppState, a: Uuid, b: Uuid) -> ApiResult<bool> {
+    let found = block::Entity::find()
+        .filter(
+            Condition::any()
+                .add(
+                    Condition::all()
+                        .add(block::Column::BlockerId.eq(a))
+                        .add(block::Column::BlockedId.eq(b)),
+                )
+                .add(
+                    Condition::all()
+                        .add(block::Column::BlockerId.eq(b))
+                        .add(block::Column::BlockedId.eq(a)),
+                ),
+        )
+        .one(&state.db)
+        .await?;
+    Ok(found.is_some())
 }
 
 /// La conversation dont on fait partie, avec son match.
@@ -172,6 +219,17 @@ async fn list_conversations(
         .filter(mine)
         .all(&state.db)
         .await?;
+
+    // La liste ne passe pas par `my_match`, donc elle doit écarter les
+    // bloqués elle-même — sans quoi une conversation fermée resterait
+    // affichée, et son dernier message avec.
+    let mut visible = Vec::with_capacity(pairs.len());
+    for pair in pairs {
+        if !blocked_between(&state, pair.lower_id, pair.upper_id).await? {
+            visible.push(pair);
+        }
+    }
+    let pairs = visible;
     let pair_ids: Vec<Uuid> = pairs.iter().map(|p| p.id).collect();
 
     let mut select =
@@ -312,6 +370,11 @@ async fn send_message(
     {
         return Ok(Json(already.into()));
     }
+
+    // Le quota se compte ici, après le rejeu : quelqu'un dans un tunnel qui
+    // renvoie le même message ne doit pas payer pour la connexion qu'il n'a
+    // pas. Ce n'est pas un nouveau message, c'est le même qui arrive enfin.
+    enforce(&state, "messages", &claims.sub.to_string(), MESSAGE_QUOTA).await?;
 
     let now = Utc::now();
     let written = message::ActiveModel {
