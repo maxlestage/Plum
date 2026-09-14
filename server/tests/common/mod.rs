@@ -128,6 +128,16 @@ pub async fn migrate_once(url: &str) {
 }
 
 pub fn state(db: DatabaseConnection) -> AppState {
+    state_with_deck_budget(db, 1_000)
+}
+
+/// Le même état, avec un budget de deck choisi.
+///
+/// Le budget réel est de mille profils par jour : l'éprouver tel quel
+/// demanderait d'en peupler mille, donc il ne serait éprouvé par rien. Le
+/// rendre réglable est ce qui permet de le vérifier — et un exploitant peut
+/// s'en servir pour resserrer sans réécrire le serveur.
+pub fn state_with_deck_budget(db: DatabaseConnection, deck_daily_budget: u32) -> AppState {
     AppState::new(
         db,
         Config {
@@ -142,6 +152,7 @@ pub fn state(db: DatabaseConnection) -> AppState {
             // Les tests vérifient la forme de l'adresse d'une photo, donc
             // elle doit être stable et reconnaissable.
             public_base_url: "https://plum.test".into(),
+            deck_daily_budget,
         },
         // Each test builds its own app, so each gets a fresh limiter and one
         // test's attempts cannot exhaust another's quota.
@@ -288,6 +299,8 @@ pub mod deck_ages {
     pub const BLOCK_ERASES: i32 = 48;
     pub const BLOCK_LEFTOVER: i32 = 49;
     pub const BLOCK_LEFTOVER_LIST: i32 = 50;
+    pub const DECK_BUDGET: i32 = 54;
+    pub const DECK_ORDINARY: i32 = 55;
     pub const FLOOD: i32 = 51;
     pub const ORDINARY_PACE: i32 = 52;
     pub const RETRY_COST: i32 = 53;
