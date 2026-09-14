@@ -257,7 +257,7 @@ enum Swipes {
 }
 
 #[derive(DeriveIden)]
-enum Matches {
+pub enum Matches {
     Table,
     Id,
     LowerId,

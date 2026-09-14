@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod chat;
 pub mod config;
 pub mod discovery;
 pub mod entities;
@@ -59,6 +60,7 @@ pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
                 .merge(profile::routes::router())
                 .merge(discovery::routes::router())
                 .merge(matches::routes::router())
+                .merge(chat::routes::router())
                 .fallback(unknown_api_route),
         )
         .layer(TraceLayer::new_for_http())
