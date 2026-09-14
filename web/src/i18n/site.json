@@ -31,7 +31,8 @@
         "terms": "Conditions d'utilisation",
         "privacy": "Confidentialité",
         "help": "Aide et contact"
-      }
+      },
+      "imageAlt": "La marque de Plum : deux disques qui se chevauchent, en blanc cassé sur prune profond."
     },
     "en": {
       "title": "Plum — One photo, two sentences",
@@ -41,7 +42,8 @@
         "terms": "Terms of use",
         "privacy": "Privacy",
         "help": "Help and contact"
-      }
+      },
+      "imageAlt": "The Plum mark: two overlapping discs, off-white on deep plum."
     },
     "es": {
       "title": "Plum — Una foto, dos frases",
@@ -51,7 +53,8 @@
         "terms": "Condiciones de uso",
         "privacy": "Privacidad",
         "help": "Ayuda y contacto"
-      }
+      },
+      "imageAlt": "La marca de Plum: dos discos que se superponen, en blanco roto sobre ciruela oscuro."
     }
   }
 }
