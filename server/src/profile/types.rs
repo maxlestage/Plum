@@ -13,9 +13,21 @@ use crate::entities::{preferences, profile};
 #[serde(rename_all = "snake_case")]
 pub struct PhotoResponse {
     pub id: Uuid,
+    /// Absolue, jamais relative : `AsyncImage` fait une requête nue et ne
+    /// saurait pas résoudre un chemin.
     pub url: String,
     /// 0 is the cover.
     pub position: i32,
+}
+
+impl PhotoResponse {
+    pub fn new(model: &crate::entities::photo::Model, base: &str) -> Self {
+        Self {
+            id: model.id,
+            url: format!("{base}/photos/{}", model.id),
+            position: model.position,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]

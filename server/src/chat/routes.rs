@@ -135,10 +135,13 @@ async fn hydrate(
         .count(&state.db)
         .await?;
 
+    let mut participant = ProfileResponse::own(participant);
+    crate::photos::routes::attach_one(state, &mut participant).await?;
+
     Ok(ConversationResponse {
         id: row.id,
         match_id: row.match_id,
-        participant: ProfileResponse::own(participant),
+        participant,
         last_message: last_message.map(Into::into),
         unread_count: unread.try_into().unwrap_or(i32::MAX),
         updated_at: row.updated_at.into(),

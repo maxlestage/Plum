@@ -19,6 +19,14 @@ pub struct Config {
     /// Where the built presentation site lives. Absent in a plain `cargo run`,
     /// present in the image.
     pub site_dir: Option<String>,
+    /// L'adresse publique de ce déploiement, sans barre finale.
+    ///
+    /// Elle sert à écrire les adresses des photos, qui doivent être absolues :
+    /// côté SwiftUI, `AsyncImage` fait une requête nue et ne saurait pas
+    /// résoudre un chemin relatif. Déduire l'adresse de l'en-tête `Host` de
+    /// chaque requête serait plus souple et bien plus fragile — la moitié des
+    /// réponses qui portent un profil sont construites loin de la requête.
+    pub public_base_url: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -64,6 +72,14 @@ impl Config {
                 .filter(|url| !url.is_empty())
                 .map(|url| normalise_redis_url(&url)),
             site_dir: env::var("SITE_DIR").ok().filter(|path| !path.is_empty()),
+            public_base_url: env::var("PUBLIC_BASE_URL")
+                .ok()
+                .filter(|url| !url.is_empty())
+                .map(|url| url.trim_end_matches('/').to_owned())
+                // Le repli vaut pour un `cargo run` sur une machine ; en
+                // production la variable est posée, et le README dit pourquoi
+                // s'en passer donnerait des photos introuvables.
+                .unwrap_or_else(|| format!("http://127.0.0.1:{port}")),
         })
     }
 }

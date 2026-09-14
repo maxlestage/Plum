@@ -139,6 +139,9 @@ pub fn state(db: DatabaseConnection) -> AppState {
             database_max_connections: 10,
             redis_url: None,
             site_dir: None,
+            // Les tests vérifient la forme de l'adresse d'une photo, donc
+            // elle doit être stable et reconnaissable.
+            public_base_url: "https://plum.test".into(),
         },
         // Each test builds its own app, so each gets a fresh limiter and one
         // test's attempts cannot exhaust another's quota.
@@ -271,6 +274,7 @@ pub mod deck_ages {
     pub const EMPTY_REWIND: i32 = 36;
     pub const NOMAD: i32 = 37;
     pub const PRECISION: i32 = 38;
+    pub const PHOTOS: i32 = 41;
     pub const LIVE: i32 = 39;
     pub const LIVE_MATCH: i32 = 40;
     pub const CURSOR: i32 = 31;

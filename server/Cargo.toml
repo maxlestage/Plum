@@ -47,6 +47,11 @@ redis = { version = "0.27", features = [
     "tls-rustls-insecure",
     "connection-manager",
 ] }
+# Réduit et réencode chaque photo reçue. Sans formats superflus : chacun
+# allonge la compilation, et Heroku s'accorde quinze minutes pour construire.
+# Le décodage sert aussi de contrôle — un fichier qui n'est pas une image
+# échoue ici plutôt que d'être stocké puis servi.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
