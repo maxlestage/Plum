@@ -132,7 +132,13 @@ jobs:
   # coupé le déploiement automatique côté Heroku. Il existe comme repli si un
   # build Heroku venait à dépasser les 15 minutes qu'il s'accorde.
   deploy:
-    name: Déployer sur Heroku
+    # Nommé « chaîne de secours » et pas « Déployer sur Heroku », parce que ce
+    # job se termine en vert quand les secrets sont absents — toutes ses étapes
+    # sont sautées et il n'y a rien à échouer. Sous son ancien nom, ce vert se
+    # lisait « déployé » alors que rien n'était parti : j'ai failli l'annoncer
+    # ainsi. Un intitulé qui ne promet pas le déploiement coûte moins cher
+    # qu'une vérification qu'on oublie de faire.
+    name: Déployer sur Heroku (chaîne de secours)
     needs: image
     if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -150,8 +156,25 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::HEROKU_API_KEY ou HEROKU_APP_NAME absent — déploiement sauté. Poser les deux secrets dans Settings → Secrets and variables → Actions, et désactiver le déploiement automatique côté Heroku : les deux chaînes ne peuvent pas coexister."
+            echo "::warning::Rien n'a été déployé : HEROKU_API_KEY ou HEROKU_APP_NAME est absent. Ce job est vert parce qu'il n'avait rien à faire, pas parce qu'une version est partie."
           fi
+
+          # Écrit noir sur blanc sur la page du run : c'est là qu'on regarde
+          # quand on se demande si une version est partie.
+          {
+            echo "### Déploiement Heroku"
+            echo
+            if [ "$(grep -c 'ready=true' "$GITHUB_OUTPUT")" -gt 0 ]; then
+              echo "Secrets présents — la chaîne de secours pousse l'image et publie."
+            else
+              echo "**Aucune version n'a été déployée par ce job.**"
+              echo
+              echo "Les secrets \`HEROKU_API_KEY\` et \`HEROKU_APP_NAME\` ne sont pas"
+              echo "posés, donc cette chaîne est dormante — c'est son état normal tant"
+              echo "que le dépôt déploie par \`heroku.yml\`. Le vert de ce job ne dit"
+              echo "donc rien de la production."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Le registre de conteneurs n'accepte que les applications dont le stack
       # est « container », et ce réglage n'existe pas dans le tableau de bord :

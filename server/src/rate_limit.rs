@@ -94,21 +94,34 @@ pub enum RateLimiter {
 
 impl RateLimiter {
     pub async fn check(&self, key: &str, quota: Quota) -> Decision {
+        self.check_cost(key, quota, 1).await
+    }
+
+    /// Compte `cost` unités au lieu d'une.
+    ///
+    /// Tous les quotas d'ici comptent des requêtes, parce que c'est ce qui
+    /// coûte. Le deck, lui, ne coûte pas par requête : il coûte par profil
+    /// rendu. Un appel qui en ramène cinquante n'est pas l'égal d'un appel qui
+    /// en ramène deux, et les compter pareil laisse choisir la taille de page
+    /// à celui qu'on cherche à borner.
+    pub async fn check_cost(&self, key: &str, quota: Quota, cost: u32) -> Decision {
         match self {
-            Self::Redis(manager) => match redis_check((**manager).clone(), key, quota).await {
-                Ok(decision) => decision,
-                Err(error) => {
-                    // A limiter that fails closed turns a Redis blip into an
-                    // outage. Let the request through and say so.
-                    tracing::warn!(%error, "limiteur indisponible, requête laissée passer");
-                    Decision {
-                        allowed: true,
-                        remaining: quota.limit,
-                        retry_after: Duration::ZERO,
+            Self::Redis(manager) => {
+                match redis_check((**manager).clone(), key, quota, cost).await {
+                    Ok(decision) => decision,
+                    Err(error) => {
+                        // A limiter that fails closed turns a Redis blip into an
+                        // outage. Let the request through and say so.
+                        tracing::warn!(%error, "limiteur indisponible, requête laissée passer");
+                        Decision {
+                            allowed: true,
+                            remaining: quota.limit,
+                            retry_after: Duration::ZERO,
+                        }
                     }
                 }
-            },
-            Self::InProcess(limiter) => limiter.check(key, quota),
+            }
+            Self::InProcess(limiter) => limiter.check_cost(key, quota, cost),
         }
     }
 
@@ -127,6 +140,7 @@ async fn redis_check(
     mut manager: redis::aio::ConnectionManager,
     key: &str,
     quota: Quota,
+    cost: u32,
 ) -> redis::RedisResult<Decision> {
     let namespaced = format!("plum:rl:{key}");
 
@@ -147,8 +161,9 @@ async fn redis_check(
         .arg("EX")
         .arg(quota.window.as_secs())
         .arg("NX")
-        .cmd("INCR")
+        .cmd("INCRBY")
         .arg(&namespaced)
+        .arg(cost)
         .cmd("TTL")
         .arg(&namespaced)
         .query_async(&mut manager)
@@ -175,7 +190,7 @@ impl InProcessLimiter {
         Self::default()
     }
 
-    fn check(&self, key: &str, quota: Quota) -> Decision {
+    fn check_cost(&self, key: &str, quota: Quota, cost: u32) -> Decision {
         let now = Instant::now();
         let mut windows = self.windows.lock().unwrap_or_else(|poisoned| {
             // A poisoned lock means another thread panicked while holding it.
@@ -193,7 +208,7 @@ impl InProcessLimiter {
         if now.duration_since(entry.1) >= quota.window {
             *entry = (0, now);
         }
-        entry.0 += 1;
+        entry.0 = entry.0.saturating_add(cost);
 
         let elapsed = now.duration_since(entry.1);
         decide(entry.0, quota, quota.window.saturating_sub(elapsed))
@@ -211,7 +226,7 @@ mod tests {
         let limiter = InProcessLimiter::new();
 
         for expected_remaining in [2, 1, 0] {
-            let decision = limiter.check("moi@plum.app", QUOTA);
+            let decision = limiter.check_cost("moi@plum.app", QUOTA, 1);
             assert!(decision.allowed);
             assert_eq!(decision.remaining, expected_remaining);
         }
@@ -221,10 +236,10 @@ mod tests {
     fn the_one_past_the_quota_is_refused() {
         let limiter = InProcessLimiter::new();
         for _ in 0..3 {
-            limiter.check("moi@plum.app", QUOTA);
+            limiter.check_cost("moi@plum.app", QUOTA, 1);
         }
 
-        let decision = limiter.check("moi@plum.app", QUOTA);
+        let decision = limiter.check_cost("moi@plum.app", QUOTA, 1);
 
         assert!(!decision.allowed);
         assert_eq!(decision.remaining, 0);
@@ -236,10 +251,10 @@ mod tests {
     fn keys_are_counted_separately() {
         let limiter = InProcessLimiter::new();
         for _ in 0..4 {
-            limiter.check("cible@plum.app", QUOTA);
+            limiter.check_cost("cible@plum.app", QUOTA, 1);
         }
 
-        let other = limiter.check("quelqun-dautre@plum.app", QUOTA);
+        let other = limiter.check_cost("quelqun-dautre@plum.app", QUOTA, 1);
 
         assert!(other.allowed);
         assert_eq!(other.remaining, 2);
@@ -251,7 +266,7 @@ mod tests {
         let instant = Quota::new(2, 0);
 
         for _ in 0..5 {
-            assert!(limiter.check("moi@plum.app", instant).allowed);
+            assert!(limiter.check_cost("moi@plum.app", instant, 1).allowed);
         }
     }
 
