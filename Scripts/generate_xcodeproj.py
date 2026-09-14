@@ -688,16 +688,23 @@ class ProjectWriter:
             "GENERATE_INFOPLIST_FILE": "YES",
             "INFOPLIST_KEY_CFBundleDisplayName": "Plum",
             "INFOPLIST_KEY_NSHumanReadableCopyright": '""',
-            # Sans cette clé, l'`Info.plist` généré ne contient pas de
-            # dictionnaire `NSExtension`, et le simulateur refuse d'installer
-            # *l'application entière* — pas seulement l'extension — avec
-            # « extensionDictionary must be set in placeholder attributes ».
+            # Le `NSExtension` de l'extension vient d'un fichier, pas d'un
+            # réglage. `INFOPLIST_KEY_NSExtensionPointIdentifier` a été essayé
+            # d'abord : la valeur arrivait bien dans la configuration de la
+            # cible — vérifié dans le `pbxproj` — et ne produisait aucun
+            # dictionnaire dans le paquet. Les clés générées ne savent pas
+            # écrire de structure imbriquée.
             #
-            # Rien n'en avertit à la compilation : le Swift est correct, le
-            # projet est valide, les quatre cibles se construisent. L'échec
-            # n'arrive qu'au moment d'installer, et il se lit comme une panne
-            # du simulateur plutôt que comme une clé manquante.
-            "INFOPLIST_KEY_NSExtensionPointIdentifier": "com.apple.widgetkit-extension",
+            # Sans ce dictionnaire, le simulateur refuse d'installer
+            # *l'application entière*, pas seulement l'extension, avec
+            # « extensionDictionary must be set in placeholder attributes ».
+            # Rien n'en avertit à la compilation : le Swift est correct, les
+            # quatre cibles se construisent, et l'échec se lit comme une panne
+            # du simulateur.
+            #
+            # `GENERATE_INFOPLIST_FILE` reste à `YES` : Xcode fusionne le
+            # fichier avec les clés qu'il génère.
+            "INFOPLIST_FILE": f"{name}/Info.plist",
             "LD_RUNPATH_SEARCH_PATHS": (
                 '(\n\t\t\t\t\t"$(inherited)",\n\t\t\t\t\t'
                 '"@executable_path/Frameworks",\n\t\t\t\t\t'

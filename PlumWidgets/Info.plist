@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Ce que l'extension déclare être.
+
+  Un fichier plutôt qu'un réglage, après un échec : `GENERATE_INFOPLIST_FILE`
+  seul ne sait pas écrire un dictionnaire imbriqué. Posée comme
+  `INFOPLIST_KEY_NSExtensionPointIdentifier`, la valeur atterrissait bien dans
+  la configuration de la cible — vérifié dans le `pbxproj` — mais ne
+  produisait aucun `NSExtension` dans le paquet, et le simulateur refusait
+  d'installer l'application entière.
+
+  `GENERATE_INFOPLIST_FILE` reste à `YES` : Xcode fusionne ce fichier avec les
+  clés qu'il génère (identifiant, version, nom). Il n'y a donc ici que ce
+  qu'il ne sait pas produire.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.widgetkit-extension</string>
+	</dict>
+</dict>
+</plist>
