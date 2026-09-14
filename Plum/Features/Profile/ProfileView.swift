@@ -31,6 +31,7 @@ struct ProfileView: View {
                     } label: {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityLabel(Text("Réglages"))
                 }
             }
             .sheet(item: $sheet) { presented in
@@ -123,7 +124,7 @@ struct ProfileView: View {
     private func photoGrid(_ profile: Profile, viewModel: ProfileViewModel) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: PlumTheme.Spacing.m) {
-                ForEach(profile.orderedPhotos) { photo in
+                ForEach(Array(profile.orderedPhotos.enumerated()), id: \.element.id) { rang, photo in
                     RemoteImage(url: photo.url, seed: photo.id.uuidString)
                         .frame(width: 180, height: 240)
                         .clipShape(RoundedRectangle(cornerRadius: PlumTheme.Radius.medium, style: .continuous))
@@ -159,6 +160,10 @@ struct ProfileView: View {
                                     .font(.title3)
                                     .foregroundStyle(.white, .black.opacity(0.45))
                             }
+                            // Sans rang, VoiceOver annonçait « bouton » six fois
+                            // de suite : rien ne disait laquelle des six photos
+                            // ce bouton allait détruire.
+                            .accessibilityLabel(Text("Supprimer la photo \(rang + 1)"))
                             .padding(PlumTheme.Spacing.s)
                         }
                 }
