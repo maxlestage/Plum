@@ -38,6 +38,32 @@ pub fn client_ip(headers: &axum::http::HeaderMap) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// Le bloc d'adresses auquel appartient un client, plutôt que son adresse.
+///
+/// Une limite par adresse exacte se contourne en changeant d'adresse, et c'est
+/// le comportement *normal* de tout hébergeur, de tout VPN, de tout mandataire :
+/// mesuré depuis une machine ordinaire, sept adresses d'un même bloc ont suffi
+/// à multiplier le quota par sept.
+///
+/// Grouper par /24 en IPv4 et par /64 en IPv6 — la taille qu'on attribue
+/// couramment — ramène un pool entier à un seul seau. Le prix est qu'un
+/// opérateur mobile derrière un NAT partagé range beaucoup de monde dans le
+/// même bloc : le quota associé doit donc être bien plus large que celui par
+/// adresse, pas identique.
+pub fn client_block(ip: &str) -> String {
+    if let Some((prefix, _)) = ip.rsplit_once('.') {
+        // IPv4 : on garde les trois premiers octets.
+        if prefix.split('.').count() == 3 {
+            return format!("{prefix}.0/24");
+        }
+    }
+    match ip.split(':').collect::<Vec<_>>() {
+        // IPv6 : les quatre premiers groupes.
+        groups if groups.len() > 4 => format!("{}::/64", groups[..4].join(":")),
+        _ => ip.to_owned(),
+    }
+}
+
 impl Quota {
     pub const fn new(limit: u32, window_seconds: u64) -> Self {
         Self {
@@ -221,5 +247,50 @@ mod tests {
         assert!(decide(3, QUOTA, Duration::from_secs(60)).allowed);
         assert!(!decide(4, QUOTA, Duration::from_secs(60)).allowed);
         assert_eq!(decide(9, QUOTA, Duration::from_secs(60)).remaining, 0);
+    }
+}
+
+#[cfg(test)]
+mod blocs {
+    use super::client_block;
+
+    /// Sept adresses d'un même bloc, mesurées depuis une machine ordinaire,
+    /// suffisaient à multiplier le quota par sept. Elles doivent maintenant
+    /// tomber dans le même seau.
+    #[test]
+    fn a_rotating_pool_lands_in_one_bucket() {
+        let pool = [
+            "160.79.106.128",
+            "160.79.106.129",
+            "160.79.106.131",
+            "160.79.106.137",
+        ];
+        for address in pool {
+            assert_eq!(client_block(address), "160.79.106.0/24", "{address}");
+        }
+    }
+
+    #[test]
+    fn two_different_blocks_stay_apart() {
+        assert_ne!(
+            client_block("160.79.106.1"),
+            client_block("160.79.107.1"),
+            "deux blocs voisins ne doivent pas se confondre"
+        );
+    }
+
+    #[test]
+    fn ipv6_is_grouped_by_the_usual_allocation() {
+        assert_eq!(
+            client_block("2001:db8:1234:5678:9abc:def0:1234:5678"),
+            "2001:db8:1234:5678::/64"
+        );
+    }
+
+    /// Une valeur qu'on ne sait pas lire sert de clé telle quelle plutôt que
+    /// d'ouvrir une brèche : mieux vaut un seau trop fin qu'aucun seau.
+    #[test]
+    fn something_unreadable_is_still_a_key() {
+        assert_eq!(client_block("pas-une-adresse"), "pas-une-adresse");
     }
 }
