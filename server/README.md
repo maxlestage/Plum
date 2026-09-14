@@ -204,8 +204,26 @@ Les points qui ne se lisent pas dans la liste des routes :
 - Défaire le match de quelqu'un d'autre répond « introuvable » plutôt
   qu'« interdit » : confirmer son existence renseignerait déjà.
 
-**Pas fait** : photos et messagerie. `conversation_id` est donc toujours nul,
-et `POST /matches/{id}/conversation` n'existe pas encore. `photos` est donc toujours un
+**Fait aussi** : les conversations et les messages —
+`POST /matches/{id}/conversation`, `GET /conversations`,
+`GET`/`POST /conversations/{id}/messages`, `POST /conversations/{id}/read`.
+
+- **Une conversation par match**, garantie par une clé unique. Deux appareils
+  qui ouvrent l'écran en même temps créeraient sinon deux fils, et la
+  discussion serait coupée en deux moitiés invisibles l'une à l'autre.
+- **`client_id` empêche le double envoi.** Le client le tire au sort avant
+  d'émettre ; une connexion coupée entre l'envoi et la réponse fait réessayer,
+  et le renvoi retrouve le message déjà écrit au lieu d'en créer un second.
+- **Le compte des non-lus est celui de qui demande** : jamais ses propres
+  messages. De même, marquer comme lu ne touche que ce que l'autre a envoyé —
+  marquer les siens reviendrait à répondre à sa place.
+- **Un message vide n'est pas un message** : coupé, refusé, et une contrainte
+  `CHECK` le redit à la base pour la prochaine route qui écrira ici.
+- Une conversation à laquelle on n'appartient pas répond « introuvable »
+  plutôt qu'« interdit ».
+
+**Pas fait** : les photos, qui demandent un stockage objet, et le WebSocket du
+direct — les messages s'échangent aujourd'hui par requêtes, pas en flux. `photos` est donc toujours un
 tableau vide dans les réponses — présent parce que le modèle Swift le déclare
 non optionnel, vide parce que les photos demandent un stockage objet : le
 système de fichiers d'un dyno est éphémère et ne peut pas les garder. Servir
