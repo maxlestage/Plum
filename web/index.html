@@ -15,7 +15,16 @@
       content="Une photo, deux phrases, et on verra bien."
     />
     <meta property="og:type" content="website" />
+    <!-- L'ordre compte : les navigateurs qui savent lire le SVG le prennent et
+         ignorent le reste. Les PNG servent aux autres, et le 16 pixels n'est
+         pas une réduction automatique du même dessin — c'est la silhouette de
+         la marque, parce qu'à cette taille ses filets intérieurs disparaissent
+         dans le gris. Voir Scripts/generate_favicons.py. -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/site.webmanifest" />
   </head>
   <body>
     <div id="root"></div>
