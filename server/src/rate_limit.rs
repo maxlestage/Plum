@@ -323,9 +323,23 @@ mod redis_tests {
     use super::*;
 
     fn url() -> Option<String> {
-        std::env::var("TEST_REDIS_URL")
-            .ok()
-            .filter(|u| !u.is_empty())
+        match std::env::var("TEST_REDIS_URL") {
+            Ok(url) if !url.is_empty() => Some(url),
+            _ => {
+                // Deux tests verts qui n'ont rien exécuté valent moins qu'un
+                // rouge. C'est précisément ce silence qui a laissé les deux
+                // implémentations du limiteur diverger : la CI pose
+                // `REQUIRE_TEST_REDIS` pour qu'un service qui n'a pas démarré
+                // ne passe pas pour une exécution propre.
+                assert!(
+                    std::env::var("REQUIRE_TEST_REDIS").is_err(),
+                    "REQUIRE_TEST_REDIS est posé mais TEST_REDIS_URL manque : \
+                     les tests du limiteur Redis auraient été sautés en silence"
+                );
+                eprintln!("· sauté : TEST_REDIS_URL non défini");
+                None
+            }
+        }
     }
 
     async fn limiter(url: &str) -> RateLimiter {

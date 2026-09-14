@@ -57,6 +57,9 @@ jobs:
       # tests that executed nothing.
       REQUIRE_TEST_DATABASE: "1"
       TEST_REDIS_URL: redis://localhost:6379
+      # Même raison que pour Postgres : un service qui n'a pas démarré ne doit
+      # pas passer pour une exécution propre.
+      REQUIRE_TEST_REDIS: "1"
 
     steps:
       - uses: actions/checkout@v4
