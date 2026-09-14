@@ -12,12 +12,12 @@ struct ConversationsView: View {
         Group {
             switch link.state {
             case .waiting:
-                Message(
+                Annonce(
                     titre: "Presque prêt",
                     corps: "Ouvrez Plum sur votre iPhone une fois : la montre récupère votre session et n'aura plus besoin de lui."
                 )
             case .rejected:
-                Message(
+                Annonce(
                     titre: "Session expirée",
                     corps: "Ouvrez Plum sur votre iPhone pour la renouveler."
                 )
@@ -38,7 +38,7 @@ struct ConversationsView: View {
             }
 
             if conversations.isEmpty && !chargement && souci == nil {
-                Message(
+                Annonce(
                     titre: "Rien encore",
                     corps: "Les conversations démarrées sur le téléphone apparaîtront ici."
                 )
@@ -103,7 +103,12 @@ private struct Ligne: View {
     }
 }
 
-private struct Message: View {
+/// L'écran vide, avec sa raison.
+///
+/// Nommée `Annonce` et non `Message` : ce dernier est le modèle d'un message
+/// de conversation, compilé dans la montre depuis que les modèles sont
+/// partagés. Deux types du même nom dans un même module ne cohabitent pas.
+private struct Annonce: View {
     let titre: String
     let corps: String
 
