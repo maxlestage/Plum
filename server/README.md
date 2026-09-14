@@ -73,8 +73,13 @@ node verifier-direct.mjs      # socket, évènements, garde-fous
 ```
 
 Par défaut elles visent la production ; `PLUM_HOST` et `PLUM_TLS=0` les
-pointent ailleurs. Elles créent leurs comptes et les effacent en partant,
-même quand une vérification échoue.
+pointent ailleurs.
+
+Elles effacent leurs comptes **quoi qu'il arrive** — succès, échec d'une
+vérification, ou exception. L'effacement était écrit à la fin du script, donc
+une panne en route laissait des profils dans le deck des vrais utilisateurs :
+c'est ce qu'on a retrouvé en production, deux orphelins d'une exécution
+interrompue, qu'on ne peut plus supprimer faute de leurs identifiants.
 
 ## Le parcours de bout en bout
 
