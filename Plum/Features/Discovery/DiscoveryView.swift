@@ -89,6 +89,19 @@ struct DiscoveryView: View {
                 }
             }
         }
+        // Un blocage qui n'est pas parti doit se dire. Le silence laisserait
+        // quelqu'un se croire protégé alors qu'il ne l'est pas.
+        .alert(
+            "Geste non enregistré",
+            isPresented: Binding(
+                get: { viewModel?.safetyFailure != nil },
+                set: { if !$0 { viewModel?.dismissSafetyFailure() } }
+            )
+        ) {
+            Button("D'accord", role: .cancel) { viewModel?.dismissSafetyFailure() }
+        } message: {
+            Text(viewModel?.safetyFailure ?? "")
+        }
         .fullScreenCover(
             isPresented: Binding(
                 get: { viewModel?.newMatch != nil },

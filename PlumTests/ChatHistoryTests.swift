@@ -65,6 +65,7 @@ final class ChatHistoryTests: XCTestCase {
         let viewModel = ChatViewModel(
             conversation: conversation,
             chat: service,
+            discovery: DemoDiscoveryService(),
             currentUserId: SampleData.currentUser.id
         )
         return (viewModel, service)

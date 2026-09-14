@@ -9,7 +9,7 @@ use uuid::Uuid;
 use super::types::{MatchCursor, MatchesPage};
 use crate::auth::routes::authenticate;
 use crate::discovery::types::MatchResponse;
-use crate::entities::{match_pair, profile};
+use crate::entities::{block, match_pair, profile};
 use crate::error::{ApiError, ApiResult};
 use crate::profile::types::ProfileResponse;
 use crate::state::AppState;
@@ -98,7 +98,32 @@ async fn list(
     // qui rend une application lente sans qu'on sache pourquoi.
     let others: Vec<Uuid> = rows.iter().map(|m| m.other(viewer)).collect();
     let profiles = profile::Entity::find()
-        .filter(profile::Column::Id.is_in(others))
+        .filter(profile::Column::Id.is_in(others.clone()))
+        .all(&state.db)
+        .await?;
+
+    // Bloquer supprime le match ; cette liste ne devrait donc rien avoir à
+    // filtrer. Elle filtre quand même, en une requête bornée à la page, parce
+    // que le blocage n'a pas toujours supprimé : jusqu'à ce changement il se
+    // contentait d'écrire sa ligne. Tout blocage déjà enregistré a donc encore
+    // son match — combien, on ne le sait pas d'ici, et c'est justement
+    // pourquoi on ne parie pas dessus. Une liste de matchs qui affiche encore
+    // quelqu'un qu'on a bloqué est un manquement visible, pas un détail de
+    // cohérence.
+    let walls = block::Entity::find()
+        .filter(
+            Condition::any()
+                .add(
+                    Condition::all()
+                        .add(block::Column::BlockerId.eq(viewer))
+                        .add(block::Column::BlockedId.is_in(others.clone())),
+                )
+                .add(
+                    Condition::all()
+                        .add(block::Column::BlockedId.eq(viewer))
+                        .add(block::Column::BlockerId.is_in(others)),
+                ),
+        )
         .all(&state.db)
         .await?;
 
@@ -106,6 +131,12 @@ async fn list(
         .iter()
         .filter_map(|m| {
             let other = m.other(viewer);
+            if walls
+                .iter()
+                .any(|w| w.blocker_id == other || w.blocked_id == other)
+            {
+                return None;
+            }
             // Le compte a pu partir depuis : le match existe encore le temps
             // que la cascade passe, mais il n'y a plus de carte à montrer.
             let found = profiles.iter().find(|p| p.id == other)?.clone();
