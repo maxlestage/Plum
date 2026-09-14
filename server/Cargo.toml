@@ -8,6 +8,10 @@ rust-version = "1.80"
 axum = { version = "0.8", features = ["macros", "ws", "multipart"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
 tower-http = { version = "0.6", features = ["trace", "cors", "fs"] }
+# Pour couper le WebSocket en deux moitiés indépendantes : `axum` expose le
+# socket comme `Stream` + `Sink` mais ne réexporte pas les extensions qui
+# les rendent utilisables.
+futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }
 
 sea-orm = { version = "1", features = [
     "sqlx-postgres",
@@ -51,6 +55,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+# Le seul moyen de prouver que le socket marche vraiment : la poignée de
+# main WebSocket a besoin d'un vrai serveur écoutant sur un vrai port, ce
+# que `tower::oneshot` ne fait pas. La version suit celle qu'`axum` utilise
+# lui-même, sinon deux `tungstenite` incompatibles cohabitent dans l'arbre.
+tokio-tungstenite = "0.29"
 sea-orm-migration = { version = "1", features = ["sqlx-postgres", "runtime-tokio-rustls"] }
 
 [profile.release]

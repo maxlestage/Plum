@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::auth::tokens::TokenIssuer;
 use crate::config::Config;
+use crate::live::hub::Hub;
 use crate::rate_limit::RateLimiter;
 
 #[derive(Clone)]
@@ -13,6 +14,9 @@ pub struct Inner {
     pub tokens: TokenIssuer,
     pub limiter: RateLimiter,
     pub config: Config,
+    /// Les sockets ouverts sur ce dyno. Vide et inerte tant que personne
+    /// n'est connecté, donc rien à configurer pour l'utiliser.
+    pub hub: Hub,
 }
 
 impl AppState {
@@ -23,6 +27,7 @@ impl AppState {
             tokens,
             limiter,
             config,
+            hub: Hub::new(),
         }))
     }
 }
