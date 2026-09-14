@@ -54,6 +54,20 @@ EMBED_RULES = {
 # par un dossier plutôt que par un cadriciel évite d'introduire une cible de
 # plus pour trois structures.
 SHARED_DIR = "PlumShared"
+
+# Ce qu'une cible *ne* prend pas du code partagé.
+#
+# `PlumShared` est compilé dans toutes les cibles, ce qui est commode jusqu'au
+# jour où un fichier dépend d'un cadriciel qui n'existe pas partout.
+# `ActivityKit` est de ceux-là : il n'existe pas sur watchOS, et la montre
+# échouait à compiler un type qu'elle n'utilise pas.
+#
+# J'avais vu le défaut plus tôt — le widget s'était mis à compiler tous les
+# modèles — et je l'avais jugé inoffensif. Il l'était, jusqu'à ce qu'une
+# troisième cible arrive.
+SHARED_EXCLUSIONS = {
+    "PlumWatch": {"Activity"},
+}
 BUNDLE_ID = "app.plum.ios"
 DEPLOYMENT_TARGET = "17.0"
 # watchOS 10 : la version qui a apporté les piles de widgets et le nouveau
@@ -181,7 +195,8 @@ class ProjectWriter:
 
         self.app_files = self.app_files + self.shared_files
         self.extension_files = {
-            name: list(self.extension_trees[name].walk_files()) + self.shared_files
+            name: list(self.extension_trees[name].walk_files())
+            + self.shared_for(name)
             for name, _ in self.extension_targets
         }
 
@@ -196,6 +211,19 @@ class ProjectWriter:
         self.extension_product_ids = {
             name: identifier("product", name) for name, _ in self.extension_targets
         }
+
+    def shared_for(self, target: str) -> list:
+        """Le code partagé que cette cible compile réellement."""
+        exclus = SHARED_EXCLUSIONS.get(target, set())
+        if not exclus:
+            return self.shared_files
+        return [
+            node
+            for node in self.shared_files
+            # `relative` porte le chemin depuis la racine du dépôt :
+            # « PlumShared/Activity/… » pour un fichier à écarter.
+            if not any(f"/{dossier}/" in f"/{node.relative}" for dossier in exclus)
+        ]
 
     @property
     def all_targets(self) -> list[tuple[str, list]]:

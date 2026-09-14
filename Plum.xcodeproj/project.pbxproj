@@ -65,6 +65,7 @@
 		18385A34901E10B15848BE5A /* PhotoPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A10F35E19702B02A7FCAA4 /* PhotoPreparation.swift */; };
 		CF32278B0C15DCF9005017D4 /* Profile+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408BA7B9D546D175615A5F7A /* Profile+Presentation.swift */; };
 		B770BABDBF7352B28E7409A5 /* RelativeDateFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F15EA39F5171BABA582F1DF /* RelativeDateFormatting.swift */; };
+		D3BE02391E8E6F8AAE2D1AA6 /* MatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5ABBE1B725FF9B615DB1CA4 /* MatchActivityAttributes.swift */; };
 		E7C71ED49D3AC744B8E922D0 /* AuthTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26105B9367A2B8389525C8EB /* AuthTokens.swift */; };
 		2578842BF24935B067939146 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91114DBECB3665FBEA09192C /* Conversation.swift */; };
 		9475AD75C869446F0C627D58 /* DiscoveryPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228A23585A442B2B95F11570 /* DiscoveryPreferences.swift */; };
@@ -77,12 +78,12 @@
 		DFAA68324AF79CCAE76B1343 /* Swipe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843E5E1E1EF65A4341246EA2 /* Swipe.swift */; };
 		48E6933D8D42482BB06314D4 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBBBE0F1B98D5C5C4DA59186 /* User.swift */; };
 		90BDF59654FD7BF7E2C1517A /* JSONCoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8284F4CA47E5C6E6515EA5CD /* JSONCoders.swift */; };
-		3BAFE3E75E2A6AF56CEA4450 /* MatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178CDDA1EE3D1F6DCD35C509 /* MatchActivityAttributes.swift */; };
 		311BA402686F8EBD271AED71 /* PlumBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B07118B8AAA8455376318D /* PlumBrand.swift */; };
 		F9225144D9683063C98FEEA5 /* WatchChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E9CC9A99453D068ABFA4AAA /* WatchChatClient.swift */; };
 		825C1B893DABB1135460611D /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357B94543A0B3C570ED12028 /* WatchLink.swift */; };
 		E52AD76FBCF459CF5F2B3427 /* MatchLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A496C4FB86F4ED714E9A7C74 /* MatchLiveActivity.swift */; };
 		C31D19DB1D2C8A70A2339405 /* PlumWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF7C021ECFF1EA5345687A9 /* PlumWidgetBundle.swift */; };
+		0781A01B79BA6AE751CF021F /* MatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5ABBE1B725FF9B615DB1CA4 /* MatchActivityAttributes.swift */; };
 		E408843B183CDEE3EB949F51 /* AuthTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26105B9367A2B8389525C8EB /* AuthTokens.swift */; };
 		CFBAC342659D4656FFF50253 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91114DBECB3665FBEA09192C /* Conversation.swift */; };
 		D2E215C07CD441F926195D14 /* DiscoveryPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228A23585A442B2B95F11570 /* DiscoveryPreferences.swift */; };
@@ -95,7 +96,6 @@
 		C2B3013183EB7D202245B05D /* Swipe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843E5E1E1EF65A4341246EA2 /* Swipe.swift */; };
 		E99D7D0756ABA187861568A1 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBBBE0F1B98D5C5C4DA59186 /* User.swift */; };
 		6241A58617EC91769C6784DF /* JSONCoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8284F4CA47E5C6E6515EA5CD /* JSONCoders.swift */; };
-		807E297C0C38162C42AD1A9D /* MatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178CDDA1EE3D1F6DCD35C509 /* MatchActivityAttributes.swift */; };
 		039B139DF42CD357FEA02EB0 /* PlumBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B07118B8AAA8455376318D /* PlumBrand.swift */; };
 		07CA63A6654FD51D5096B731 /* WatchChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E9CC9A99453D068ABFA4AAA /* WatchChatClient.swift */; };
 		8A2A77FFFD1E66B004C9A3FA /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357B94543A0B3C570ED12028 /* WatchLink.swift */; };
@@ -115,7 +115,6 @@
 		17A0FAEAC1FA25B31BE5078E /* Swipe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843E5E1E1EF65A4341246EA2 /* Swipe.swift */; };
 		8BD6B7B518ACAF1B2288A891 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBBBE0F1B98D5C5C4DA59186 /* User.swift */; };
 		5796ECB3F960D0B5287607CA /* JSONCoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8284F4CA47E5C6E6515EA5CD /* JSONCoders.swift */; };
-		3DC3E4CB69A3F385026A401D /* MatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178CDDA1EE3D1F6DCD35C509 /* MatchActivityAttributes.swift */; };
 		2102FD94348C1085D9F8DEA7 /* PlumBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B07118B8AAA8455376318D /* PlumBrand.swift */; };
 		6DAEDFCC8942F759FA4BBC27 /* WatchChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E9CC9A99453D068ABFA4AAA /* WatchChatClient.swift */; };
 		28E6886374B590440302F85A /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357B94543A0B3C570ED12028 /* WatchLink.swift */; };
@@ -256,6 +255,7 @@
 		F4A10F35E19702B02A7FCAA4 /* PhotoPreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPreparation.swift; sourceTree = "<group>"; };
 		408BA7B9D546D175615A5F7A /* Profile+Presentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile+Presentation.swift"; sourceTree = "<group>"; };
 		3F15EA39F5171BABA582F1DF /* RelativeDateFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeDateFormatting.swift; sourceTree = "<group>"; };
+		D5ABBE1B725FF9B615DB1CA4 /* MatchActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchActivityAttributes.swift; sourceTree = "<group>"; };
 		26105B9367A2B8389525C8EB /* AuthTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTokens.swift; sourceTree = "<group>"; };
 		91114DBECB3665FBEA09192C /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
 		228A23585A442B2B95F11570 /* DiscoveryPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryPreferences.swift; sourceTree = "<group>"; };
@@ -268,7 +268,6 @@
 		843E5E1E1EF65A4341246EA2 /* Swipe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Swipe.swift; sourceTree = "<group>"; };
 		CBBBE0F1B98D5C5C4DA59186 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		8284F4CA47E5C6E6515EA5CD /* JSONCoders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONCoders.swift; sourceTree = "<group>"; };
-		178CDDA1EE3D1F6DCD35C509 /* MatchActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchActivityAttributes.swift; sourceTree = "<group>"; };
 		00B07118B8AAA8455376318D /* PlumBrand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlumBrand.swift; sourceTree = "<group>"; };
 		6E9CC9A99453D068ABFA4AAA /* WatchChatClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchChatClient.swift; sourceTree = "<group>"; };
 		357B94543A0B3C570ED12028 /* WatchLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
@@ -507,14 +506,22 @@
 		1DAD6C31300DDA03CFCEDFC7 /* PlumShared */ = {
 			isa = PBXGroup;
 			children = (
+				553E6092EE240ED76A876761 /* Activity */,
 				A2CAB18010DA6C63C72DB520 /* Models */,
 				8284F4CA47E5C6E6515EA5CD /* JSONCoders.swift */,
-				178CDDA1EE3D1F6DCD35C509 /* MatchActivityAttributes.swift */,
 				00B07118B8AAA8455376318D /* PlumBrand.swift */,
 				6E9CC9A99453D068ABFA4AAA /* WatchChatClient.swift */,
 				357B94543A0B3C570ED12028 /* WatchLink.swift */,
 			);
 			path = PlumShared;
+			sourceTree = "<group>";
+		};
+		553E6092EE240ED76A876761 /* Activity */ = {
+			isa = PBXGroup;
+			children = (
+				D5ABBE1B725FF9B615DB1CA4 /* MatchActivityAttributes.swift */,
+			);
+			path = Activity;
 			sourceTree = "<group>";
 		};
 		A2CAB18010DA6C63C72DB520 /* Models */ = {
@@ -831,6 +838,7 @@
 				18385A34901E10B15848BE5A /* PhotoPreparation.swift in Sources */,
 				CF32278B0C15DCF9005017D4 /* Profile+Presentation.swift in Sources */,
 				B770BABDBF7352B28E7409A5 /* RelativeDateFormatting.swift in Sources */,
+				D3BE02391E8E6F8AAE2D1AA6 /* MatchActivityAttributes.swift in Sources */,
 				E7C71ED49D3AC744B8E922D0 /* AuthTokens.swift in Sources */,
 				2578842BF24935B067939146 /* Conversation.swift in Sources */,
 				9475AD75C869446F0C627D58 /* DiscoveryPreferences.swift in Sources */,
@@ -843,7 +851,6 @@
 				DFAA68324AF79CCAE76B1343 /* Swipe.swift in Sources */,
 				48E6933D8D42482BB06314D4 /* User.swift in Sources */,
 				90BDF59654FD7BF7E2C1517A /* JSONCoders.swift in Sources */,
-				3BAFE3E75E2A6AF56CEA4450 /* MatchActivityAttributes.swift in Sources */,
 				311BA402686F8EBD271AED71 /* PlumBrand.swift in Sources */,
 				F9225144D9683063C98FEEA5 /* WatchChatClient.swift in Sources */,
 				825C1B893DABB1135460611D /* WatchLink.swift in Sources */,
@@ -856,6 +863,7 @@
 			files = (
 				E52AD76FBCF459CF5F2B3427 /* MatchLiveActivity.swift in Sources */,
 				C31D19DB1D2C8A70A2339405 /* PlumWidgetBundle.swift in Sources */,
+				0781A01B79BA6AE751CF021F /* MatchActivityAttributes.swift in Sources */,
 				E408843B183CDEE3EB949F51 /* AuthTokens.swift in Sources */,
 				CFBAC342659D4656FFF50253 /* Conversation.swift in Sources */,
 				D2E215C07CD441F926195D14 /* DiscoveryPreferences.swift in Sources */,
@@ -868,7 +876,6 @@
 				C2B3013183EB7D202245B05D /* Swipe.swift in Sources */,
 				E99D7D0756ABA187861568A1 /* User.swift in Sources */,
 				6241A58617EC91769C6784DF /* JSONCoders.swift in Sources */,
-				807E297C0C38162C42AD1A9D /* MatchActivityAttributes.swift in Sources */,
 				039B139DF42CD357FEA02EB0 /* PlumBrand.swift in Sources */,
 				07CA63A6654FD51D5096B731 /* WatchChatClient.swift in Sources */,
 				8A2A77FFFD1E66B004C9A3FA /* WatchLink.swift in Sources */,
@@ -895,7 +902,6 @@
 				17A0FAEAC1FA25B31BE5078E /* Swipe.swift in Sources */,
 				8BD6B7B518ACAF1B2288A891 /* User.swift in Sources */,
 				5796ECB3F960D0B5287607CA /* JSONCoders.swift in Sources */,
-				3DC3E4CB69A3F385026A401D /* MatchActivityAttributes.swift in Sources */,
 				2102FD94348C1085D9F8DEA7 /* PlumBrand.swift in Sources */,
 				6DAEDFCC8942F759FA4BBC27 /* WatchChatClient.swift in Sources */,
 				28E6886374B590440302F85A /* WatchLink.swift in Sources */,
