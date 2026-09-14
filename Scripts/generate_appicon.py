@@ -111,9 +111,14 @@ def chunk(tag: bytes, payload: bytes) -> bytes:
     )
 
 
-def write_png(path: Path, raw: bytes) -> None:
-    # Colour type 2 (truecolour, no alpha): an iOS app icon must be opaque.
-    header = struct.pack(">IIBBBBB", SIZE, SIZE, 8, 2, 0, 0, 0)
+def write_png(path: Path, raw: bytes, width: int = SIZE, height: int = SIZE) -> None:
+    """Colour type 2 (truecolour, no alpha): an iOS app icon must be opaque.
+
+    Les dimensions sont des paramètres parce que `generate_ogimage.py` écrit
+    la carte de partage avec la même fonction — et avec la même marque, dont
+    la géométrie vit ici et nulle part ailleurs.
+    """
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
     path.write_bytes(
         b"\x89PNG\r\n\x1a\n"
         + chunk(b"IHDR", header)

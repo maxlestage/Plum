@@ -37,3 +37,7 @@ server/target/
 web/node_modules/
 web/dist/
 web/.vite/
+
+# Laissé par l'import entre les deux générateurs d'images.
+__pycache__/
+*.pyc
