@@ -45,6 +45,28 @@ function absolute(pathname) {
   return `${origin}${pathname}`;
 }
 
+/**
+ * Les balises de l'aperçu de lien.
+ *
+ * Sans elles, un lien envoyé sur WhatsApp, iMessage ou Slack s'affiche en
+ * texte nu. `og:image` doit être absolue — un aperçu est construit par un
+ * serveur qui n'a aucune page de référence pour résoudre un chemin — d'où
+ * leur place ici plutôt que dans le gabarit, où l'adresse du déploiement
+ * devrait être recopiée.
+ *
+ * `summary_large_image` demande la grande vignette plutôt que la miniature
+ * carrée, qui rognerait la marque.
+ */
+function preview(language) {
+  return [
+    `<meta property="og:image" content="${absolute("/partage.png")}" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:alt" content="${escapeHtml(meta[language].imageAlt)}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+  ].join("\n    ");
+}
+
 /** `&` first, or it would double-escape the entities added after it. */
 function escapeHtml(value) {
   return value
@@ -61,6 +83,24 @@ function pathFor(language, page) {
 }
 
 const template = fs.readFileSync(path.join(dist, "index.html"), "utf8");
+
+/*
+ * Le gabarit est aussi une des sorties : la racine reçoit ses annotations
+ * comme les douze autres pages. Relancé sans `vite build`, ce script lirait
+ * donc sa propre production et injecterait tout une seconde fois — quatre
+ * balises en double, qu'aucun aperçu ne sait départager.
+ *
+ * Trouvé en testant autre chose, ce qui est la seule raison pour laquelle ce
+ * garde-fou existe : `npm run build` reconstruit toujours `dist` avant, donc
+ * le défaut ne se serait vu qu'un jour où quelqu'un lance l'étape seule.
+ */
+if (template.includes('rel="canonical"')) {
+  console.error(
+    "prerender : dist/index.html porte déjà ses annotations — relancez `npm run build`,\n" +
+      "            ce script doit partir d'une construction fraîche.",
+  );
+  process.exit(1);
+}
 
 let written = 0;
 
@@ -95,7 +135,7 @@ for (const language of languages) {
       )
       .replace(
         /<meta\s+property="og:description"[\s\S]*?\/>/,
-        `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="${language}" />\n    <link rel="canonical" href="${absolute(pathFor(language, page))}" />\n    ${alternates}`,
+        `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="${language}" />\n    ${preview(language)}\n    <link rel="canonical" href="${absolute(pathFor(language, page))}" />\n    ${alternates}`,
       );
 
     const directory = path.join(dist, pathFor(language, page));
@@ -128,7 +168,7 @@ for (const language of languages) {
   const root = template
     .replace(
       /<meta\s+property="og:description"[\s\S]*?\/>/,
-      `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="fr" />\n    <link rel="canonical" href="${absolute(pathFor("fr", "home"))}" />\n    ${alternates}`,
+      `<meta property="og:description" content="${escapeHtml(description)}" />\n    <meta property="og:locale" content="fr" />\n    ${preview("fr")}\n    <link rel="canonical" href="${absolute(pathFor("fr", "home"))}" />\n    ${alternates}`,
     );
 
   if (!root.includes('rel="canonical"')) {
@@ -157,6 +197,8 @@ for (const expected of [
   'hreflang="x-default"',
   `rel="canonical" href="${origin}/es/privacidad/"`,
   `hreflang="fr" href="${origin}/fr/confidentialite/"`,
+  `og:image" content="${origin}/partage.png"`,
+  'name="twitter:card" content="summary_large_image"',
 ]) {
   if (!sample.includes(expected)) {
     console.error(
