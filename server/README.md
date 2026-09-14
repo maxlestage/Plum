@@ -54,6 +54,22 @@ Les migrations, elles, ne doivent tourner qu'une fois : un verrou consultatif
 Postgres les sérialise. Le verrou vaut mieux qu'une cellule locale au processus
 parce qu'il tient aussi entre deux `cargo test` lancés en même temps.
 
+## Vérifier un déploiement réel
+
+`Scripts/parcours.sh` couvre l'API en HTTP. Deux vérifications de plus parlent
+à un déploiement complet, socket et photos compris — ce qu'aucun test
+d'intégration ne touche, puisqu'ils montent le serveur eux-mêmes :
+
+```sh
+cd Scripts && npm install     # une fois, pour `ws`
+node verifier-photos.mjs      # envoi, réduction, service, suppression
+node verifier-direct.mjs      # socket, évènements, garde-fous
+```
+
+Par défaut elles visent la production ; `PLUM_HOST` et `PLUM_TLS=0` les
+pointent ailleurs. Elles créent leurs comptes et les effacent en partant,
+même quand une vérification échoue.
+
 ## Le parcours de bout en bout
 
 ```bash

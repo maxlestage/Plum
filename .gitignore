@@ -35,6 +35,7 @@ server/target/
 
 ## Site
 web/node_modules/
+Scripts/node_modules/
 web/dist/
 web/.vite/
 
