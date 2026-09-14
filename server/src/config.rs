@@ -27,6 +27,13 @@ pub struct Config {
     /// qui voit passer une récolte doit pouvoir resserrer sans réécrire le
     /// serveur. La valeur par défaut est celle qui compte : mille.
     pub deck_daily_budget: u32,
+    /// Le jeton qui ouvre la file de modération, s'il y en a un.
+    ///
+    /// Absent par défaut, et c'est délibéré : tant qu'il n'est pas posé, la
+    /// route n'existe pas — elle répond comme n'importe quelle adresse
+    /// inconnue. Une porte d'administration qui s'annonce invite à chercher
+    /// sa clé.
+    pub admin_token: Option<String>,
     /// L'adresse publique de ce déploiement, sans barre finale.
     ///
     /// Elle sert à écrire les adresses des photos, qui doivent être absolues :
@@ -80,6 +87,7 @@ impl Config {
                 .filter(|url| !url.is_empty())
                 .map(|url| normalise_redis_url(&url)),
             site_dir: env::var("SITE_DIR").ok().filter(|path| !path.is_empty()),
+            admin_token: admin_token(),
             deck_daily_budget: env::var("DECK_DAILY_BUDGET")
                 .ok()
                 .and_then(|raw| raw.parse().ok())
@@ -131,6 +139,33 @@ pub fn normalise_redis_url(url: &str) -> String {
         url.to_string()
     }
 }
+
+/// Le jeton d'administration, s'il est utilisable.
+///
+/// Trente-deux caractères au minimum. Un jeton court est plus dangereux que
+/// pas de jeton du tout : il donne le sentiment d'avoir fermé une porte qu'on
+/// peut enfoncer. Mais le refuser en silence l'est tout autant — quelqu'un
+/// poserait six lettres, la file resterait close, et il croirait l'avoir
+/// ouverte. D'où l'avertissement, qui nomme la raison.
+fn admin_token() -> Option<String> {
+    match env::var("ADMIN_TOKEN") {
+        Err(_) => None,
+        Ok(brut) if brut.trim().is_empty() => None,
+        Ok(brut) if brut.trim().chars().count() < MIN_ADMIN_TOKEN => {
+            tracing::warn!(
+                "ADMIN_TOKEN fait moins de {MIN_ADMIN_TOKEN} caractères : il est ignoré, \
+                 et la file de modération reste fermée. Un jeton court donne le sentiment \
+                 d'avoir fermé une porte qu'on peut enfoncer."
+            );
+            None
+        }
+        Ok(brut) => Some(brut.trim().to_owned()),
+    }
+}
+
+/// Assez pour qu'une recherche exhaustive soit hors de question, et court
+/// assez pour être recopié depuis un téléphone.
+const MIN_ADMIN_TOKEN: usize = 32;
 
 #[cfg(test)]
 mod tests {

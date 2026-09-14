@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod auth;
 pub mod chat;
 pub mod config;
@@ -65,6 +66,7 @@ pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
             // a client asking for JSON would get 200 and a page of HTML, and
             // would report the decoding failure rather than the typo.
             auth::routes::router()
+                .merge(admin::routes::router())
                 .merge(profile::routes::router())
                 .merge(discovery::routes::router())
                 .merge(matches::routes::router())

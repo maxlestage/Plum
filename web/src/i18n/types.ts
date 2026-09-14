@@ -49,7 +49,10 @@ export interface Copy {
   steps: [Entry, Entry, Entry];
 
   principlesEyebrow: string;
-  principles: [Entry, Entry, Entry, Entry];
+  // Six, et la longueur est fixée exprès : le tuple oblige les trois langues
+  // à bouger ensemble. Une page traduite à laquelle il manque un principe se
+  // publierait sans que rien ne le signale.
+  principles: [Entry, Entry, Entry, Entry, Entry, Entry];
 
   availability: {
     eyebrow: string;
