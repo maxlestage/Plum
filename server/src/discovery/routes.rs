@@ -14,6 +14,7 @@ use crate::auth::routes::authenticate;
 use crate::auth::types::Gender;
 use crate::entities::{block, match_pair, profile, report, swipe};
 use crate::error::{ApiError, ApiResult};
+use crate::live::routes::announce_match;
 use crate::profile::types::ProfileResponse;
 use crate::state::AppState;
 
@@ -174,6 +175,26 @@ async fn swipe_route(
             sea_orm::TransactionError::Transaction(other) => ApiError::from(other),
             sea_orm::TransactionError::Connection(other) => ApiError::from(other),
         })?;
+
+    // L'autre l'apprend par le socket s'il est là, sinon en rouvrant
+    // l'application : un match est en base avant d'être annoncé, donc rien ne
+    // se perd quand personne n'écoute.
+    if let Some(model) = &created {
+        if let Some(mine) = profile::Entity::find_by_id(viewer).one(&state.db).await? {
+            announce_match(
+                &state,
+                target,
+                MatchResponse {
+                    id: model.id,
+                    matched_at: model.matched_at.into(),
+                    // Le profil de celui qui vient de balayer : c'est lui que
+                    // l'autre découvre, pas le sien.
+                    profile: ProfileResponse::own(mine),
+                    conversation_id: None,
+                },
+            );
+        }
+    }
 
     let matched = created.is_some();
     let response = SwipeOutcome {
