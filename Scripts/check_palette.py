@@ -21,6 +21,7 @@ THEME = ROOT / "Plum" / "DesignSystem" / "PlumTheme.swift"
 ASSETS = ROOT / "Plum" / "Resources" / "Assets.xcassets"
 ICON_SCRIPT = ROOT / "Scripts" / "generate_appicon.py"
 SITE_CSS = ROOT / "web" / "src" / "theme.css"
+BRAND = ROOT / "PlumShared" / "PlumBrand.swift"
 
 # Which theme colour each repetition must equal.
 ASSET_EXPECTATIONS = {
@@ -91,6 +92,32 @@ def asset_colour(name: str) -> int | None:
     return None
 
 
+# `PlumBrand` est la copie que voit l'extension de widget : une cible séparée
+# ne compile pas `PlumTheme`. Elle écrit ses couleurs en composantes, d'où la
+# comparaison sur le triplet plutôt que sur l'hexadécimal.
+BRAND_EXPECTATIONS = {
+    "plum": "plum",
+    "plumDeep": "plumDeep",
+    "blush": "blush",
+}
+
+
+def brand_colours() -> dict[str, int]:
+    """Les couleurs de `PlumBrand`, recomposées depuis leurs composantes."""
+    if not BRAND.exists():
+        return {}
+    found: dict[str, int] = {}
+    motif = re.compile(
+        r"static let (\w+) = Color\(\s*red: 0x([0-9A-Fa-f]{2}) / 255,\s*"
+        r"green: 0x([0-9A-Fa-f]{2}) / 255,\s*blue: 0x([0-9A-Fa-f]{2}) / 255\s*\)"
+    )
+    for m in motif.finditer(BRAND.read_text(encoding="utf-8")):
+        found[m.group(1)] = (
+            int(m.group(2), 16) << 16 | int(m.group(3), 16) << 8 | int(m.group(4), 16)
+        )
+    return found
+
+
 def main() -> int:
     theme = theme_colours()
     icons = icon_colours()
@@ -143,6 +170,24 @@ def main() -> int:
             elif actual != expected:
                 problems.append(
                     f"theme.css {variable} (#{actual:06X}) ne suit plus "
+                    f"Palette.{member} (#{expected:06X})"
+                )
+
+    brand = brand_colours()
+    if BRAND.exists():
+        if not brand:
+            problems.append(
+                "aucune couleur lisible dans PlumBrand.swift — le motif attendu est "
+                "`Color(red: 0xAA / 255, green: 0xBB / 255, blue: 0xCC / 255)`"
+            )
+        for constant, member in BRAND_EXPECTATIONS.items():
+            expected = theme.get(member)
+            actual = brand.get(constant)
+            if expected is None or actual is None:
+                problems.append(f"impossible de comparer PlumBrand.{constant} et Palette.{member}")
+            elif actual != expected:
+                problems.append(
+                    f"PlumBrand.{constant} (#{actual:06X}) ne suit plus "
                     f"Palette.{member} (#{expected:06X})"
                 )
 

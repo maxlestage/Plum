@@ -22,9 +22,20 @@ final class DiscoveryViewModel {
     private var cursor: String?
     private var isFetching = false
     private let discovery: any DiscoveryServicing
+    /// Ce qui pose la carte du match sur l'écran verrouillé.
+    ///
+    /// Injecté plutôt qu'appelé directement : ActivityKit ne fonctionne pas
+    /// dans un test unitaire — il lui faut un système vivant. Sans cette
+    /// couture, la logique qui décide *quand* démarrer une activité ne serait
+    /// vérifiée par rien, et c'est elle qui compte.
+    private let activities: any MatchActivityPresenting
 
-    init(discovery: any DiscoveryServicing) {
+    init(
+        discovery: any DiscoveryServicing,
+        activities: any MatchActivityPresenting = MatchActivityService()
+    ) {
         self.discovery = discovery
+        self.activities = activities
     }
 
     var topProfile: Profile? { profiles.first }
@@ -84,6 +95,16 @@ final class DiscoveryViewModel {
             if outcome.matched, let match = outcome.match {
                 Haptics.play(.success)
                 newMatch = match
+                // La carte part avec la date du serveur, pas `.now` : c'est
+                // elle qui alimente le compteur, et deux horloges qui
+                // divergent donneraient un « il y a 3 min » au moment même du
+                // match.
+                await activities.begin(
+                    matchId: match.id,
+                    displayName: match.profile.displayName,
+                    conversationId: match.conversationId,
+                    matchedAt: match.matchedAt
+                )
             }
         } catch {
             // A failed swipe is not worth interrupting the session for; the

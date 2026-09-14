@@ -37,18 +37,21 @@ final class ChatViewModel {
 
     private let chat: any ChatServicing
     private let discovery: any DiscoveryServicing
+    private let activities: any MatchActivityPresenting
     private let currentUserId: UUID
 
     init(
         conversation: Conversation,
         chat: any ChatServicing,
         discovery: any DiscoveryServicing,
-        currentUserId: UUID
+        currentUserId: UUID,
+        activities: any MatchActivityPresenting = MatchActivityService()
     ) {
         self.conversation = conversation
         self.chat = chat
         self.discovery = discovery
         self.currentUserId = currentUserId
+        self.activities = activities
     }
 
     var canSend: Bool {
@@ -253,6 +256,13 @@ final class ChatViewModel {
             // returns; without this the bubble appears twice, and SwiftUI
             // gets two rows sharing an id.
             removeDuplicates()
+
+            // Le premier message est ce que la carte attendait : elle a fait
+            // son travail, elle s'efface. Les suivants ne la concernent plus,
+            // d'où le `items.count == 1`.
+            if items.count == 1 {
+                await activities.end(matchId: conversation.matchId)
+            }
         } catch {
             if let index = items.firstIndex(where: { $0.id == clientId }) {
                 items[index].deliveryState = .failed
