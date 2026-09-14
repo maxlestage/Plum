@@ -25,6 +25,18 @@ jobs:
     timeout-minutes: 30
 
     services:
+      # Le limiteur a deux implémentations, et seule celle en mémoire était
+      # testée. C'est l'autre qui tourne en production, et c'est elle qui avait
+      # tort : sans ce service, le test qui le prouve se saute en silence.
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
       postgres:
         image: postgres:16-alpine
         env:
@@ -44,6 +56,10 @@ jobs:
       # Without this a Postgres that failed to start would show up as ten green
       # tests that executed nothing.
       REQUIRE_TEST_DATABASE: "1"
+      TEST_REDIS_URL: redis://localhost:6379
+      # Même raison que pour Postgres : un service qui n'a pas démarré ne doit
+      # pas passer pour une exécution propre.
+      REQUIRE_TEST_REDIS: "1"
 
     steps:
       - uses: actions/checkout@v4

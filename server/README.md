@@ -33,6 +33,12 @@ un dyno qui meurt au boot vaut mieux qu'un dyno qui répond mal.
 
 ## Tests
 
+Les tests d'intégration réclament `TEST_DATABASE_URL`. `TEST_REDIS_URL` est
+facultatif mais compte : le limiteur a **deux implémentations**, celle en
+mémoire et celle sur Redis, et c'est la seconde qui tourne en production.
+Elles avaient divergé sans que rien ne le dise — sans Redis, les tests qui les
+départagent se sautent en silence.
+
 ```bash
 cargo test                                   # logique pure, sans base
 TEST_DATABASE_URL=postgresql://localhost/plum_test cargo test   # tout
