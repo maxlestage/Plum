@@ -321,5 +321,21 @@ async fn block_profile(
     .insert(&state.db)
     .await?;
 
+    // Et le match s'en va avec — donc la conversation et ses messages, par la
+    // cascade. Un blocage qui laisserait le fil ouvert ne serait qu'un filtre
+    // sur le deck : la personne bloquée continuerait d'écrire, et ses messages
+    // continueraient d'arriver. C'est l'outil qu'on utilise quand on est
+    // harcelé ; il doit couper, pas masquer.
+    //
+    // Les verdicts restent, pour la même raison que dans `DELETE /matches` :
+    // le deck exclut les profils déjà jugés, et les effacer ferait réapparaître
+    // la personne qu'on vient de bloquer.
+    let (lower, upper) = crate::entities::match_pair::ordered(claims.sub, id);
+    match_pair::Entity::delete_many()
+        .filter(match_pair::Column::LowerId.eq(lower))
+        .filter(match_pair::Column::UpperId.eq(upper))
+        .exec(&state.db)
+        .await?;
+
     Ok(())
 }

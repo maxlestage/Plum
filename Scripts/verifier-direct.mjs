@@ -39,6 +39,41 @@ async function call(method, path, token, body) {
 /// Lancées trois fois de suite, elles se heurtent donc à leur propre
 /// garde-fou. Sans ce contrôle, l'échec arrivait sous la forme d'un
 /// « cannot read properties of undefined », ce qui n'aide personne.
+/*
+ * Les comptes créés par cette vérification, et leur effacement garanti.
+ *
+ * Ils étaient effacés à la fin du script. Une vérification qui échoue en
+ * route sautait donc le nettoyage et laissait ses comptes dans le deck des
+ * vrais utilisateurs — c'est exactement ce qu'on a retrouvé en production,
+ * deux profils orphelins d'une exécution interrompue.
+ *
+ * Le nettoyage est maintenant accroché à la fin du processus, quelle qu'en
+ * soit la cause : succès, échec d'une vérification, ou exception.
+ */
+const aEffacer = [];
+let nettoye = false;
+
+async function nettoyer() {
+  if (nettoye) return;
+  nettoye = true;
+  for (const t of aEffacer) {
+    try {
+      await call("DELETE", "/me", t);
+    } catch {
+      // Un compte qu'on n'arrive pas à effacer ne doit pas empêcher
+      // d'effacer les autres.
+    }
+  }
+  if (aEffacer.length) console.log("  (comptes de test supprimés)");
+}
+
+process.on("beforeExit", nettoyer);
+process.on("uncaughtException", async (e) => {
+  console.error("\nInterrompu :", e?.message ?? e);
+  await nettoyer();
+  process.exit(1);
+});
+
 async function signup(name, gender) {
   const email = `ws-${crypto.randomUUID().slice(0, 12)}@plum.app`;
   const [status, b] = await call("POST", "/auth/sign-up", null, {
@@ -57,6 +92,7 @@ async function signup(name, gender) {
     console.error(`\nArrêt : l'inscription a répondu ${status} — ${JSON.stringify(b)}`);
     process.exit(2);
   }
+  aEffacer.push(b.tokens.access_token);
   return [b.tokens.access_token, b.user.id];
 }
 
@@ -152,8 +188,6 @@ check("un intrus ne fait clignoter personne", await waiting.next(1500), null);
 check("ni de l'autre côté", await listener.next(1500), null);
 
 for (const s of [waiting, listener, intruder]) s.socket.close();
-for (const t of [at, bt, st]) await call("DELETE", "/me", t);
-console.log("  (comptes de test supprimés)");
 
 console.log(fails.length ? `\n${fails.length} ÉCHEC(S)` : "\nTOUT VERT");
 process.exit(fails.length ? 1 : 0);

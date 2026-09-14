@@ -12,6 +12,20 @@ final class ChatViewModel {
     private(set) var state: ActivityState = .idle
     private(set) var isParticipantTyping = false
     private(set) var isConnected = true
+    /// Ce que l'écran doit dire quand un blocage ou un signalement n'a pas
+    /// abouti. `nil` tant qu'il n'y a rien à dire.
+    private(set) var safetyFailure: String?
+    /// Vrai quand le serveur ne connaît plus ce fil.
+    ///
+    /// Le cas est devenu ordinaire depuis qu'un blocage supprime la
+    /// conversation : l'autre appareil peut avoir l'écran encore ouvert. Sans
+    /// ça, ses messages échouaient un par un avec un bouton « réessayer » qui
+    /// ne pouvait plus aboutir.
+    ///
+    /// Le libellé ne dit pas pourquoi, délibérément : un blocage, un match
+    /// défait et un compte supprimé donnent la même réponse, et annoncer
+    /// lequel dénoncerait le geste de l'autre.
+    private(set) var isClosed = false
     var draft = ""
 
     private var oldestCursor: String?
@@ -22,11 +36,18 @@ final class ChatViewModel {
     private var lastTypingNotice: Date?
 
     private let chat: any ChatServicing
+    private let discovery: any DiscoveryServicing
     private let currentUserId: UUID
 
-    init(conversation: Conversation, chat: any ChatServicing, currentUserId: UUID) {
+    init(
+        conversation: Conversation,
+        chat: any ChatServicing,
+        discovery: any DiscoveryServicing,
+        currentUserId: UUID
+    ) {
         self.conversation = conversation
         self.chat = chat
+        self.discovery = discovery
         self.currentUserId = currentUserId
     }
 
@@ -200,7 +221,7 @@ final class ChatViewModel {
     /// Retries a bubble that failed, in place. It does not go back through
     /// `draft`: whatever the person has started typing since must survive.
     func retry(_ item: ChatItem) async {
-        guard item.deliveryState == .failed else { return }
+        guard item.deliveryState == .failed, !isClosed else { return }
         items.removeAll { $0.id == item.id }
         await deliver(item.message.body)
     }
@@ -236,6 +257,10 @@ final class ChatViewModel {
             if let index = items.firstIndex(where: { $0.id == clientId }) {
                 items[index].deliveryState = .failed
             }
+            if error.asAPIError == .notFound {
+                isClosed = true
+                stop()
+            }
             Haptics.play(.warning)
         }
     }
@@ -243,5 +268,47 @@ final class ChatViewModel {
     private func removeDuplicates() {
         var seen = Set<UUID>()
         items = items.filter { seen.insert($0.id).inserted }
+    }
+
+    // MARK: - Sécurité
+
+    /// Bloque l'autre participant. Rend `true` si le serveur l'a enregistré.
+    ///
+    /// L'écran ne se referme que sur un `true`. C'est tout l'objet de ce
+    /// retour : avant, l'appel était un `try?` suivi d'une sortie
+    /// inconditionnelle, donc un blocage tombé dans le vide fermait quand même
+    /// la conversation. On croyait la personne bloquée, elle pouvait continuer
+    /// d'écrire, et son message suivant arrivait sans qu'on comprenne pourquoi.
+    func block() async -> Bool {
+        await attempt(
+            { try await self.discovery.block(profileId: self.conversation.participant.id) },
+            notice: "Le blocage n'a pas été enregistré. Vérifiez votre connexion et réessayez."
+        )
+    }
+
+    func report(reason: String) async -> Bool {
+        await attempt(
+            {
+                try await self.discovery.report(
+                    profileId: self.conversation.participant.id,
+                    reason: reason
+                )
+            },
+            notice: "Le signalement n'est pas parti. Vérifiez votre connexion et réessayez."
+        )
+    }
+
+    func dismissSafetyFailure() {
+        safetyFailure = nil
+    }
+
+    private func attempt(_ action: () async throws -> Void, notice: String) async -> Bool {
+        do {
+            try await action()
+            return true
+        } catch {
+            safetyFailure = notice
+            return false
+        }
     }
 }

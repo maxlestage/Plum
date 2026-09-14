@@ -107,6 +107,41 @@ async function upload(token, bytes, filename = "photo.png") {
 /// Lancées trois fois de suite, elles se heurtent donc à leur propre
 /// garde-fou. Sans ce contrôle, l'échec arrivait sous la forme d'un
 /// « cannot read properties of undefined », ce qui n'aide personne.
+/*
+ * Les comptes créés par cette vérification, et leur effacement garanti.
+ *
+ * Ils étaient effacés à la fin du script. Une vérification qui échoue en
+ * route sautait donc le nettoyage et laissait ses comptes dans le deck des
+ * vrais utilisateurs — c'est exactement ce qu'on a retrouvé en production,
+ * deux profils orphelins d'une exécution interrompue.
+ *
+ * Le nettoyage est maintenant accroché à la fin du processus, quelle qu'en
+ * soit la cause : succès, échec d'une vérification, ou exception.
+ */
+const aEffacer = [];
+let nettoye = false;
+
+async function nettoyer() {
+  if (nettoye) return;
+  nettoye = true;
+  for (const t of aEffacer) {
+    try {
+      await call("DELETE", "/me", t);
+    } catch {
+      // Un compte qu'on n'arrive pas à effacer ne doit pas empêcher
+      // d'effacer les autres.
+    }
+  }
+  if (aEffacer.length) console.log("  (comptes de test supprimés)");
+}
+
+process.on("beforeExit", nettoyer);
+process.on("uncaughtException", async (e) => {
+  console.error("\nInterrompu :", e?.message ?? e);
+  await nettoyer();
+  process.exit(1);
+});
+
 async function signup(name) {
   const email = `photo-${crypto.randomUUID().slice(0, 12)}@plum.app`;
   const [status, b] = await call("POST", "/auth/sign-up", null, {
@@ -125,6 +160,7 @@ async function signup(name) {
     console.error(`\nArrêt : l'inscription a répondu ${status} — ${JSON.stringify(b)}`);
     process.exit(2);
   }
+  aEffacer.push(b.tokens.access_token);
   return [b.tokens.access_token, b.user.id];
 }
 
@@ -178,6 +214,11 @@ const [seventh] = await upload(token, png(600, 450));
 check("la septième est refusée", seventh, 400);
 
 // --- le départ emporte les photos ---
+//
+// La suppression du compte est ici une *étape de la vérification*, pas du
+// nettoyage : c'est elle que la ligne suivante contrôle. La confondre avec le
+// nettoyage de fin de script — ce que j'ai fait une fois — repousse la
+// suppression après l'assertion, qui échoue alors sans rien signaler de vrai.
 await call("DELETE", "/me", token);
 const gone = await fetch(url);
 check("la photo part avec le compte", gone.status, 404);

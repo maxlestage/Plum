@@ -25,7 +25,11 @@ struct ChatView: View {
                         connectionNotice
                     }
                     thread(viewModel)
-                    composer(viewModel)
+                    if viewModel.isClosed {
+                        closedNotice
+                    } else {
+                        composer(viewModel)
+                    }
                 } else {
                     Spacer()
                     ProgressView().tint(PlumTheme.Palette.plum)
@@ -73,6 +77,7 @@ struct ChatView: View {
                 viewModel = ChatViewModel(
                     conversation: conversation,
                     chat: services.chat,
+                    discovery: services.discovery,
                     currentUserId: session.currentUserId ?? SampleData.currentUser.id
                 )
             }
@@ -85,20 +90,33 @@ struct ChatView: View {
         .sheet(isPresented: $isReporting) {
             // Harassment happens in the conversation, not on the card: the
             // same escape hatch has to be reachable from here.
+            // On ne quitte la conversation que si le serveur a bien enregistré
+            // le geste. Sortir quand même reviendrait à masquer un fil qui
+            // reste ouvert : le message suivant arriverait sans prévenir.
             ReportSheet(profile: conversation.participant) { reason in
                 Task { @MainActor in
-                    try? await services.discovery.report(
-                        profileId: conversation.participant.id,
-                        reason: reason
-                    )
-                    leaveConversation()
+                    if await viewModel?.report(reason: reason) == true {
+                        leaveConversation()
+                    }
                 }
             } onBlock: {
                 Task { @MainActor in
-                    try? await services.discovery.block(profileId: conversation.participant.id)
-                    leaveConversation()
+                    if await viewModel?.block() == true {
+                        leaveConversation()
+                    }
                 }
             }
+        }
+        .alert(
+            "Geste non enregistré",
+            isPresented: Binding(
+                get: { viewModel?.safetyFailure != nil },
+                set: { if !$0 { viewModel?.dismissSafetyFailure() } }
+            )
+        ) {
+            Button("D'accord", role: .cancel) { viewModel?.dismissSafetyFailure() }
+        } message: {
+            Text(viewModel?.safetyFailure ?? "")
         }
         .confirmationDialog(
             "Retirer ce match ?",
@@ -123,6 +141,20 @@ struct ChatView: View {
         viewModel?.stop()
         onLeave?()
         dismiss()
+    }
+
+    /// Le fil n'existe plus côté serveur. Sans raison affichée : blocage,
+    /// match défait ou compte supprimé donnent la même réponse, et dire lequel
+    /// dénoncerait le geste de l'autre.
+    private var closedNotice: some View {
+        Text("Cette conversation n'est plus disponible.")
+            .font(.plumCaption)
+            .foregroundStyle(PlumTheme.Palette.secondaryText)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, PlumTheme.Spacing.m)
+            .padding(.vertical, PlumTheme.Spacing.m)
+            .background(.bar)
     }
 
     private var connectionNotice: some View {
