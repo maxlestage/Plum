@@ -69,7 +69,7 @@ struct MainTabView: View {
     }
 
     /// Distances are computed server-side from the last position we pushed,
-    /// so a stale one means a deck sorted by where the person used to be.
+    /// so a stale one means a selection sorted by where the person used to be.
     private func refreshLocation() async {
         if locationSync == nil {
             locationSync = LocationSync(provider: services.location, profiles: services.profiles)
@@ -137,5 +137,5 @@ struct MainTabView: View {
     MainTabView()
         .environment(\.services, .preview)
         .environment(SessionStore(auth: AppEnvironment.preview.auth))
-        .environment(DeckRefreshSignal())
+        .environment(SelectionRefreshSignal())
 }

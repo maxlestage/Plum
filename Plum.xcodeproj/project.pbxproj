@@ -8,10 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		8FC7EE805BAD5626D8142D7F /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52D492CDB71F0ED6D9AAEB49 /* AppEnvironment.swift */; };
-		170B9E7FAE0F7139C83FAD86 /* DeckRefreshSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1384432A56DC7A45023BAFA4 /* DeckRefreshSignal.swift */; };
 		EC399A1F47C4E766669C302E /* LegalLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F0AFA45DD1EEF194490F23F /* LegalLinks.swift */; };
 		09E83AEAA1DEE74041376B8D /* PlumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4A47D512D802569CBD89B6 /* PlumApp.swift */; };
 		A429D9DCE81A027F6E599FD9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D96309AD54F47A2400FA6F4F /* RootView.swift */; };
+		EBA0F90B5CC599EA19ABAEBF /* SelectionRefreshSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE113BE4081AA789BC015DE /* SelectionRefreshSignal.swift */; };
 		963B3B4D0F28BB027B04DC5B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33AF4A40088A1DA10B2C00F /* SessionStore.swift */; };
 		4A45E0B1A3EA465FADA46DA3 /* AppearancePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEAB3A9162B4969C9FC679DC /* AppearancePreference.swift */; };
 		0484D669EF6CB5527567B1E9 /* Buttons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37DA512E2E2A62A587B25081 /* Buttons.swift */; };
@@ -200,10 +200,10 @@
 		71874B036AA5C026B2F00C8B /* PlumWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PlumWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF343C5698BABA5C2DC73EB3 /* PlumWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlumWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		52D492CDB71F0ED6D9AAEB49 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
-		1384432A56DC7A45023BAFA4 /* DeckRefreshSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckRefreshSignal.swift; sourceTree = "<group>"; };
 		3F0AFA45DD1EEF194490F23F /* LegalLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalLinks.swift; sourceTree = "<group>"; };
 		AA4A47D512D802569CBD89B6 /* PlumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlumApp.swift; sourceTree = "<group>"; };
 		D96309AD54F47A2400FA6F4F /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		7CE113BE4081AA789BC015DE /* SelectionRefreshSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionRefreshSignal.swift; sourceTree = "<group>"; };
 		A33AF4A40088A1DA10B2C00F /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		CEAB3A9162B4969C9FC679DC /* AppearancePreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearancePreference.swift; sourceTree = "<group>"; };
 		37DA512E2E2A62A587B25081 /* Buttons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Buttons.swift; sourceTree = "<group>"; };
@@ -348,10 +348,10 @@
 			isa = PBXGroup;
 			children = (
 				52D492CDB71F0ED6D9AAEB49 /* AppEnvironment.swift */,
-				1384432A56DC7A45023BAFA4 /* DeckRefreshSignal.swift */,
 				3F0AFA45DD1EEF194490F23F /* LegalLinks.swift */,
 				AA4A47D512D802569CBD89B6 /* PlumApp.swift */,
 				D96309AD54F47A2400FA6F4F /* RootView.swift */,
+				7CE113BE4081AA789BC015DE /* SelectionRefreshSignal.swift */,
 				A33AF4A40088A1DA10B2C00F /* SessionStore.swift */,
 			);
 			path = App;
@@ -788,10 +788,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				8FC7EE805BAD5626D8142D7F /* AppEnvironment.swift in Sources */,
-				170B9E7FAE0F7139C83FAD86 /* DeckRefreshSignal.swift in Sources */,
 				EC399A1F47C4E766669C302E /* LegalLinks.swift in Sources */,
 				09E83AEAA1DEE74041376B8D /* PlumApp.swift in Sources */,
 				A429D9DCE81A027F6E599FD9 /* RootView.swift in Sources */,
+				EBA0F90B5CC599EA19ABAEBF /* SelectionRefreshSignal.swift in Sources */,
 				963B3B4D0F28BB027B04DC5B /* SessionStore.swift in Sources */,
 				4A45E0B1A3EA465FADA46DA3 /* AppearancePreference.swift in Sources */,
 				0484D669EF6CB5527567B1E9 /* Buttons.swift in Sources */,

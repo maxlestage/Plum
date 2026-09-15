@@ -34,8 +34,8 @@ struct ProfileDetailView: View {
             }
             .safeAreaInset(edge: .bottom) { actions }
             .navigationBarTitleDisplayMode(.inline)
-            // Presented from here rather than bounced back to the deck:
-            // handing the deck a new sheet while this one dismisses cancels
+            // Presented from here rather than bounced back to the list:
+            // handing it a new sheet while this one dismisses cancels
             // it, because both would ride the same binding.
             .sheet(isPresented: $isReporting) {
                 ReportSheet(profile: profile) { reason in

@@ -25,7 +25,7 @@ enum SelectionSheet: Identifiable {
 /// minuscule tranche en un quart de seconde.
 struct SelectionView: View {
     @Environment(\.services) private var services
-    @Environment(DeckRefreshSignal.self) private var deckRefresh
+    @Environment(SelectionRefreshSignal.self) private var deckRefresh
     @State private var viewModel: DiscoveryViewModel?
     @State private var sheet: SelectionSheet?
     @State private var locationSync: LocationSync?

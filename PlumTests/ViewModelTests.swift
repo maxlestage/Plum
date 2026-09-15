@@ -275,7 +275,7 @@ final class OnboardingViewModelTests: XCTestCase {
     }
 
     /// The photo gate is the whole point of the flow: without it a new account
-    /// reaches the deck as an empty card.
+    /// reaches the selection as an empty card.
     func testAPhotoIsRequiredBeforeLeavingTheFirstStep() async {
         let viewModel = makeViewModel(session: SessionStore(auth: DemoAuthService()))
 

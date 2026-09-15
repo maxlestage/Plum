@@ -18,7 +18,7 @@ enum Gender: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Who a member wants to see in their deck.
+/// Who a member wants to see in their selection.
 enum GenderPreference: String, Codable, CaseIterable, Identifiable, Sendable {
     case women
     case men
