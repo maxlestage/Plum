@@ -51,6 +51,16 @@ function verifier(libelle, condition, detail = "") {
   if (!condition) echecs.push(libelle);
 }
 
+/**
+ * Ouvre le menu de l'en-tête.
+ *
+ * Les pastilles y sont rangées depuis qu'il tient sur une ligne. Playwright
+ * refuse de cliquer ce qui n'est pas visible, et c'est tant mieux : sans cette
+ * étape, le script signalerait qu'il n'arrive pas à cliquer — ce qui serait
+ * vrai pour un doigt aussi.
+ */
+const ouvrirMenu = (page) => page.click(".menu__bouton");
+
 /** La couleur réellement peinte derrière le texte de la page. */
 const fond = (page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -92,6 +102,7 @@ try {
     const contexte = await navigateur.newContext({ colorScheme: systeme, viewport: { width: 400, height: 800 } });
     const page = await contexte.newPage();
     await page.goto(`${base}/fr/`);
+    await ouvrirMenu(page);
     await page.click(`[aria-label="${choix}"]`);
     const couleur = await fond(page);
     verifier(`système ${systeme} + « ${choix} »`, couleur === attendu, couleur);
@@ -124,6 +135,7 @@ try {
     verifier(`« ${choix} » survit au rechargement`, (await fond(page2)) === attendu);
 
     // ---- 4. Revenir à « automatique » rend la main au système -----------
+    await ouvrirMenu(page2);
     await page2.click('[aria-label="Thème automatique"]');
     const rendu = await fond(page2);
     verifier(
@@ -144,6 +156,7 @@ try {
     const contexte = await navigateur.newContext({ colorScheme: "light", viewport: { width: 400, height: 800 } });
     const page = await contexte.newPage();
     await page.goto(`${base}/fr/`);
+    await ouvrirMenu(page);
     await page.click('[aria-label="Thème sombre"]');
     const teintes = await page.evaluate(() =>
       [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => [

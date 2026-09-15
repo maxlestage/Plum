@@ -4,9 +4,8 @@ import type { ReactNode } from "react";
 import { useCopy, useLanguage } from "../i18n";
 import type { PageKey } from "../i18n/routes";
 import { pathFor } from "../i18n/routes";
-import { LanguageSwitcher } from "./LanguageSwitcher";
+import { HeaderMenu } from "./HeaderMenu";
 import { PlumMark } from "./PlumMark";
-import { ThemeSwitcher } from "./ThemeSwitcher";
 
 export function Layout({
   page,
@@ -35,13 +34,7 @@ export function Layout({
             <PlumMark size={30} />
             Plum
           </Link>
-          {/* Les deux bascules dans un même bloc : quand la largeur ne suffit
-              plus, elles passent à la ligne *ensemble*. Séparées, la seconde
-              descendait seule et l'en-tête devenait bancal. */}
-          <div className="entete__commandes">
-            <LanguageSwitcher page={page} />
-            <ThemeSwitcher />
-          </div>
+          <HeaderMenu page={page} />
         </div>
       </header>
 
