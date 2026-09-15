@@ -118,6 +118,7 @@ async fn sign_up(
                     email: Set(email),
                     password_hash: Set(password_hash),
                     profile_completed: Set(false),
+                    suspended_at: Set(None),
                     created_at: Set(now.into()),
                     updated_at: Set(now.into()),
                 }
@@ -187,6 +188,14 @@ async fn sign_in(
         return Err(ApiError::InvalidCredentials);
     }
 
+    // Vérifié **après** le mot de passe, et pas avant : sinon l'erreur
+    // « compte fermé » répondrait à n'importe qui tapant une adresse, et
+    // dirait au monde entier qui a été suspendu. Ici, elle ne parle qu'à
+    // quelqu'un qui vient de prouver que le compte est le sien.
+    if found.suspended_at.is_some() {
+        return Err(ApiError::AccountSuspended);
+    }
+
     let session = issue_session(&state, found).await?;
     Ok(Json(session))
 }
@@ -212,6 +221,17 @@ async fn refresh(
         .one(&state.db)
         .await?
         .ok_or(ApiError::Unauthorized)?;
+
+    // Le jeton de rafraîchissement est ce qui fait durer une session au-delà
+    // du quart d'heure. Sans cette ligne, une suspension n'aurait borné
+    // strictement rien : l'application renouvelle toute seule, indéfiniment,
+    // et la personne suspendue ne s'apercevrait de rien.
+    //
+    // Le jeton présenté est laissé intact : il est déjà révoqué par la
+    // suspension, et le brûler ici brouillerait la raison du refus.
+    if owner.suspended_at.is_some() {
+        return Err(ApiError::AccountSuspended);
+    }
 
     // Rotate: the token just used is spent. A refresh token that survives its
     // own use is a refresh token someone can replay.

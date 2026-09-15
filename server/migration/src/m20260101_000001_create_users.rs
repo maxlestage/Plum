@@ -121,6 +121,8 @@ pub enum Users {
     ProfileCompleted,
     CreatedAt,
     UpdatedAt,
+    /// Ajoutée par `m20260101_000007_create_moderation`.
+    SuspendedAt,
 }
 
 #[derive(DeriveIden)]

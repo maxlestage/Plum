@@ -323,6 +323,9 @@ async fn report_profile(
         reported_id: Set(Some(id)),
         reason: Set(reason.to_owned()),
         created_at: Set(Utc::now().into()),
+        // Neuf, donc dans la file : c'est l'absence de date qui l'y met.
+        resolved_at: Set(None),
+        resolution: Set(None),
     }
     .insert(&state.db)
     .await?;

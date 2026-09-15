@@ -173,6 +173,48 @@ final class APIClientTests: XCTestCase {
         }
     }
 
+    /// Un compte fermé par la modération répond `403`, et le client doit le
+    /// laisser passer tel quel.
+    ///
+    /// Les deux façons de se tromper sont symétriques et toutes deux muettes :
+    /// traiter le `403` comme un `401` déclencherait un renouvellement forcé
+    /// puis un rejeu, c'est-à-dire une boucle sur un compte qui ne reviendra
+    /// pas ; le traiter comme réessayable ferait taper la même porte close
+    /// quatre fois. Dans les deux cas la personne voit « réessayez » au lieu
+    /// de « votre compte a été fermé », et ne comprend rien.
+    func testASuspendedAccountIsToldSoRatherThanRetried() async {
+        let transport = StubTransport(replies: [
+            .json(
+                #"{"message": "Ce compte a été fermé. Écrivez-nous si vous pensez que c'est une erreur.", "code": "account_suspended"}"#,
+                status: 403
+            )
+        ])
+        let client = APIClient(
+            configuration: configuration,
+            transport: transport,
+            tokenStore: InMemoryTokenStore()
+        )
+
+        do {
+            _ = try await client.send(
+                .post("auth/sign-in", body: ["email": "a@b.fr"], requiresAuthentication: false),
+                as: User.self
+            )
+            XCTFail("La requête devait échouer")
+        } catch {
+            let api = error as? APIError
+            XCTAssertEqual(
+                api?.userMessage,
+                "Ce compte a été fermé. Écrivez-nous si vous pensez que c'est une erreur.",
+                "le message du serveur doit arriver tel quel jusqu'à l'écran"
+            )
+            XCTAssertEqual(api?.isRetryable, false, "taper quatre fois à une porte fermée")
+        }
+        // Une seule requête : ni renouvellement, ni rejeu.
+        let envoyees = await transport.recordedRequests()
+        XCTAssertEqual(envoyees.count, 1)
+    }
+
     func testUnauthenticatedClientDoesNotReachTheNetwork() async {
         let transport = StubTransport(replies: [.json(profileJSON)])
         let client = APIClient(
