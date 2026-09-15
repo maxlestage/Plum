@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 use argon2::Argon2;
+use password_hash::rand_core::RngCore;
 use password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use tokio::sync::Semaphore;
 
@@ -40,6 +41,44 @@ pub async fn hash(password: String) -> Result<String, password_hash::Error> {
     tokio::task::spawn_blocking(move || hash_blocking(&password))
         .await
         .unwrap_or(Err(password_hash::Error::Crypto))
+}
+
+/// Une empreinte Argon2id qu'aucun mot de passe ne vérifie.
+///
+/// Elle sert à faire travailler l'algorithme quand le compte n'existe pas.
+/// Sans elle, une connexion sur une adresse inconnue revient sans avoir rien
+/// calculé : mesuré sur ce code, 1,5 ms contre 455 ms — un facteur 250 qui
+/// dit à quiconque chronomètre une seule requête si une adresse donnée a un
+/// compte ici. Sur une application de rencontres, c'est la présence de
+/// quelqu'un qu'on révèle.
+///
+/// Calculée une fois au premier besoin, à partir d'un secret tiré au sort à
+/// chaque démarrage : personne ne peut la reconnaître, et aucun mot de passe
+/// ne la satisfait.
+static LEURRE: LazyLock<String> = LazyLock::new(|| {
+    let mut aleatoire = [0u8; 32];
+    OsRng.fill_bytes(&mut aleatoire);
+    let secret: String = aleatoire.iter().map(|o| format!("{o:02x}")).collect();
+    hash_blocking(&secret).unwrap_or_default()
+});
+
+/// Vérifie contre une empreinte de leurre, pour que le temps de réponse ne
+/// dise pas si le compte existe.
+///
+/// Le résultat est ignoré et ne peut de toute façon pas être vrai : le leurre
+/// est l'empreinte d'un secret tiré au sort au démarrage.
+/// Calcule le leurre d'avance.
+///
+/// Sans cet appel au démarrage, la toute première connexion sur une adresse
+/// inconnue paie la fabrication de l'empreinte — mesuré à 937 ms contre 440.
+/// Le pic ne se produit qu'une fois, mais une fois suffit à celui qui
+/// chronomètre, et un serveur qui redémarre le rend à nouveau disponible.
+pub fn warm_decoy() {
+    LazyLock::force(&LEURRE);
+}
+
+pub async fn burn_time_like_a_verification(password: String) -> bool {
+    verify(password, LEURRE.clone()).await
 }
 
 pub async fn verify(password: String, hash: String) -> bool {

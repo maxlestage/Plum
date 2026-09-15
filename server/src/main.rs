@@ -47,6 +47,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     migration::Migrator::up(&db, None).await?;
     tracing::info!("schéma à jour");
 
+    // Avant d'accepter la première requête : voir `warm_decoy`.
+    tokio::task::spawn_blocking(plum_server::auth::password::warm_decoy)
+        .await
+        .ok();
+
     let limiter = build_limiter(config.redis_url.as_deref()).await;
     tracing::info!("limitation de débit : {}", limiter.describe());
     match config.admin_token {

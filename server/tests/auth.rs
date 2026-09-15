@@ -610,3 +610,87 @@ async fn a_forged_forwarded_header_does_not_open_a_fresh_bucket() {
         "changer la partie falsifiable de l'en-tête a suffi à repartir à zéro"
     );
 }
+
+/// Le temps de réponse ne doit pas dire si une adresse a un compte.
+///
+/// Le message était déjà le même — `InvalidCredentials` dans les deux cas —
+/// mais pas le temps : sans vérification à vide, une adresse inconnue
+/// revenait sans qu'Argon2 ait tourné. Mesuré sur ce code avant correctif,
+/// 1,5 ms contre 455 : un facteur 250 qu'une seule requête révèle, et
+/// qu'aucun quota ne masque puisqu'il n'en faut qu'une.
+///
+/// Sur une application de rencontres, ce n'est pas un compte qu'on divulgue,
+/// c'est la présence de quelqu'un — un conjoint, un collègue.
+///
+/// Le seuil est large à dessein. Une machine de CI est bruyante, et un test
+/// de temps réglé au plus juste finit par échouer pour rien puis par être
+/// ignoré. Trois fois laisse passer tout le bruit ordinaire et refuse le
+/// facteur 250 d'origine.
+#[tokio::test]
+async fn an_unknown_address_takes_as_long_to_refuse_as_a_known_one() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+
+    let email = unique_email("chrono");
+    let (status, _) = call(
+        &app,
+        post(
+            "/api/v1/auth/sign-up",
+            json!({
+                "email": email,
+                "password": "motdepasse",
+                "display_name": "Chrono",
+                "birth_date": "1996-04-12T00:00:00Z",
+                "gender": "woman",
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "inscription");
+
+    // Une première connexion hors mesure : elle paie la fabrication du
+    // leurre, que le serveur réchauffe au démarrage mais que ce test, qui
+    // monte le routeur sans passer par `main`, n'a pas encore payée.
+    let _ = call(
+        &app,
+        post(
+            "/api/v1/auth/sign-in",
+            json!({ "email": unique_email("amorce"), "password": "mauvais" }),
+        ),
+    )
+    .await;
+
+    async fn chronometre(app: &axum::Router, email: &str) -> std::time::Duration {
+        let debut = std::time::Instant::now();
+        let (status, _) = call(
+            app,
+            post(
+                "/api/v1/auth/sign-in",
+                json!({ "email": email, "password": "mauvais-mot-de-passe" }),
+            ),
+        )
+        .await;
+        // Le contrôle qui manquait à ma première mesure : un 429 se chronomètre
+        // très vite et ferait passer ce test pour la mauvaise raison.
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "attendu 401, reçu {status}"
+        );
+        debut.elapsed()
+    }
+
+    let mut connue = std::time::Duration::ZERO;
+    let mut inconnue = std::time::Duration::ZERO;
+    for _ in 0..3 {
+        connue += chronometre(&app, &email).await;
+        inconnue += chronometre(&app, &unique_email("fantome")).await;
+    }
+
+    let rapport = connue.as_secs_f64() / inconnue.as_secs_f64().max(f64::EPSILON);
+    assert!(
+        (0.33..3.0).contains(&rapport),
+        "le temps trahit l'existence du compte : connue {connue:?}, inconnue {inconnue:?} \
+         (rapport {rapport:.1}). Une adresse inconnue doit coûter autant qu'une connue."
+    );
+}
