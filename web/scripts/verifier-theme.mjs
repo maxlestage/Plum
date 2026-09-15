@@ -172,22 +172,11 @@ try {
     await page.waitForTimeout(400);
     verifier("la console reste muette", plaintes.length === 0, plaintes.join(" | ").slice(0, 300));
 
-    // Les deux rangées de pastilles tiennent sur une ligne à 400 px.
-    const entete = await page.evaluate(() => {
-      const barre = document.querySelector("header .shell");
-      const enfants = [...barre.children].map((e) => e.getBoundingClientRect());
-      return {
-        largeur: barre.getBoundingClientRect().width,
-        bas: Math.max(...enfants.map((r) => r.bottom)),
-        haut: Math.min(...enfants.map((r) => r.top)),
-        debordement: barre.scrollWidth > barre.clientWidth,
-      };
-    });
-    verifier(
-      "l'en-tête tient sur une ligne à 400 px",
-      !entete.debordement && entete.bas - entete.haut < 44,
-      JSON.stringify(entete),
-    );
+    // La mise en page, elle, se mesure ailleurs : `verifier-mise-en-page.mjs`
+    // la prend à neuf largeurs, de 280 à 1280 px. Il y avait ici une
+    // assertion « l'en-tête tient sur une ligne à 400 px » — vraie, verte, et
+    // c'est elle qui m'a fait croire l'affaire réglée pendant que l'en-tête
+    // débordait à 320.
 
     await page.screenshot({ path: process.env.CAPTURE ?? "/tmp/entete-sombre.png", clip: { x: 0, y: 0, width: 400, height: 64 } });
     await contexte.close();

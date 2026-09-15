@@ -23,7 +23,7 @@ export function LanguageSwitcher({ page }: { page: PageKey }) {
   const copy = useCopy();
 
   return (
-    <nav className="bascules bascules--fin" aria-label={copy.nav.languageLabel}>
+    <nav className="bascules" aria-label={copy.nav.languageLabel}>
       {languages.map((language) => {
         const code = language.toUpperCase();
         const name = languageNames[language];
