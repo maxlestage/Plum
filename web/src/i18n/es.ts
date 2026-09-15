@@ -8,6 +8,12 @@ export const es: Copy = {
     help: "Ayuda y contacto",
     languageLabel: "Idioma",
     skipToContent: "Ir al contenido",
+    themeLabel: "Tema",
+    themes: {
+      auto: "Tema automático",
+      light: "Tema claro",
+      dark: "Tema oscuro",
+    },
   },
 
   hero: {

@@ -13,6 +13,7 @@
 		09E83AEAA1DEE74041376B8D /* PlumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4A47D512D802569CBD89B6 /* PlumApp.swift */; };
 		A429D9DCE81A027F6E599FD9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D96309AD54F47A2400FA6F4F /* RootView.swift */; };
 		963B3B4D0F28BB027B04DC5B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33AF4A40088A1DA10B2C00F /* SessionStore.swift */; };
+		4A45E0B1A3EA465FADA46DA3 /* AppearancePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEAB3A9162B4969C9FC679DC /* AppearancePreference.swift */; };
 		0484D669EF6CB5527567B1E9 /* Buttons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37DA512E2E2A62A587B25081 /* Buttons.swift */; };
 		DA067512737A7A9F701F0F79 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B40ED75E24F8FDE254BFE7 /* Components.swift */; };
 		A7E4388B8CF3D14E08F2582C /* PlumTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B027F34AAF6DC97E77BDFFCC /* PlumTheme.swift */; };
@@ -119,6 +120,7 @@
 		6DAEDFCC8942F759FA4BBC27 /* WatchChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E9CC9A99453D068ABFA4AAA /* WatchChatClient.swift */; };
 		28E6886374B590440302F85A /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357B94543A0B3C570ED12028 /* WatchLink.swift */; };
 		5596DE1262582002B27C2DA8 /* APIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */; };
+		B49912DA0220ED01F5E4C08C /* AppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D9BEC422CB2717F14A114F9 /* AppearanceTests.swift */; };
 		4421507A7B2D117CB3F6F5D0 /* ChatHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F642214FB5A179F889DAA562 /* ChatHistoryTests.swift */; };
 		8CB1C0F207FA2CD546CF067F /* EndpointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01531848C731B692C9ADFC1E /* EndpointTests.swift */; };
 		C1081F77A62E094A554A1FF0 /* LocationSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C6AB5E02FDA840EDD7EC79 /* LocationSyncTests.swift */; };
@@ -203,6 +205,7 @@
 		AA4A47D512D802569CBD89B6 /* PlumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlumApp.swift; sourceTree = "<group>"; };
 		D96309AD54F47A2400FA6F4F /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A33AF4A40088A1DA10B2C00F /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		CEAB3A9162B4969C9FC679DC /* AppearancePreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearancePreference.swift; sourceTree = "<group>"; };
 		37DA512E2E2A62A587B25081 /* Buttons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Buttons.swift; sourceTree = "<group>"; };
 		D9B40ED75E24F8FDE254BFE7 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		B027F34AAF6DC97E77BDFFCC /* PlumTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlumTheme.swift; sourceTree = "<group>"; };
@@ -278,6 +281,7 @@
 		6D1F997B84876BF4EB057715 /* ThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadView.swift; sourceTree = "<group>"; };
 		D123DFDA760D83DFA59F2E99 /* WatchSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSessionStore.swift; sourceTree = "<group>"; };
 		F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTests.swift; sourceTree = "<group>"; };
+		3D9BEC422CB2717F14A114F9 /* AppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceTests.swift; sourceTree = "<group>"; };
 		F642214FB5A179F889DAA562 /* ChatHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryTests.swift; sourceTree = "<group>"; };
 		01531848C731B692C9ADFC1E /* EndpointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndpointTests.swift; sourceTree = "<group>"; };
 		C1C6AB5E02FDA840EDD7EC79 /* LocationSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSyncTests.swift; sourceTree = "<group>"; };
@@ -356,6 +360,7 @@
 		70D8AF7DA5DED30CD74EE02A /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				CEAB3A9162B4969C9FC679DC /* AppearancePreference.swift */,
 				37DA512E2E2A62A587B25081 /* Buttons.swift */,
 				D9B40ED75E24F8FDE254BFE7 /* Components.swift */,
 				B027F34AAF6DC97E77BDFFCC /* PlumTheme.swift */,
@@ -566,6 +571,7 @@
 			isa = PBXGroup;
 			children = (
 				F534AA1116CE2FA9788DDB33 /* APIClientTests.swift */,
+				3D9BEC422CB2717F14A114F9 /* AppearanceTests.swift */,
 				F642214FB5A179F889DAA562 /* ChatHistoryTests.swift */,
 				01531848C731B692C9ADFC1E /* EndpointTests.swift */,
 				C1C6AB5E02FDA840EDD7EC79 /* LocationSyncTests.swift */,
@@ -787,6 +793,7 @@
 				09E83AEAA1DEE74041376B8D /* PlumApp.swift in Sources */,
 				A429D9DCE81A027F6E599FD9 /* RootView.swift in Sources */,
 				963B3B4D0F28BB027B04DC5B /* SessionStore.swift in Sources */,
+				4A45E0B1A3EA465FADA46DA3 /* AppearancePreference.swift in Sources */,
 				0484D669EF6CB5527567B1E9 /* Buttons.swift in Sources */,
 				DA067512737A7A9F701F0F79 /* Components.swift in Sources */,
 				A7E4388B8CF3D14E08F2582C /* PlumTheme.swift in Sources */,
@@ -913,6 +920,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5596DE1262582002B27C2DA8 /* APIClientTests.swift in Sources */,
+				B49912DA0220ED01F5E4C08C /* AppearanceTests.swift in Sources */,
 				4421507A7B2D117CB3F6F5D0 /* ChatHistoryTests.swift in Sources */,
 				8CB1C0F207FA2CD546CF067F /* EndpointTests.swift in Sources */,
 				C1081F77A62E094A554A1FF0 /* LocationSyncTests.swift in Sources */,
