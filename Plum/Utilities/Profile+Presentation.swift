@@ -17,9 +17,3 @@ extension Profile {
         "\(displayName), \(age)"
     }
 }
-
-extension Match {
-    var isFresh: Bool {
-        Date.now.timeIntervalSince(matchedAt) < 24 * 3_600
-    }
-}
