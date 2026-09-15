@@ -119,6 +119,13 @@ pub async fn deck(
               AND NOT EXISTS (
                     SELECT 1 FROM swipes s
                     WHERE s.viewer_id = v.id AND s.target_id = c.id)
+              -- Un compte fermé par la modération disparaît des decks. Le
+              -- profil existe toujours — une suspension se lève, et les
+              -- messages qu'elle sanctionne sont la trace de la décision —
+              -- mais plus personne ne le croise.
+              AND NOT EXISTS (
+                    SELECT 1 FROM users u
+                    WHERE u.id = c.id AND u.suspended_at IS NOT NULL)
               -- Blocking cuts both ways, so the deck asks about both.
               AND NOT EXISTS (
                     SELECT 1 FROM blocks b

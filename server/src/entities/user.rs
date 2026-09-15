@@ -9,6 +9,12 @@ pub struct Model {
     pub email: String,
     pub password_hash: String,
     pub profile_completed: bool,
+    /// Quand la modération a fermé ce compte, et `None` le reste du temps.
+    ///
+    /// L'absence de date est l'état normal, donc la colonne est nullable
+    /// plutôt qu'un booléen : la première question devant une suspension
+    /// contestée est « depuis quand », et un booléen ne la garde pas.
+    pub suspended_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

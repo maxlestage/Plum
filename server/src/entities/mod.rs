@@ -2,6 +2,7 @@ pub mod block;
 pub mod conversation;
 pub mod match_pair;
 pub mod message;
+pub mod moderation_action;
 pub mod photo;
 pub mod preferences;
 pub mod profile;

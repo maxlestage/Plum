@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Qui est nommé dans un signalement, quand le compte existe encore.
@@ -35,6 +35,74 @@ pub struct ReportRow {
     /// Séparé du total, parce que cinq signalements d'une même personne ne
     /// disent pas la même chose que cinq personnes qui signalent.
     pub distinct_reporters: u64,
+    /// Le compte visé est-il déjà fermé ?
+    ///
+    /// Sans ça, un modérateur qui reprend la file après quelqu'un d'autre
+    /// suspend une deuxième fois un compte déjà suspendu, ou n'ose pas
+    /// toucher à un compte qu'il croit ouvert. C'est l'information qui décide
+    /// s'il reste quelque chose à faire sur cette ligne.
+    pub reported_suspended: bool,
+    /// Quand cette ligne a été jugée, et ce qui a été décidé. `None` des deux
+    /// côtés tant qu'elle est dans la file.
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub resolution: Option<String>,
+}
+
+/// Ce qu'un modérateur décide d'un signalement.
+///
+/// Deux issues seulement, et pas de texte libre à la place : « classé » et
+/// « retenu » ne se comptent que s'ils s'écrivent pareil à chaque fois. La
+/// nuance va dans `note`, qui n'est lue que par un humain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Resolution {
+    /// Le signalement était fondé.
+    Upheld,
+    /// Sans suite. Ce n'est pas « rien ne s'est passé » : c'est une décision,
+    /// et elle est tracée comme l'autre.
+    Dismissed,
+}
+
+impl Resolution {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Upheld => "upheld",
+            Self::Dismissed => "dismissed",
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ResolveRequest {
+    pub resolution: Resolution,
+    /// Facultative, et c'est volontaire : exiger une justification écrite sur
+    /// chaque ligne d'une file de cinquante donne cinquante fois « ok ».
+    pub note: Option<String>,
+}
+
+/// La raison d'une suspension, elle, est obligatoire.
+///
+/// Fermer le compte de quelqu'un sans écrire pourquoi est la décision qu'on
+/// ne peut pas relire six mois plus tard, et c'est exactement celle qui se
+/// conteste.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct SuspendRequest {
+    pub reason: String,
+}
+
+/// L'état du compte après une décision, pour que l'appelant n'ait pas à le
+/// redemander — et pour qu'un outil puisse vérifier que l'ordre a pris.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AccountState {
+    pub id: Uuid,
+    pub suspended: bool,
+    pub suspended_at: Option<DateTime<Utc>>,
+    /// Combien de décisions ont déjà été prises sur ce compte, celle-ci
+    /// comprise.
+    pub decisions: u64,
 }
 
 #[derive(Debug, Serialize)]

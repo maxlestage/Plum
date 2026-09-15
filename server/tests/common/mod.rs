@@ -323,6 +323,15 @@ pub mod deck_ages {
     pub const MODERATION: i32 = 56;
     pub const MODERATION_SHUT: i32 = 57;
     pub const MODERATION_PATTERN: i32 = 58;
+    pub const SUSPENSION_DOOR: i32 = 59;
+    pub const SUSPENSION_RENEW: i32 = 60;
+    pub const SUSPENSION_THREAD: i32 = 61;
+    pub const SUSPENSION_DECK: i32 = 62;
+    pub const SUSPENSION_LIFT: i32 = 63;
+    pub const JUDGE_QUEUE: i32 = 64;
+    pub const JUDGE_ONCE: i32 = 65;
+    pub const SUSPENSION_REASON: i32 = 66;
+    pub const SUSPENSION_GUARD: i32 = 67;
     pub const FLOOD: i32 = 51;
     pub const ORDINARY_PACE: i32 = 52;
     pub const RETRY_COST: i32 = 53;
