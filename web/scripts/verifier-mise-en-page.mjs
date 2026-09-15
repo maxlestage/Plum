@@ -10,9 +10,11 @@
  * rapporte un iPhone dont l'affichage est réglé sur « Agrandi », et un
  * iPhone SE.
  *
- * D'où la largeur la plus étroite mesurée ici, 280 px : plus étroit que tout
- * téléphone réel, pour que le premier écran réel ait de la marge plutôt que
- * d'être le cas limite.
+ * D'où la largeur la plus étroite mesurée ici, 180 px. Elle a d'abord été de
+ * 280 px — « plus étroit que tout téléphone » — et c'était encore trop haut :
+ * la largeur qui compte n'est pas celle de l'appareil mais la largeur
+ * *effective*, et à 200 % de zoom, ce que règle couramment quelqu'un qui voit
+ * mal, un téléphone de 390 px n'en offre plus que 195.
  *
  * Le débordement se mesure sur `scrollWidth > clientWidth`, et le coupable est
  * nommé : un rapport qui dit « ça déborde » sans dire de quoi oblige à
@@ -74,6 +76,9 @@ const chemins = [
  * étroites que tout appareil réel.
  */
 const tailles = [
+  [180, 600],
+  [220, 600],
+  [260, 600],
   [280, 600],
   [300, 640],
   [320, 568],
@@ -157,5 +162,5 @@ if (echecs.length) {
 }
 
 console.log(
-  `✓ aucune page ne glisse — ${mesures} mesures, de 280 à 1280 px de large`,
+  `✓ aucune page ne glisse — ${mesures} mesures, de 180 à 1280 px de large`,
 );

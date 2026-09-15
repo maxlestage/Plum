@@ -115,6 +115,19 @@ body {
   margin: 0;
   background: var(--canvas);
   color: var(--primary-text);
+  /*
+   * Un mot plus long que sa colonne se coupe plutôt que de pousser la page.
+   *
+   * Sans ça, « confidentialité » dans un titre à 2 rem, ou une adresse de
+   * courriel dans une carte, dépassait l'écran et toute la page se mettait à
+   * glisser latéralement — pas seulement le mot. Le débordement d'un seul
+   * élément déplace tout le reste avec lui, ce qui est précisément ce qui rend
+   * le défaut difficile à attribuer quand on le voit.
+   *
+   * Ça ne se remarque qu'en dessous de ~240 px de large, largeur qu'atteint un
+   * téléphone ordinaire dès 200 % de zoom.
+   */
+  overflow-wrap: break-word;
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   font-size: 17px;
@@ -210,6 +223,20 @@ a:focus-visible {
   grid-template-columns: 1fr;
 }
 
+/*
+ * Sans ça, une carte refuse de descendre sous la largeur de son plus long mot.
+ *
+ * C'est le défaut de grille classique, et il est contre-intuitif : les
+ * éléments d'une grille valent `min-width: auto`, c'est-à-dire leur largeur
+ * mini-contenu. `overflow-wrap: break-word` coupe le mot à l'affichage mais ne
+ * change pas ce calcul, donc la piste restait large, la carte dépassait de
+ * quatre pixels et toute la page glissait avec elle. Deux mots de CSS, et une
+ * demi-heure pour comprendre lequel.
+ */
+.grid > * {
+  min-width: 0;
+}
+
 @media (min-width: 46rem) {
   .grid--three {
     grid-template-columns: repeat(3, 1fr);
@@ -301,11 +328,48 @@ a:focus-visible {
   font-size: 1.1rem;
 }
 
-/* Les deux bascules bougent ensemble, et restent collées à droite. */
+/*
+ * Les deux bascules bougent ensemble, et restent collées à droite — puis se
+ * décalent l'une sous l'autre quand même ça ne rentre plus.
+ *
+ * Côte à côte elles réclament 202 px, plus 40 px de gouttières : la page
+ * recommençait donc à glisser sous 242 px. Ce n'est pas une largeur
+ * d'appareil, c'est une largeur *effective* : à 200 % de zoom — ce que règle
+ * couramment quelqu'un qui voit mal — un téléphone de 390 px n'en offre plus
+ * que 195. Mesuré, et c'est ce qui a fait ajouter cette seconde rupture.
+ *
+ * En dessous, le plancher est la rangée de trois pastilles elle-même, 96 px,
+ * qui ne se rétrécit pas : leur cible tactile est déjà au minimum.
+ */
 .entete__commandes {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 0;
   margin-inline-start: auto;
+}
+
+/*
+ * Les marges intérieures, sur les largeurs les plus étroites.
+ *
+ * 24 px de chaque côté d'une carte, c'est confortable sur un téléphone et
+ * c'est la moitié de la place disponible à 180 px de large : le contenu ne
+ * rentrait plus et la carte poussait la page. Le rembourrage est donc taillé
+ * là où il devient du luxe, et nulle part ailleurs.
+ *
+ * 16 px de gouttière : le plancher tenu partout, pas moins.
+ */
+@media (max-width: 22rem) {
+  .shell {
+    padding: 0 16px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .button {
+    padding: 0 16px;
+  }
 }
 
 /*
