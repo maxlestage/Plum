@@ -182,6 +182,18 @@ async fn relay_typing(state: &AppState, viewer: Uuid, conversation_id: Uuid) {
         return;
     }
 
+    // Un compte fermé n'annonce plus qu'il écrit. Sans cette ligne, une
+    // suspension pour harcèlement laisserait la personne suspendue faire
+    // clignoter « en train d'écrire » chez celle qui l'a signalée, aussi
+    // longtemps que le socket tient — ce qui est du harcèlement, avec moins
+    // de mots.
+    if crate::chat::routes::is_suspended(state, viewer)
+        .await
+        .unwrap_or(true)
+    {
+        return;
+    }
+
     // Un blocage referme la conversation. Bloquer supprime le match, donc ce
     // relais s'arrête déjà plus haut — sauf pendant la poignée de
     // millisecondes où le blocage vient d'être posé et où la frappe est déjà

@@ -348,6 +348,20 @@ async fn send_message(
     Json(request): Json<SendMessageRequest>,
 ) -> ApiResult<Json<MessageResponse>> {
     let claims = authenticate(&state, &headers)?;
+
+    // Le seul endroit où la suspension est vérifiée en base à chaque appel, et
+    // c'est délibéré.
+    //
+    // Le jeton d'accès est autoportant : le vérifier partout coûterait un
+    // aller en base sur chaque route authentifiée. Suspendre révoque donc les
+    // jetons de rafraîchissement, ce qui borne la session à un quart d'heure —
+    // sauf ici. Un quart d'heure de messages est précisément ce qu'une
+    // suspension pour harcèlement doit empêcher, donc ce chemin-là paie sa
+    // requête.
+    if is_suspended(&state, claims.sub).await? {
+        return Err(ApiError::AccountSuspended);
+    }
+
     let (row, pair) = my_conversation(&state, claims.sub, id).await?;
 
     let body = request.body.trim();
@@ -448,4 +462,16 @@ async fn mark_read(
     announce_read(&state, pair.other(claims.sub), &freshly_read, now);
 
     Ok(())
+}
+
+/// Le compte est-il fermé par la modération ?
+///
+/// Public dans le module parce que le flux temps réel pose la même question :
+/// une suspension qui n'arrête que l'envoi HTTP laisserait passer les frappes
+/// annoncées par le socket, ce qui suffit à harceler quelqu'un.
+pub async fn is_suspended(state: &AppState, who: Uuid) -> ApiResult<bool> {
+    Ok(crate::entities::user::Entity::find_by_id(who)
+        .one(&state.db)
+        .await?
+        .is_some_and(|u| u.suspended_at.is_some()))
 }

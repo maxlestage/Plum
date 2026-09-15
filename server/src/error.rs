@@ -23,6 +23,17 @@ pub enum ApiError {
     NotFound,
     #[error("Cette adresse est déjà prise.")]
     EmailTaken,
+    #[error("{0}")]
+    Conflict(String),
+    /// Le compte a été fermé par la modération.
+    ///
+    /// Distinct d'`InvalidCredentials`, et c'est délibéré : quelqu'un dont le
+    /// compte est fermé doit l'apprendre, pas se croire face à un mot de passe
+    /// mal tapé et le retaper vingt fois. Ce que ça révèle — qu'un compte
+    /// existe à cette adresse — n'est révélé qu'à qui a déjà donné le bon mot
+    /// de passe, donc au titulaire.
+    #[error("Ce compte a été fermé. Écrivez-nous si vous pensez que c'est une erreur.")]
+    AccountSuspended,
     #[error("Plum est réservé aux majeurs.")]
     TooYoung,
     #[error("Doucement. Réessayez dans un instant.")]
@@ -39,6 +50,8 @@ impl ApiError {
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, Some("unauthorized")),
             Self::NotFound => (StatusCode::NOT_FOUND, Some("not_found")),
             Self::EmailTaken => (StatusCode::CONFLICT, Some("email_taken")),
+            Self::Conflict(_) => (StatusCode::CONFLICT, Some("conflict")),
+            Self::AccountSuspended => (StatusCode::FORBIDDEN, Some("account_suspended")),
             Self::TooYoung => (StatusCode::FORBIDDEN, Some("too_young")),
             Self::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, Some("rate_limited")),
             Self::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, None),

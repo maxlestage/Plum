@@ -6,6 +6,7 @@ mod m20260101_000003_create_preferences;
 pub mod m20260101_000004_create_deck;
 mod m20260101_000005_create_chat;
 mod m20260101_000006_create_photos;
+mod m20260101_000007_create_moderation;
 
 pub struct Migrator;
 
@@ -19,6 +20,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260101_000004_create_deck::Migration),
             Box::new(m20260101_000005_create_chat::Migration),
             Box::new(m20260101_000006_create_photos::Migration),
+            Box::new(m20260101_000007_create_moderation::Migration),
         ]
     }
 }
