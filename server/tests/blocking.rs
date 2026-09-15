@@ -37,18 +37,15 @@ async fn thread(app: &axum::Router, tag: &str, age: i32) -> Thread {
     let (a, a_id) = candidate(app, &format!("{tag}-a"), age, "woman", Some(here)).await;
     let (b, b_id) = candidate(app, &format!("{tag}-b"), age, "man", Some(here)).await;
 
-    for (token, target) in [(&a, b_id), (&b, a_id)] {
-        call(
-            app,
-            request(
-                "POST",
-                "/api/v1/discovery/swipes",
-                Some(token),
-                Some(json!({ "target_profile_id": target, "decision": "like" })),
-            ),
-        )
-        .await;
-    }
+    // Écrire suppose que la personne soit dans la sélection du jour, donc que
+    // les critères la laissent passer. Les âges de ces suites sortent de la
+    // fourchette par défaut — c'était sans conséquence du temps où l'on
+    // balayait, puisque le verdict n'exigeait rien du tirage.
+    only_see_age(app, &a, age, "everyone").await;
+
+    // Un seul message ouvre le fil : il n'y a plus de double oui à orchestrer.
+    let (status, ouverture) = write_to(app, &a, b_id, "Premier message").await;
+    assert_eq!(status, StatusCode::OK, "premier message : {ouverture}");
 
     let (_, matches) = call(app, request("GET", "/api/v1/matches", Some(&a), None)).await;
     let match_id = matches["items"][0]["id"]
@@ -67,6 +64,23 @@ async fn thread(app: &axum::Router, tag: &str, age: i32) -> Thread {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "ouverture : {body}");
+
+    // Le fil s'ouvre forcément sur un message : c'est ce qui l'a créé. Le
+    // destinataire le lit tout de suite, pour que les suites qui comptent les
+    // non-lus partent de zéro plutôt que d'un.
+    call(
+        app,
+        request(
+            "POST",
+            &format!(
+                "/api/v1/conversations/{}/read",
+                body["id"].as_str().unwrap()
+            ),
+            Some(&b),
+            None,
+        ),
+    )
+    .await;
 
     Thread {
         a,
@@ -382,11 +396,11 @@ async fn the_wall_stands_whichever_side_raised_it() {
     );
 }
 
-/// Bloquer supprime le match, mais pas les verdicts : le deck exclut les
-/// profils déjà jugés, et les effacer ferait réapparaître la personne qu'on
+/// Bloquer supprime le fil, mais pas les verdicts : le tirage exclut les
+/// profils déjà tranchés, et les effacer ferait réapparaître la personne qu'on
 /// vient de bloquer.
 #[tokio::test]
-async fn blocking_does_not_hand_the_deck_back_the_blocked_profile() {
+async fn blocking_does_not_hand_the_selection_back_the_blocked_profile() {
     let Some(db) = database().await else { return };
     let app = plum_server::app(state(db));
     let t = thread(&app, "bloc-deck", BLOCK_VERDICTS).await;
@@ -394,23 +408,9 @@ async fn blocking_does_not_hand_the_deck_back_the_blocked_profile() {
     block(&app, &t.a, t.b_id).await;
 
     for (who, token, other) in [("le bloqueur", &t.a, t.b_id), ("le bloqué", &t.b, t.a_id)] {
-        let (_, deck) = call(
-            &app,
-            request(
-                "GET",
-                &format!("/api/v1/discovery/deck?limit={}", 50),
-                Some(token),
-                None,
-            ),
-        )
-        .await;
         assert!(
-            !deck["items"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|p| p["id"] == other.to_string()),
-            "{who} revoit l'autre dans son deck : {deck}"
+            !selection_contains(&app, token, other).await,
+            "{who} revoit l'autre dans sa sélection"
         );
     }
 }

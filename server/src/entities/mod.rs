@@ -8,5 +8,6 @@ pub mod preferences;
 pub mod profile;
 pub mod refresh_token;
 pub mod report;
+pub mod selection;
 pub mod swipe;
 pub mod user;

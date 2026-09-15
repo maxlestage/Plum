@@ -499,20 +499,13 @@ async fn a_suspended_account_cannot_keep_writing_with_a_live_token() {
     let ici = private_cluster();
     let (a, a_id, _) = compte(&app, "susp-fil-a", "woman", SUSPENSION_THREAD, ici).await;
     let (b, b_id, _) = compte(&app, "susp-fil-b", "man", SUSPENSION_THREAD, ici).await;
+    // Les critères par défaut ne couvrent pas l'âge de cette suite, donc la
+    // sélection du jour de b serait vide — et on n'écrit qu'à sa sélection.
+    only_see_age(&app, &b, SUSPENSION_THREAD, "everyone").await;
 
-    for (token, cible) in [(&a, b_id), (&b, a_id)] {
-        let (status, body) = call(
-            &app,
-            request(
-                "POST",
-                "/api/v1/discovery/swipes",
-                Some(token),
-                Some(json!({ "target_profile_id": cible, "decision": "like" })),
-            ),
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK, "swipe : {body}");
-    }
+    // Un seul message ouvre le fil : il n'y a plus de double oui à orchestrer.
+    let (status, body) = write_to(&app, &b, a_id, "Bonjour").await;
+    assert_eq!(status, StatusCode::OK, "premier message : {body}");
 
     let (status, body) = call(&app, request("GET", "/api/v1/matches", Some(&a), None)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -580,11 +573,10 @@ async fn a_suspended_profile_leaves_every_deck() {
     let (_, vise_id, _) = compte(&app, "susp-deck-cible", "man", SUSPENSION_DECK, ici).await;
     only_see_age(&app, &spectateur, SUSPENSION_DECK, "men").await;
 
-    // Page après page : la première ne prouve rien, les candidats des autres
-    // exécutions la remplissent.
+    // La sélection tient en trois : il n'y a plus de pages à parcourir.
     let visible = |token: String| {
         let app = app.clone();
-        async move { deck_contains(&app, &token, vise_id).await }
+        async move { selection_contains(&app, &token, vise_id).await }
     };
 
     assert!(

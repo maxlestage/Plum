@@ -55,40 +55,21 @@ fn upload_request(token: &str, bytes: Vec<u8>) -> Request<Body> {
 ///
 /// Le deck lit toute la base et la suite en partage une, donc la carte
 /// cherchée n'est pas forcément sur la première page.
-async fn deck_card(
+/// La carte d'une personne dans la sélection du jour.
+///
+/// Elle tient en trois : il n'y a plus de pages à parcourir, là où cette
+/// fonction en lisait quarante.
+async fn selection_card(
     app: &axum::Router,
     token: &str,
     wanted: uuid::Uuid,
 ) -> Option<serde_json::Value> {
-    let mut query = "?limit=50".to_owned();
-    for _ in 0..40 {
-        let (status, body) = call(
-            app,
-            request(
-                "GET",
-                &format!("/api/v1/discovery/deck{query}"),
-                Some(token),
-                None,
-            ),
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK, "deck : {body}");
-
-        if let Some(found) = body["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|item| item["id"] == wanted.to_string())
-        {
-            return Some(found.clone());
-        }
-
-        match body["next_cursor"].as_str() {
-            Some(cursor) => query = format!("?limit=50&cursor={}", cursor.replace('|', "%7C")),
-            None => return None,
-        }
-    }
-    None
+    selection(app, token).await["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .find(|item| item["id"] == wanted.to_string())
+        .cloned()
 }
 
 async fn upload(app: &axum::Router, token: &str, size: (u32, u32)) -> serde_json::Value {
@@ -360,10 +341,10 @@ async fn a_reordering_that_is_not_exactly_ones_own_photos_is_refused() {
     }
 }
 
-/// Le deck rend vingt cartes ; si les photos n'y sont pas, l'écran n'affiche
-/// que des dégradés et rien ne le dit.
+/// Si les photos ne sont pas dans la sélection, l'écran n'affiche que des
+/// dégradés et rien ne le dit.
 #[tokio::test]
-async fn the_deck_carries_the_photos_of_its_candidates() {
+async fn the_selection_carries_the_photos_of_its_profiles() {
     let Some(db) = database().await else { return };
     let app = plum_server::app(state(db));
     let here = private_cluster();
@@ -374,7 +355,7 @@ async fn the_deck_carries_the_photos_of_its_candidates() {
     let (me, _) = candidate(&app, "photo-deck-moi", PHOTOS, "woman", Some(here)).await;
     only_see_age(&app, &me, PHOTOS, "men").await;
 
-    let card = deck_card(&app, &me, them_id).await.expect("la carte");
+    let card = selection_card(&app, &me, them_id).await.expect("la carte");
     let photos = card["photos"].as_array().expect("des photos");
     assert_eq!(photos.len(), 1);
     assert!(photos[0]["url"].as_str().unwrap().starts_with("https://"));
