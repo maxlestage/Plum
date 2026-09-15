@@ -25,6 +25,19 @@ use crate::state::AppState;
 const MAX_BODY: usize = 2_000;
 const MAX_REASON: usize = 500;
 
+/// Combien de jours une personne déjà proposée attend avant de pouvoir
+/// revenir dans un tirage.
+///
+/// Sans cette mise à l'écart, quelqu'un qui n'ouvre l'application que pour
+/// regarder revoit les mêmes trois visages tous les jours : le tirage prend
+/// les plus proches, et ne rien décider ne change rien au classement. Mesuré,
+/// pas supposé — et l'écran, lui, promettait « trois autres profils demain ».
+///
+/// Une semaine, et pas « pour toujours » : ne pas avoir tranché n'est pas une
+/// décision, et brûler définitivement quelqu'un qu'on n'a fait qu'entrevoir
+/// coûterait des rencontres à une application qui n'en a pas encore beaucoup.
+const JOURS_AVANT_DE_REVENIR: i64 = 7;
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/discovery/selection", get(selection_of_the_day))
@@ -85,12 +98,11 @@ async fn selection_of_the_day(
     // écarts — déjà tranché, bloqué d'un côté ou de l'autre, retiré, suspendu,
     // hors des critères — donc il n'y a rien à refiltrer ici.
     if deja.is_empty() {
-        let tires = query_deck(&state.db, viewer, taille, None).await?;
-        for candidat in &tires {
+        for candidat in draw(&state, viewer, today, taille).await? {
             selection::ActiveModel {
                 id: Set(Uuid::new_v4()),
                 viewer_id: Set(viewer),
-                target_id: Set(candidat.id),
+                target_id: Set(candidat),
                 served_on: Set(today),
                 created_at: Set(Utc::now().into()),
             }
@@ -123,6 +135,55 @@ async fn selection_of_the_day(
             .and_utc(),
         size: taille,
     }))
+}
+
+/// Le tirage du jour : qui, et dans quel ordre.
+///
+/// Deux règles, dans cet ordre.
+///
+/// 1. **Les personnes qu'on n'a pas vues récemment d'abord**, les plus proches
+///    en tête. C'est ce qui rend vrai le « trois autres profils demain » que
+///    l'écran affiche : sans cette règle, le tirage reprend les plus proches,
+///    et quelqu'un qui ne décide de rien revoit les trois mêmes visages
+///    indéfiniment. Vérifié en reculant la date d'un jour : c'était exactement
+///    ce qui se produisait.
+///
+/// 2. **Puis, si ça ne suffit pas, les autres**, du plus anciennement proposé
+///    au plus récent. Sur une base de profils petite, la première règle seule
+///    donnerait un écran à moitié vide alors qu'il y a des gens à montrer —
+///    et un écran vide est un mensonge d'un autre genre.
+async fn draw(
+    state: &AppState,
+    viewer: Uuid,
+    today: chrono::NaiveDate,
+    taille: u32,
+) -> ApiResult<Vec<Uuid>> {
+    // Large exprès : il faut de quoi écarter les déjà-vus et tomber quand même
+    // sur trois personnes.
+    let candidats = query_deck(&state.db, viewer, taille.saturating_mul(20).max(50), None).await?;
+
+    // Quand chacun a été proposé pour la dernière fois. Absent de la table
+    // veut dire jamais.
+    let depuis = today - chrono::Duration::days(JOURS_AVANT_DE_REVENIR);
+    let recents: std::collections::HashSet<Uuid> = selection::Entity::find()
+        .filter(selection::Column::ViewerId.eq(viewer))
+        .filter(selection::Column::ServedOn.gt(depuis))
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|ligne| ligne.target_id)
+        .collect();
+
+    let (frais, revus): (Vec<_>, Vec<_>) = candidats
+        .into_iter()
+        .map(|candidat| candidat.id)
+        .partition(|id| !recents.contains(id));
+
+    Ok(frais
+        .into_iter()
+        .chain(revus)
+        .take(taille as usize)
+        .collect())
 }
 
 /// Les profils d'une sélection déjà tirée, revus au présent.
