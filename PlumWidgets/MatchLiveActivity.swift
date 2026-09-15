@@ -2,7 +2,11 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-/// Le match frais, sur l'écran verrouillé et dans l'île.
+/// Le message qu'on vient de recevoir, sur l'écran verrouillé et dans l'île.
+///
+/// Elle disait « vous avez matché » du temps où un double oui créait quelque
+/// chose. Il n'y a plus de double oui : ce qui arrive, c'est que quelqu'un a
+/// écrit — et ce qui la fait disparaître, c'est qu'on ait répondu.
 ///
 /// Ce qu'elle montre tient en une ligne : avec qui, depuis combien de temps,
 /// et un geste pour écrire. Rien d'autre — une Live Activity qu'on doit lire
@@ -59,16 +63,16 @@ struct MatchLiveActivity: Widget {
     private func title(for context: ActivityViewContext<MatchActivityAttributes>) -> String {
         context.state.hasStarted
             ? "Conversation avec \(context.attributes.displayName)"
-            : "Vous avez matché avec \(context.attributes.displayName)"
+            : "\(context.attributes.displayName) vous a écrit"
     }
 
     private func subtitle(for context: ActivityViewContext<MatchActivityAttributes>) -> String {
-        context.state.hasStarted ? "C'est parti." : "Le premier message part maintenant."
+        context.state.hasStarted ? "C'est parti." : "Votre réponse part d'ici."
     }
 
     /// L'adresse qu'ouvre un appui sur l'activité.
     ///
-    /// Vers la conversation quand elle existe, vers la liste des matchs
+    /// Vers la conversation quand elle existe, vers la liste des messages
     /// sinon. Ouvrir l'application sur son écran d'accueil après avoir touché
     /// une carte qui nomme quelqu'un serait un geste perdu.
     private func url(for context: ActivityViewContext<MatchActivityAttributes>) -> URL? {
@@ -91,7 +95,7 @@ private struct LockScreenView: View {
                 Text(
                     context.state.hasStarted
                         ? "Conversation avec \(context.attributes.displayName)"
-                        : "Vous avez matché avec \(context.attributes.displayName)"
+                        : "\(context.attributes.displayName) vous a écrit"
                 )
                 .font(.headline)
                 .foregroundStyle(PlumBrand.cream)
@@ -100,7 +104,7 @@ private struct LockScreenView: View {
                 Text(
                     context.state.hasStarted
                         ? "C'est parti."
-                        : "Le premier message part maintenant."
+                        : "Votre réponse part d'ici."
                 )
                 .font(.subheadline)
                 .foregroundStyle(PlumBrand.cream.opacity(0.75))
