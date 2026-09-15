@@ -339,6 +339,8 @@ pub mod deck_ages {
     pub const EMPTY_WRITE: i32 = 72;
     pub const DECIDE_TWICE: i32 = 73;
     pub const ERASURE: i32 = 74;
+    pub const TOMORROW: i32 = 75;
+    pub const SMALL_POOL: i32 = 76;
     pub const FLOOD: i32 = 51;
     pub const ORDINARY_PACE: i32 = 52;
     pub const RETRY_COST: i32 = 53;
@@ -448,6 +450,28 @@ pub async fn only_see_age(app: &axum::Router, token: &str, age: i32, interested_
     )
     .await;
     assert_eq!(status, StatusCode::OK, "préférences : {body}");
+}
+
+/// Fait passer un jour, **pour une personne**.
+///
+/// Recule la date de service d'une journée plutôt que d'attendre minuit : sans
+/// ça, tout ce qui concerne « demain » — la moitié de ce qu'une sélection
+/// quotidienne promet — ne serait vérifié par rien.
+///
+/// Restreint à un compte, et c'est une correction et non une précaution : la
+/// première version décalait toute la table, donc les sélections des autres
+/// suites qui tournent en parallèle. Elle est tombée sur une violation de la
+/// clé unique, ce qui était une chance — un décalage silencieux aurait fait
+/// échouer une autre suite, ailleurs, sans rapport visible.
+pub async fn advance_one_day(db: &DatabaseConnection, viewer: Uuid) {
+    use sea_orm::{ConnectionTrait, Statement};
+    db.execute(Statement::from_sql_and_values(
+        sea_orm::DatabaseBackend::Postgres,
+        "UPDATE selections SET served_on = served_on - INTERVAL '1 day' WHERE viewer_id = $1",
+        [viewer.into()],
+    ))
+    .await
+    .expect("le temps passe");
 }
 
 /// La sélection du jour, telle que l'écran la reçoit.
