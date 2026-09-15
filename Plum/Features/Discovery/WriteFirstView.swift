@@ -50,6 +50,7 @@ struct WriteFirstView: View {
                         RoundedRectangle(cornerRadius: PlumTheme.Radius.medium, style: .continuous)
                     )
                     .accessibilityLabel("Votre première phrase à \(profile.displayName)")
+                    .accessibilityIdentifier("champ-premier-message")
 
                 Text("Il n'y a pas de « match » à attendre : votre message part maintenant, et \(profile.displayName) répond ou ne répond pas.")
                     .font(.plumCaption)
