@@ -30,32 +30,18 @@ export function Layout({
           background: "var(--surface)",
         }}
       >
-        <div
-          className="shell"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            minHeight: 64,
-          }}
-        >
-          <Link
-            to={pathFor(language, "home")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              textDecoration: "none",
-              color: "inherit",
-              fontWeight: 700,
-              fontSize: "1.1rem",
-            }}
-          >
+        <div className="shell entete">
+          <Link to={pathFor(language, "home")} className="entete__marque">
             <PlumMark size={30} />
             Plum
           </Link>
-          <LanguageSwitcher page={page} />
-          <ThemeSwitcher />
+          {/* Les deux bascules dans un même bloc : quand la largeur ne suffit
+              plus, elles passent à la ligne *ensemble*. Séparées, la seconde
+              descendait seule et l'en-tête devenait bancal. */}
+          <div className="entete__commandes">
+            <LanguageSwitcher page={page} />
+            <ThemeSwitcher />
+          </div>
         </div>
       </header>
 
