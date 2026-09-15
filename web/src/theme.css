@@ -259,14 +259,53 @@ a:focus-visible {
   gap: 6px;
 }
 
-.bascules--fin {
-  margin-inline-start: auto;
-}
-
 /* Entre les deux groupes, plus d'air qu'entre deux pastilles du même groupe :
    c'est ce qui les fait lire comme deux commandes et non comme six choix. */
 .bascules + .bascules {
   margin-inline-start: 10px;
+}
+
+/* ---- L'en-tête ---------------------------------------------------------- */
+
+/*
+ * Il passe à la ligne, et ce n'est pas une précaution de principe : la marque,
+ * trois langues et trois thèmes demandent 301 px là où un écran de 320 px en
+ * laisse 280. L'en-tête débordait donc de vingt-quatre pixels, et la page
+ * entière glissait latéralement.
+ *
+ * 320 px n'est pas un cas d'école : c'est ce que rapporte n'importe quel
+ * iPhone dont l'affichage est réglé sur « Agrandi », et un iPhone SE.
+ * `web/scripts/verifier-mise-en-page.mjs` mesure désormais jusqu'à 280 px,
+ * parce que j'avais vérifié à 400 px et cru l'affaire réglée.
+ *
+ * Passer à la ligne plutôt que rétrécir : la cible tactile des pastilles fait
+ * 44 px, qui est déjà le minimum, et la réduire rendrait au doigt le problème
+ * qu'elle venait de résoudre.
+ */
+.entete {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-height: 64px;
+  padding-block: 8px;
+}
+
+.entete__marque {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+/* Les deux bascules bougent ensemble, et restent collées à droite. */
+.entete__commandes {
+  display: flex;
+  align-items: center;
+  margin-inline-start: auto;
 }
 
 /*
