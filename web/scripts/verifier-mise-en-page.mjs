@@ -90,6 +90,70 @@ const tailles = [
   [1280, 800],
 ];
 
+/**
+ * Ce qui, sur cette page, sort de l'écran.
+ *
+ * Une seule fonction pour les deux passes — au repos et sous les gestes — et
+ * ce n'est pas du rangement. Elles avaient deux définitions du débordement :
+ * la première nommait les coupables, la seconde se contentait de
+ * `scrollWidth`. Or un panneau de menu ne s'ouvre que pendant un geste, et il
+ * sortait par la *gauche*, ce que `scrollWidth` ne voit pas. Le défaut ne
+ * tombait donc dans aucune des deux.
+ */
+async function mesurer(page, vue) {
+  return page.evaluate((vue) => {
+    const racine = document.documentElement;
+    const coupables = [];
+    for (const element of document.querySelectorAll("*")) {
+      /*
+       * Mesuré, et surprenant : un `<details>` fermé garde à ses enfants une
+       * boîte de mise en page pleine et entière — Chromium leur pose
+       * `content-visibility: hidden`, qui cesse de les peindre sans cesser de
+       * les disposer. `getBoundingClientRect` rend donc 208 × 156 pour un
+       * panneau que personne ne voit.
+       *
+       * `checkVisibility()` est la seule question qui vaille ici : est-ce que
+       * quelqu'un le voit.
+       */
+      if (element.checkVisibility && !element.checkVisibility()) continue;
+      const boite = element.getBoundingClientRect();
+      if (boite.width === 0 && boite.height === 0) continue;
+
+      /*
+       * Les deux bords, et le critère est le chevauchement, pas le côté.
+       *
+       * À droite c'est évident : ça crée du défilement. À gauche, non — un
+       * élément coupé par le bord gauche n'allonge pas la page, donc
+       * `scrollWidth` n'en dit rien. J'avais écarté ce cas en le justifiant
+       * (« un `left: -9999px` volontaire n'est pas un défaut ») et un panneau
+       * de menu rogné de moitié est passé au travers.
+       *
+       * Un élément *à cheval* sur un bord est coupé ; un élément entièrement
+       * au-delà est rangé. Le lien d'évitement parqué à -9999 px est
+       * entièrement dehors — son bord droit vaut -9807 — donc il ne chevauche
+       * rien.
+       */
+      const coupeAGauche = boite.left < -0.5 && boite.right > 0.5;
+      if (boite.right <= vue + 0.5 && !coupeAGauche) continue;
+
+      const classe =
+        typeof element.className === "string" && element.className
+          ? "." + element.className.trim().split(/\s+/).join(".")
+          : "";
+      coupables.push(
+        `${element.tagName.toLowerCase()}${classe} (${Math.round(boite.left)} → ` +
+          `${Math.round(boite.right)}px)`,
+      );
+    }
+    return {
+      defile: racine.scrollWidth > racine.clientWidth || coupables.length > 0,
+      scroll: racine.scrollWidth,
+      client: racine.clientWidth,
+      coupables: coupables.slice(0, 3),
+    };
+  }, vue);
+}
+
 await new Promise((resolu) => serveur.listen(0, resolu));
 const base = `http://127.0.0.1:${serveur.address().port}`;
 
@@ -109,31 +173,7 @@ try {
       const page = await contexte.newPage();
       await page.goto(base + chemin, { waitUntil: "networkidle" });
 
-      const verdict = await page.evaluate((vue) => {
-        const racine = document.documentElement;
-        // Ce qui dépasse *à droite*. À gauche, un `left: -9999px` volontaire
-        // — le lien d'évitement — ne crée pas de défilement et n'est pas un
-        // défaut.
-        const coupables = [];
-        for (const element of document.querySelectorAll("*")) {
-          const boite = element.getBoundingClientRect();
-          if (boite.width === 0 && boite.height === 0) continue;
-          if (boite.right <= vue + 0.5) continue;
-          const classe =
-            typeof element.className === "string" && element.className
-              ? "." + element.className.trim().split(/\s+/).join(".")
-              : "";
-          coupables.push(
-            `${element.tagName.toLowerCase()}${classe} (jusqu'à ${Math.round(boite.right)}px)`,
-          );
-        }
-        return {
-          defile: racine.scrollWidth > racine.clientWidth,
-          scroll: racine.scrollWidth,
-          client: racine.clientWidth,
-          coupables: coupables.slice(0, 3),
-        };
-      }, largeur);
+      const verdict = await mesurer(page, largeur);
 
       mesures++;
       if (verdict.defile || verdict.coupables.length) {
@@ -178,37 +218,43 @@ try {
     const contexte = await navigateur2.newContext({
       viewport: { width: largeur, height: hauteur },
     });
-    const page = await contexte.newPage();
-    // Cinq secondes suffisent à cliquer un bouton visible ; les trente par
-    // défaut ne servent qu'à rallonger l'attente quand c'est déjà cassé.
-    page.setDefaultTimeout(5000);
-    await page.goto(`${base2}/fr/`, { waitUntil: "networkidle" });
-
-    const glisse = () =>
-      page.evaluate(() => {
-        const r = document.documentElement;
-        return r.scrollWidth > r.clientWidth
-          ? `${r.scrollWidth}px de contenu pour ${r.clientWidth}px`
-          : null;
-      });
-
+    /*
+     * Chaque geste part d'une page fraîche.
+     *
+     * Enchaînés sur la même page, ils se contaminent : le lien d'évitement
+     * gardé au focus recouvre l'en-tête — légitimement, c'est un panneau
+     * posé par-dessus et il s'efface dès que le focus bouge — et les clics
+     * suivants échouaient sur lui. Le rapport accusait alors le menu, qui
+     * n'y était pour rien. Personne n'enchaîne ces six gestes sans jamais
+     * rien relâcher.
+     */
     const gestes = [
-      ["le lien d'évitement reçoit le focus", async () => {
+      ["le lien d'évitement reçoit le focus", async (page) => {
         await page.keyboard.press("Tab");
       }],
-      ["on choisit le thème sombre", async () => {
+      // Le panneau ouvert est un état à part entière : c'est le plus large
+      // morceau d'interface du site, posé contre le bord droit, et donc le
+      // premier candidat à sortir de l'écran.
+      ["on ouvre le menu", async (page) => {
+        await page.click(".menu__bouton");
+      }],
+      ["on choisit le thème sombre", async (page) => {
+        await page.click(".menu__bouton");
         await page.click('[aria-label="Thème sombre"]');
       }],
-      ["on choisit le thème clair", async () => {
+      ["on choisit le thème clair", async (page) => {
+        await page.click(".menu__bouton");
         await page.click('[aria-label="Thème clair"]');
       }],
-      ["on revient au thème automatique", async () => {
-        await page.click('[aria-label="Thème automatique"]');
+      ["on referme le menu à l'Échap", async (page) => {
+        await page.click(".menu__bouton");
+        await page.keyboard.press("Escape");
       }],
-      ["on descend au bas de la page", async () => {
+      ["on descend au bas de la page", async (page) => {
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       }],
-      ["on change de langue", async () => {
+      ["on change de langue", async (page) => {
+        await page.click(".menu__bouton");
         await page.click('[aria-label="English"]');
         await page.waitForURL(/\/en\//);
       }],
@@ -216,8 +262,14 @@ try {
 
     for (const [libelle, geste] of gestes) {
       mesures++;
+      const page = await contexte.newPage();
+      // Cinq secondes suffisent à cliquer un bouton visible ; les trente par
+      // défaut ne servent qu'à rallonger l'attente quand c'est déjà cassé.
+      page.setDefaultTimeout(5000);
+      await page.goto(`${base2}/fr/`, { waitUntil: "networkidle" });
+
       try {
-        await geste();
+        await geste(page);
       } catch (erreur) {
         // Un geste qui échoue *est* un défaut de mise en page, et c'est même
         // le pire : quelque chose recouvre le bouton. Sans ce filet, le script
@@ -229,12 +281,22 @@ try {
             `${String(erreur).split("\n")[0]}\n        (un élément en recouvre ` +
             `probablement un autre)`,
         );
+        await page.close();
         continue;
       }
+
       await page.waitForTimeout(120);
-      const souci = await glisse();
-      if (souci) echecs.push(`${largeur}×${hauteur} après « ${libelle} » — ${souci}`);
+      const verdict = await mesurer(page, largeur);
+      if (verdict.defile) {
+        echecs.push(
+          `${largeur}×${hauteur} après « ${libelle} » — ${verdict.scroll}px de ` +
+            `contenu pour ${verdict.client}px d'écran\n        ` +
+            verdict.coupables.join("\n        "),
+        );
+      }
+      await page.close();
     }
+
     await contexte.close();
   }
 } finally {
@@ -254,5 +316,5 @@ if (echecs.length) {
 
 console.log(
   `✓ aucune page ne glisse — ${mesures} mesures, de 180 à 1280 px de large,` +
-    " au repos et sous six gestes",
+    " au repos et sous sept gestes",
 );

@@ -270,6 +270,26 @@ a:focus-visible {
   left: 0;
 }
 
+/*
+ * Les marges intérieures, sur les largeurs les plus étroites.
+ *
+ * 24 px de chaque côté d'une carte, c'est confortable sur un téléphone et
+ * c'est la moitié de la place disponible à 180 px de large. Le rembourrage est
+ * taillé là où il devient du luxe, et nulle part ailleurs. La gouttière
+ * descend à 16 px, le plancher tenu partout.
+ */
+@media (max-width: 22rem) {
+  .shell {
+    padding: 0 16px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .button {
+    padding: 0 16px;
+  }
+}
+
 /* ---- Les deux bascules : la langue, et le thème ------------------------- */
 
 /*
@@ -286,36 +306,25 @@ a:focus-visible {
   gap: 6px;
 }
 
-/* Entre les deux groupes, plus d'air qu'entre deux pastilles du même groupe :
-   c'est ce qui les fait lire comme deux commandes et non comme six choix. */
-.bascules + .bascules {
-  margin-inline-start: 10px;
-}
-
 /* ---- L'en-tête ---------------------------------------------------------- */
 
 /*
- * Il passe à la ligne, et ce n'est pas une précaution de principe : la marque,
- * trois langues et trois thèmes demandent 301 px là où un écran de 320 px en
- * laisse 280. L'en-tête débordait donc de vingt-quatre pixels, et la page
- * entière glissait latéralement.
+ * Une seule ligne, à toutes les largeurs : le nom du site, et un bouton.
  *
- * 320 px n'est pas un cas d'école : c'est ce que rapporte n'importe quel
- * iPhone dont l'affichage est réglé sur « Agrandi », et un iPhone SE.
- * `web/scripts/verifier-mise-en-page.mjs` mesure désormais jusqu'à 280 px,
- * parce que j'avais vérifié à 400 px et cru l'affaire réglée.
+ * La version d'avant rangeait six pastilles à droite et les faisait passer à
+ * la ligne quand la place manquait. Ça ne débordait plus, mais l'en-tête
+ * prenait deux ou trois rangées sur un téléphone, ce qui est cher payé pour
+ * des réglages qu'on touche une fois.
  *
- * Passer à la ligne plutôt que rétrécir : la cible tactile des pastilles fait
- * 44 px, qui est déjà le minimum, et la réduire rendrait au doigt le problème
- * qu'elle venait de résoudre.
+ * Rangées derrière un bouton, elles gagnent aussi un intitulé : six pastilles
+ * en rang ne disaient pas lesquelles étaient des langues et lesquelles des
+ * thèmes.
  */
 .entete {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: 12px;
   min-height: 64px;
-  padding-block: 8px;
 }
 
 .entete__marque {
@@ -326,51 +335,110 @@ a:focus-visible {
   color: inherit;
   font-weight: 700;
   font-size: 1.1rem;
+  /* Le nom se coupe plutôt que de pousser le bouton hors de l'écran. */
+  min-width: 0;
 }
 
-/*
- * Les deux bascules bougent ensemble, et restent collées à droite — puis se
- * décalent l'une sous l'autre quand même ça ne rentre plus.
- *
- * Côte à côte elles réclament 202 px, plus 40 px de gouttières : la page
- * recommençait donc à glisser sous 242 px. Ce n'est pas une largeur
- * d'appareil, c'est une largeur *effective* : à 200 % de zoom — ce que règle
- * couramment quelqu'un qui voit mal — un téléphone de 390 px n'en offre plus
- * que 195. Mesuré, et c'est ce qui a fait ajouter cette seconde rupture.
- *
- * En dessous, le plancher est la rangée de trois pastilles elle-même, 96 px,
- * qui ne se rétrécit pas : leur cible tactile est déjà au minimum.
- */
-.entete__commandes {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px 0;
+/* ---- Le menu ------------------------------------------------------------ */
+
+.menu {
+  position: relative;
   margin-inline-start: auto;
 }
 
 /*
- * Les marges intérieures, sur les largeurs les plus étroites.
- *
- * 24 px de chaque côté d'une carte, c'est confortable sur un téléphone et
- * c'est la moitié de la place disponible à 180 px de large : le contenu ne
- * rentrait plus et la carte poussait la page. Le rembourrage est donc taillé
- * là où il devient du luxe, et nulle part ailleurs.
- *
- * 16 px de gouttière : le plancher tenu partout, pas moins.
+ * Le triangle que les navigateurs dessinent devant un `<summary>` n'a rien à
+ * faire ici. Les deux règles sont nécessaires : `list-style` pour les
+ * navigateurs modernes, le pseudo-élément WebKit pour Safari.
  */
-@media (max-width: 22rem) {
-  .shell {
-    padding: 0 16px;
-  }
-  .card {
-    padding: 16px;
-  }
-  .button {
-    padding: 0 16px;
+.menu__bouton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: var(--secondary-text);
+  cursor: pointer;
+  list-style: none;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.menu__bouton::-webkit-details-marker {
+  display: none;
+}
+
+.menu__bouton svg {
+  width: 20px;
+  height: 20px;
+}
+
+.menu__bouton:hover,
+.menu[open] .menu__bouton {
+  color: var(--plum-contrast);
+  background: color-mix(in srgb, var(--plum-contrast) 12%, transparent);
+}
+
+.menu__bouton:focus-visible {
+  outline: 2px solid var(--plum-contrast);
+  outline-offset: 2px;
+}
+
+/*
+ * Le panneau se pose *par-dessus* la page plutôt que de la pousser : un menu
+ * qui décale le contenu qu'on était en train de lire est un menu qu'on
+ * regrette d'avoir ouvert.
+ *
+ * Accroché au bord droit, et bridé à la largeur de l'écran moins les
+ * gouttières : sur un téléphone étroit, un panneau de largeur fixe sortirait
+ * par la droite et ferait glisser la page — le défaut qu'on vient de passer
+ * trois correctifs à éteindre.
+ */
+.menu__panneau {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  /*
+   * Large comme son contenu, jamais plus large que l'écran.
+   *
+   * La première version posait `min-width: 13rem` avec le même `max-width` en
+   * garde-fou. Elle ne gardait rien : en CSS, `min-width` l'emporte sur
+   * `max-width` quand les deux se contredisent. Le panneau gardait ses 208 px
+   * sur un écran de 200 et sortait par la gauche — « LANGUE » s'y lisait
+   * « ANGUE ». Un garde-fou qu'une règle plus forte annule en silence, c'est
+   * le défaut que ce dépôt passe son temps à traquer ailleurs.
+   */
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 14px 16px 16px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+}
+
+.menu__titre {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary-text);
+}
+
+/* Le second intitulé a besoin d'air au-dessus de lui ; le premier non. */
+.menu .bascules + .menu__titre {
+  margin-top: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu__bouton {
+    transition: none;
   }
 }
+
+
 
 /*
  * Deux tailles, et c'est délibéré : la pastille qu'on voit fait 28 px, la

@@ -36,6 +36,8 @@ export interface Copy {
     languageLabel: string;
     skipToContent: string;
     themeLabel: string;
+    /** Ce qu'un lecteur d'écran annonce pour le bouton du menu. */
+    menuLabel: string;
     /** Automatique, clair, sombre — les trois états de la bascule de thème. */
     themes: Record<"auto" | "light" | "dark", string>;
   };

@@ -9,6 +9,7 @@ export const es: Copy = {
     languageLabel: "Idioma",
     skipToContent: "Ir al contenido",
     themeLabel: "Tema",
+    menuLabel: "Menú",
     themes: {
       auto: "Tema automático",
       light: "Tema claro",
