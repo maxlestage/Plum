@@ -67,6 +67,39 @@ pub async fn deck(
     limit: u32,
     cursor: Option<Cursor>,
 ) -> Result<Vec<Candidate>, DbErr> {
+    eligible(db, viewer, limit, cursor, None).await
+}
+
+/// Les mêmes écarts, restreints à une poignée de personnes.
+///
+/// Sert à relire une sélection déjà tirée : de ces trois-là, qui peut encore
+/// être montré ? La question se posait avant en demandant les deux cents plus
+/// proches et en cherchant les trois dedans — ce qui marche tant que les trois
+/// sont dans les deux cents. Quelqu'un qui voyage suffisamment pour que sa
+/// sélection du matin se retrouve au-delà du deux-centième rang verrait sa
+/// sélection se vider sans avoir rien décidé, et rien ne le lui dirait.
+///
+/// Passer les identifiants dans la requête plutôt que filtrer après coup :
+/// c'est la même phrase SQL, donc les mêmes exclusions, sans plafond arbitraire
+/// et sans seconde version des règles qui dériverait de la première.
+pub async fn among(
+    db: &impl ConnectionTrait,
+    viewer: Uuid,
+    ids: &[Uuid],
+) -> Result<Vec<Candidate>, DbErr> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    eligible(db, viewer, ids.len() as u32, None, Some(ids)).await
+}
+
+async fn eligible(
+    db: &impl ConnectionTrait,
+    viewer: Uuid,
+    limit: u32,
+    cursor: Option<Cursor>,
+    restrict: Option<&[Uuid]>,
+) -> Result<Vec<Candidate>, DbErr> {
     // A value no real distance reaches: half the Earth's circumference is
     // about 20 004 km.
     const NO_POSITION: f64 = 1.0e9;
@@ -82,6 +115,16 @@ pub async fn deck(
     };
 
     let coarse = COARSE.replace("%D%", HAVERSINE);
+
+    // `$6` et au-delà : après les cinq que le curseur occupe déjà, pour que
+    // leurs numéros ne bougent pas selon qu'il est là ou non.
+    let restreint = match restrict {
+        Some(ids) => {
+            let places: Vec<String> = (0..ids.len()).map(|i| format!("${}", i + 6)).collect();
+            format!("AND c.id IN ({})", places.join(", "))
+        }
+        None => String::new(),
+    };
 
     let sql = format!(
         "WITH v AS (
@@ -136,6 +179,7 @@ pub async fn deck(
                    OR (v.interested_in = 'men'   AND c.gender = 'man'))
               AND EXTRACT(YEAR FROM age(c.birth_date))
                     BETWEEN v.min_age AND v.max_age
+              {restreint}
         )
         SELECT id, display_name, birth_date, gender, bio, city, interests,
                last_active_at, distance_km, sort_km
@@ -164,6 +208,17 @@ pub async fn deck(
     if let Some(cursor) = cursor {
         values.push(cursor.sort_km.into());
         values.push(cursor.id.into());
+    } else if restrict.is_some() {
+        // Les deux places du curseur restent occupées : sans elles, `$6`
+        // désignerait la première personne restreinte et la requête lirait
+        // les paramètres décalés de deux rangs.
+        values.push(0.0_f64.into());
+        values.push(Uuid::nil().into());
+    }
+    if let Some(ids) = restrict {
+        for id in ids {
+            values.push((*id).into());
+        }
     }
 
     Candidate::find_by_statement(Statement::from_sql_and_values(
