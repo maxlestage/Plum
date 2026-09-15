@@ -169,9 +169,18 @@ async fn sign_in(
         .one(&state.db)
         .await?;
 
-    // One message and one code path whether the address is unknown or the
-    // password is wrong: anything else tells a stranger which addresses exist.
+    // Un seul message *et* un seul temps, que l'adresse soit inconnue ou le
+    // mot de passe faux. Le message suffisait pour les yeux, pas pour un
+    // chronomètre : sans la vérification à vide ci-dessous, une adresse
+    // inconnue revenait en 1,5 ms là où une adresse connue prenait 455 ms,
+    // parce qu'Argon2 ne tournait que dans le second cas. Mesuré, pas
+    // supposé — un facteur 250, qu'une seule requête révèle et qu'aucun
+    // quota ne masque.
+    //
+    // Sur une application de rencontres, ce n'est pas un compte qu'on
+    // divulgue, c'est la présence de quelqu'un.
     let Some(found) = found else {
+        password::burn_time_like_a_verification(request.password.clone()).await;
         return Err(ApiError::InvalidCredentials);
     };
     if !password::verify(request.password.clone(), found.password_hash.clone()).await {
