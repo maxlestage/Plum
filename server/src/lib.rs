@@ -42,6 +42,30 @@ async fn unknown_api_route() -> error::ApiError {
     error::ApiError::NotFound
 }
 
+/// Une méthode qui n'existe pas sur une adresse répond comme une adresse qui
+/// n'existe pas.
+///
+/// Sans ça, le `404` de la porte d'administration ne protège rien. Le garde
+/// répond « introuvable » plutôt que « non autorisé » précisément pour que
+/// l'adresse ne se révèle pas — mais le routeur, lui, répond `405` avant le
+/// garde dès qu'on se trompe de verbe. Comparer les deux codes suffisait donc
+/// à dessiner la surface entière :
+///
+/// ```text
+/// GET  /api/v1/admin/reports                       → 404   (le garde a parlé)
+/// POST /api/v1/admin/reports                       → 405   ← « ça existe »
+/// GET  /api/v1/admin/profiles/{id}/suspension      → 405   ← « ça existe, et ça suspend »
+/// GET  /api/v1/admin/nimportequoi                  → 404   (vraiment rien)
+/// ```
+///
+/// Mesuré sur la production, pas supposé. Le prix est qu'un mauvais verbe
+/// n'est plus distingué d'une mauvaise adresse pour qui explore l'API à la
+/// main ; c'est peu cher payé, et l'application, elle, n'envoie jamais le
+/// mauvais verbe.
+async fn wrong_method() -> error::ApiError {
+    error::ApiError::NotFound
+}
+
 pub fn app(state: AppState) -> Router {
     app_with_site(state, None)
 }
@@ -72,7 +96,8 @@ pub fn app_with_site(state: AppState, site: Option<&Path>) -> Router {
                 .merge(matches::routes::router())
                 .merge(chat::routes::router())
                 .merge(photos::routes::router())
-                .fallback(unknown_api_route),
+                .fallback(unknown_api_route)
+                .method_not_allowed_fallback(wrong_method),
         )
         .layer(TraceLayer::new_for_http())
         .with_state(state);

@@ -854,3 +854,54 @@ async fn the_levers_are_behind_the_same_door_as_the_queue() {
         }
     }
 }
+
+/// La porte ne se laisse pas trouver en se trompant de verbe.
+///
+/// Le garde répond « introuvable » plutôt que « non autorisé » pour que
+/// l'adresse ne se révèle pas. Mais le routeur répond `405` *avant* le garde
+/// dès qu'on se trompe de méthode, et comparer `404` à `405` suffisait à
+/// dessiner la surface entière — y compris le nom de ce qu'elle fait.
+///
+/// Mesuré sur la production avant d'être corrigé : `POST /admin/reports`
+/// rendait `405` quand `GET /admin/nimportequoi` rendait `404`. Ce test
+/// compare précisément ces deux-là.
+#[tokio::test]
+async fn a_wrong_verb_does_not_map_the_admin_surface() {
+    let Some(db) = database().await else { return };
+    // Sans jeton configuré : c'est l'état par défaut, donc celui qui compte.
+    let app = plum_server::app(state(db));
+
+    let invente = {
+        let (status, _) = call(
+            &app,
+            request("GET", "/api/v1/admin/rien-de-tel", None, None),
+        )
+        .await;
+        status
+    };
+
+    for (methode, chemin) in [
+        ("POST", "/api/v1/admin/reports"),
+        ("PATCH", "/api/v1/admin/reports"),
+        ("DELETE", "/api/v1/admin/reports"),
+        (
+            "GET",
+            "/api/v1/admin/profiles/00000000-0000-0000-0000-000000000000/suspension",
+        ),
+        (
+            "PATCH",
+            "/api/v1/admin/profiles/00000000-0000-0000-0000-000000000000/suspension",
+        ),
+        (
+            "GET",
+            "/api/v1/admin/reports/00000000-0000-0000-0000-000000000000/resolution",
+        ),
+    ] {
+        let (status, _) = call(&app, request(methode, chemin, None, None)).await;
+        assert_eq!(
+            status, invente,
+            "{methode} {chemin} se distingue d'une adresse inventée, donc \
+             l'adresse existe et ça se voit"
+        );
+    }
+}
