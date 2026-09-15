@@ -156,39 +156,36 @@ actor DemoProfileService: ProfileServicing {
 }
 
 actor DemoDiscoveryService: DiscoveryServicing {
-    private var remaining = SampleData.deck
-    private var lastPassed: Profile?
+    private var remaining = SampleData.selection
 
-    func deck(cursor: String?, limit: Int) async throws -> Page<Profile> {
+    func selection() async throws -> DailySelection {
         await DemoMode.pause()
-        // The demo deck refills so swiping never dead-ends during a review.
+        // La sélection de démonstration se remplit à nouveau une fois vidée :
+        // une revue qui bute sur « revenez demain » ne montre plus rien.
         if remaining.isEmpty {
-            remaining = SampleData.deck
+            remaining = SampleData.selection
         }
-        return Page(items: remaining, nextCursor: nil)
+        return DailySelection(
+            items: remaining,
+            refreshesAt: Calendar.current.startOfDay(for: .now.addingTimeInterval(86_400)),
+            size: SampleData.selection.count
+        )
     }
 
-    func swipe(profileId: UUID, decision: SwipeDecision) async throws -> SwipeOutcome {
-        if decision == .pass {
-            lastPassed = remaining.first { $0.id == profileId }
-        }
+    func write(profileId: UUID, body: String) async throws -> Message {
+        await DemoMode.pause()
         remaining.removeAll { $0.id == profileId }
-
-        // Every other like is a match, which is roughly the fantasy the demo
-        // is meant to sell.
-        let matched = decision != .pass && remaining.count % 2 == 0
-        guard matched, let profile = SampleData.deck.first(where: { $0.id == profileId }) else {
-            return SwipeOutcome(matched: false, match: nil, likesRemaining: nil)
-        }
-        let match = Match(id: UUID(), profile: profile, matchedAt: .now)
-        return SwipeOutcome(matched: true, match: match, likesRemaining: nil)
+        return Message(
+            id: UUID(),
+            conversationId: UUID(),
+            senderId: UUID(),
+            body: body,
+            sentAt: .now
+        )
     }
 
-    func rewind() async throws -> Profile? {
-        guard let profile = lastPassed else { return nil }
-        lastPassed = nil
-        remaining.insert(profile, at: 0)
-        return profile
+    func pass(profileId: UUID) async throws {
+        remaining.removeAll { $0.id == profileId }
     }
 
     func report(profileId: UUID, reason: String) async throws {

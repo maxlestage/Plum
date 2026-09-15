@@ -30,7 +30,7 @@ enum SampleData {
         interests: ["Cinéma", "Rooftops", "Vinyles", "Randonnée"]
     )
 
-    static let deck: [Profile] = [
+    static let selection: [Profile] = [
         Profile(
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000B1")!,
             displayName: "Inès",
