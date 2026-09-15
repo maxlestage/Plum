@@ -2,8 +2,32 @@
  * The same palette as the iOS app, to the hex digit. `PlumTheme.swift` is the
  * source of truth and `Scripts/check_palette.py` checks these values against
  * it — a site that drifts from the product it presents looks like a fake.
+ *
+ * ---- Clair, sombre, et le choix de la personne ---------------------------
+ *
+ * Trois états, pas deux : automatique (la valeur par défaut, qui suit le
+ * système), clair forcé, sombre forcé. Les deux derniers posent
+ * `data-theme` sur `<html>`.
+ *
+ * D'où les *deux* déclarations du jeu sombre, ci-dessous, mot pour mot
+ * identiques :
+ *
+ * - celle sous `@media (prefers-color-scheme: dark)` suit le système, et
+ *   c'est la seule qui s'applique quand JavaScript ne s'exécute pas. Le site
+ *   est pré-rendu pour rester lisible sans lui ; son thème doit l'être aussi.
+ * - celle sous `[data-theme="dark"]` sert le choix explicite.
+ *
+ * Le `:not([data-theme="light"])` de la première est ce qui rend « clair
+ * forcé » possible : sans lui, la requête média écraserait le choix sur un
+ * appareil en thème sombre, et le bouton « clair » ne ferait rien.
+ *
+ * Deux listes identiques dérivent. `Scripts/check_theme.py` les compare
+ * déclaration par déclaration et refuse la construction si elles divergent —
+ * c'est le garde-fou, pas la relecture.
  */
 :root {
+  color-scheme: light;
+
   --plum: #6b2d5c;
   --plum-deep: #40183a;
   --blush: #e8608c;
@@ -21,13 +45,25 @@
    */
   --on-plum: #fff7f4;
   /*
-   * Le fond de la pastille. En thème clair c'est le prune de la marque ; en
-   * thème sombre il faut l'éclaircir, sinon la forme ne se détache plus du
-   * fond — 1,97:1 mesuré, là où une forme d'interface demande 3. Éclairci à
-   * #9c4486 elle donne 3,28:1 contre le fond et garde 5,54:1 avec son texte,
-   * les deux seuils tenus.
+   * Le prune qui reste lisible sur le fond du moment.
+   *
+   * En thème clair c'est le prune de la marque ; en thème sombre il faut
+   * l'éclaircir, sinon la forme ne se détache plus du fond — 1,97:1 mesuré, là
+   * où une forme d'interface demande 3. Éclairci à #9c4486 elle donne 3,28:1
+   * contre le fond et garde 5,54:1 avec son texte, les deux seuils tenus.
+   *
+   * Tout ce qui pose du prune sur le fond passe par lui : la pastille de
+   * langue, le lien d'évitement, les contours de focus. `--plum` nu ne
+   * s'emploie plus que là où le fond, lui, ne change pas.
    */
-  --pastille: var(--plum);
+  --plum-contrast: var(--plum);
+  /*
+   * La couleur d'un lien. Un token plutôt qu'une règle dupliquée : le prune
+   * sur le quasi-noir tombe à 2,4:1, et c'est le rose qui reprend le rôle.
+   * Deux endroits l'emploient — `a` et `.button--quiet` — et ils doivent
+   * basculer ensemble.
+   */
+  --link: var(--plum);
   --surface: #ffffff;
   --primary-text: #1f1320;
   --secondary-text: #7a6b78;
@@ -39,15 +75,30 @@
   --measure: 34rem;
 }
 
+/* Le système décide — sauf si la personne a dit le contraire. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --pastille: #9c4486;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --plum-contrast: #9c4486;
+    --link: var(--blush);
     --canvas: #140c14;
     --surface: #241826;
     --primary-text: #f6eef4;
     --secondary-text: #b7a6b4;
     --hairline: rgba(246, 238, 244, 0.12);
   }
+}
+
+/* La personne a dit le contraire. Même liste, au mot près. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --plum-contrast: #9c4486;
+  --link: var(--blush);
+  --canvas: #140c14;
+  --surface: #241826;
+  --primary-text: #f6eef4;
+  --secondary-text: #b7a6b4;
+  --hairline: rgba(246, 238, 244, 0.12);
 }
 
 *,
@@ -72,13 +123,7 @@ body {
 }
 
 a {
-  color: var(--plum);
-}
-
-@media (prefers-color-scheme: dark) {
-  a {
-    color: var(--blush);
-  }
+  color: var(--link);
 }
 
 h1,
@@ -142,14 +187,8 @@ h3 {
 
 .button--quiet {
   background: transparent;
-  color: var(--plum);
+  color: var(--link);
   border: 1.5px solid var(--hairline);
-}
-
-@media (prefers-color-scheme: dark) {
-  .button--quiet {
-    color: var(--blush);
-  }
 }
 
 .button:focus-visible,
@@ -194,9 +233,9 @@ a:focus-visible {
   z-index: 10;
   padding: 12px 16px;
   background: var(--surface);
-  color: var(--plum);
+  color: var(--plum-contrast);
   font-weight: 700;
-  border: 1px solid var(--plum);
+  border: 1px solid var(--plum-contrast);
   border-radius: 0 0 var(--radius) 0;
 }
 
@@ -204,16 +243,30 @@ a:focus-visible {
   left: 0;
 }
 
-/* ---- La bascule de langue ---------------------------------------------- */
+/* ---- Les deux bascules : la langue, et le thème ------------------------- */
 
-.langues {
+/*
+ * Une même pastille pour les deux. Elles se ressemblent parce qu'elles font la
+ * même chose — choisir parmi trois — et les distinguer visuellement
+ * demanderait d'apprendre deux vocabulaires pour un seul geste.
+ */
+.bascules {
   display: flex;
   align-items: center;
   /* Les cibles tactiles se chevauchaient à 2 px d'écart une fois qu'elles
      débordent de leur pastille. Six px les séparent sans écarter les
      pastilles visibles. */
   gap: 6px;
+}
+
+.bascules--fin {
   margin-inline-start: auto;
+}
+
+/* Entre les deux groupes, plus d'air qu'entre deux pastilles du même groupe :
+   c'est ce qui les fait lire comme deux commandes et non comme six choix. */
+.bascules + .bascules {
+  margin-inline-start: 10px;
 }
 
 /*
@@ -230,23 +283,28 @@ a:focus-visible {
  * peindre. Réduire simplement la pastille rendrait le doigt à son problème
  * d'avant.
  */
-.langue {
+.pastille {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 28px;
   min-height: 28px;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
+  background: transparent;
+  font: inherit;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-decoration: none;
   color: var(--secondary-text);
+  cursor: pointer;
   transition: background-color 120ms ease, color 120ms ease;
 }
 
-.langue::after {
+.pastille::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -256,23 +314,30 @@ a:focus-visible {
   height: 44px;
 }
 
-.langue:hover {
-  color: var(--plum);
-  background: color-mix(in srgb, var(--plum) 8%, transparent);
+.pastille:hover {
+  color: var(--plum-contrast);
+  background: color-mix(in srgb, var(--plum-contrast) 12%, transparent);
 }
 
-.langue:focus-visible {
-  outline: 2px solid var(--plum);
+.pastille:focus-visible {
+  outline: 2px solid var(--plum-contrast);
   outline-offset: 2px;
 }
 
-/* Pleine, pas teintée : c'est ce qui rend la langue courante lisible d'un
-   coup d'œil au lieu de demander une comparaison entre trois nuances. */
-.langue--active {
-  background: var(--pastille);
+/* Pleine, pas teintée : c'est ce qui rend le choix courant lisible d'un coup
+   d'œil au lieu de demander une comparaison entre trois nuances. */
+.pastille--active {
+  background: var(--plum-contrast);
   color: var(--on-plum);
 }
 
+/* Le dessin d'un thème, à la taille où il reste lisible dans 28 px. */
+.pastille svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .langue { transition: none; }
+  .pastille { transition: none; }
 }

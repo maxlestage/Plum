@@ -35,6 +35,9 @@ export interface Copy {
     help: string;
     languageLabel: string;
     skipToContent: string;
+    themeLabel: string;
+    /** Automatique, clair, sombre — les trois états de la bascule de thème. */
+    themes: Record<"auto" | "light" | "dark", string>;
   };
 
   hero: {
