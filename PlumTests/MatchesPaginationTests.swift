@@ -56,7 +56,7 @@ final class MatchesPaginationTests: XCTestCase {
     private func match(_ suffix: String, daysAgo: Int) -> Match {
         Match(
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000\(suffix)")!,
-            profile: SampleData.deck[0],
+            profile: SampleData.selection[0],
             matchedAt: Date.now.addingTimeInterval(TimeInterval(-daysAgo * 86_400))
         )
     }

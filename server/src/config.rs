@@ -19,14 +19,18 @@ pub struct Config {
     /// Where the built presentation site lives. Absent in a plain `cargo run`,
     /// present in the image.
     pub site_dir: Option<String>,
-    /// Combien de profils le deck accepte de rendre par compte et par jour.
+    /// Combien de profils la sélection du jour contient.
     ///
-    /// Réglable par l'environnement pour deux raisons, dans cet ordre : sans
-    /// cela le plafond serait impossible à éprouver autrement qu'en peuplant
-    /// mille profils, donc il ne serait éprouvé par rien ; et un exploitant
-    /// qui voit passer une récolte doit pouvoir resserrer sans réécrire le
-    /// serveur. La valeur par défaut est celle qui compte : mille.
-    pub deck_daily_budget: u32,
+    /// Trois, et le nombre est le produit lui-même : c'est ce qui permet de
+    /// lire chaque profil au lieu de le balayer. Réglable par l'environnement
+    /// pour une raison et une seule — sans cela, éprouver la limite
+    /// demanderait de peupler assez de profils pour la dépasser, donc elle ne
+    /// serait éprouvée par rien.
+    ///
+    /// Il remplace le budget de deck, qui plafonnait ce qu'on pouvait emporter
+    /// d'un paquet sans fond. Le paquet n'existe plus : trois profils par jour
+    /// bornent la récolte bien plus serré que mille ne le faisaient.
+    pub daily_selection_size: u32,
     /// Le jeton qui ouvre la file de modération, s'il y en a un.
     ///
     /// Absent par défaut, et c'est délibéré : tant qu'il n'est pas posé, la
@@ -88,11 +92,10 @@ impl Config {
                 .map(|url| normalise_redis_url(&url)),
             site_dir: env::var("SITE_DIR").ok().filter(|path| !path.is_empty()),
             admin_token: admin_token(),
-            deck_daily_budget: env::var("DECK_DAILY_BUDGET")
-                .ok()
-                .and_then(|raw| raw.parse().ok())
-                .filter(|budget| *budget > 0)
-                .unwrap_or(1_000),
+            // Au moins un : une sélection vide serait une application sans
+            // rien dedans, et `0` dans l'environnement se lit comme une
+            // faute de frappe plutôt que comme une intention.
+            daily_selection_size: parse_or("DAILY_SELECTION_SIZE", 3)?.clamp(1, 20) as u32,
             public_base_url: env::var("PUBLIC_BASE_URL")
                 .ok()
                 .filter(|url| !url.is_empty())

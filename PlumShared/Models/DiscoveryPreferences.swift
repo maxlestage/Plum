@@ -1,6 +1,6 @@
 import Foundation
 
-/// The filters applied when the backend builds a deck.
+/// The filters applied when the backend draws a daily selection.
 struct DiscoveryPreferences: Codable, Hashable, Sendable {
     var interestedIn: GenderPreference
     var minAge: Int

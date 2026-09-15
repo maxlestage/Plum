@@ -38,30 +38,3 @@ struct PlumSecondaryButtonStyle: ButtonStyle {
             .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
-
-/// The round buttons under the deck.
-struct CircularActionButton: View {
-    let systemImage: String
-    let tint: Color
-    var diameter: CGFloat = 60
-    var isProminent = false
-    /// An icon alone tells VoiceOver nothing; every one of these needs a name.
-    var accessibilityTitle: String = ""
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: diameter * 0.38, weight: .bold))
-                .foregroundStyle(isProminent ? .white : tint)
-                .frame(width: diameter, height: diameter)
-                .background {
-                    Circle()
-                        .fill(isProminent ? AnyShapeStyle(tint) : AnyShapeStyle(PlumTheme.Palette.surface))
-                        .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(accessibilityTitle))
-    }
-}

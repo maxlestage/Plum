@@ -30,7 +30,7 @@ enum SampleData {
         interests: ["Cinéma", "Rooftops", "Vinyles", "Randonnée"]
     )
 
-    static let deck: [Profile] = [
+    static let selection: [Profile] = [
         Profile(
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000B1")!,
             displayName: "Inès",
@@ -84,13 +84,13 @@ enum SampleData {
     static let matches: [Match] = [
         Match(
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000C1")!,
-            profile: deck[0],
+            profile: selection[0],
             matchedAt: .now.addingTimeInterval(-4_000),
             conversationId: conversations[0].id
         ),
         Match(
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000C2")!,
-            profile: deck[2],
+            profile: selection[2],
             matchedAt: .now.addingTimeInterval(-100_000),
             conversationId: conversations[1].id
         )
@@ -100,11 +100,11 @@ enum SampleData {
         Conversation(
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000D1")!,
             matchId: UUID(uuidString: "00000000-0000-0000-0000-0000000000C1")!,
-            participant: deck[0],
+            participant: selection[0],
             lastMessage: Message(
                 id: UUID(uuidString: "00000000-0000-0000-0000-0000000000E1")!,
                 conversationId: UUID(uuidString: "00000000-0000-0000-0000-0000000000D1")!,
-                senderId: deck[0].id,
+                senderId: selection[0].id,
                 body: "Babyfoot jeudi, tu perds d'avance.",
                 sentAt: .now.addingTimeInterval(-1_200)
             ),
@@ -114,7 +114,7 @@ enum SampleData {
         Conversation(
             id: UUID(uuidString: "00000000-0000-0000-0000-0000000000D2")!,
             matchId: UUID(uuidString: "00000000-0000-0000-0000-0000000000C2")!,
-            participant: deck[2],
+            participant: selection[2],
             lastMessage: Message(
                 id: UUID(uuidString: "00000000-0000-0000-0000-0000000000E2")!,
                 conversationId: UUID(uuidString: "00000000-0000-0000-0000-0000000000D2")!,

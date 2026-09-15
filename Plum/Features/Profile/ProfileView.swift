@@ -1,7 +1,7 @@
 import PhotosUI
 import SwiftUI
 
-/// Same trap as the deck: two `.sheet` modifiers on one view means only one of
+/// Same trap as the selection: two `.sheet` modifiers on one view means only one of
 /// them ever presents. One modifier, one enum.
 enum ProfileSheet: String, Identifiable {
     case edit
@@ -197,5 +197,5 @@ struct ProfileView: View {
     ProfileView()
         .environment(\.services, .preview)
         .environment(SessionStore(auth: AppEnvironment.preview.auth))
-        .environment(DeckRefreshSignal())
+        .environment(SelectionRefreshSignal())
 }

@@ -32,12 +32,12 @@ export const es: Copy = {
       body: "Lo mínimo para que alguien tenga ganas de responder. La foto es obligatoria; lo demás se rellena en treinta segundos.",
     },
     {
-      title: "Se desliza",
-      body: "A la derecha si sí, a la izquierda si no, hacia arriba si de verdad. El chevrón abre el perfil completo cuando tres líneas no bastan para decidir.",
+      title: "Tres perfiles al día",
+      body: "Ni montón sin fondo ni deslizar. Tres personas, la misma selección de la mañana a la noche, y dos botones: escribir, o dejar pasar. Tres se leen.",
     },
     {
-      title: "Se habla, o no",
-      body: "Un match abre una conversación. Nadie está obligado a usarla, y retirarse son dos gestos.",
+      title: "Escribir es todo el gesto",
+      body: "No hay un «me gusta» esperando ser devuelto, así que no hay pantalla de «es un match». Escribes una frase, llega, y la persona responde o no. No responder es una respuesta.",
     },
   ],
 
@@ -45,11 +45,11 @@ export const es: Copy = {
   principles: [
     {
       title: "Sin algoritmo misterioso",
-      body: "El mazo ordena por distancia y por tus criterios. Nada más. No se vende nada, y nadie aparece antes por pagar.",
+      body: "La selección del día ordena por distancia y por tus criterios. Nada más. No se vende nada, y nadie aparece antes por pagar.",
     },
     {
       title: "Bloquear cierra la conversación",
-      body: "No solo el mazo: el hilo desaparece por ambos lados, con los mensajes, y quien está bloqueado ya no puede escribir ni hacer parpadear «escribiendo». Un bloqueo que dejara la conversación abierta sería solo un filtro.",
+      body: "No solo la selección: el hilo desaparece por ambos lados, con los mensajes, y quien está bloqueado ya no puede escribir ni hacer parpadear «escribiendo». Un bloqueo que dejara la conversación abierta sería solo un filtro.",
     },
     {
       title: "Una denuncia se lee",
@@ -61,11 +61,11 @@ export const es: Copy = {
     },
     {
       title: "Los perfiles no se pueden aspirar",
-      body: "Una cuenta no puede recorrer el mazo sin fin para recolectar nombres, biografías y fotos: el número de perfiles servidos por día está limitado, muy por encima de lo que mira una persona y muy por debajo de lo que querría un script.",
+      body: "No hay un montón que recorrer para recolectar nombres, biografías y fotos. Tres perfiles al día es también lo que ve un script — y solo se escribe a las personas que te han propuesto.",
     },
     {
       title: "Utilizable sin ver la pantalla",
-      body: "El mazo se maneja deslizando, pero cada veredicto es también una acción de VoiceOver. Una aplicación que solo se puede usar con la vista excluye a gente sin motivo.",
+      body: "Botones con nombre en vez de un gesto: «escribir» y «pasar» se leen en voz alta. Una aplicación que solo se puede usar con la vista, o con el pulgar firme, excluye a gente sin motivo.",
     },
   ],
 
@@ -103,7 +103,7 @@ export const es: Copy = {
       },
       {
         title: "Cierre de la cuenta",
-        body: "La cuenta se elimina desde los ajustes de la aplicación, sin pasar por nosotros. Se lleva consigo los matches, los mensajes y las fotos.",
+        body: "La cuenta se elimina desde los ajustes de la aplicación, sin pasar por nosotros. Se lleva consigo las conversaciones, los mensajes y las fotos.",
       },
     ],
   },
@@ -129,7 +129,7 @@ export const es: Copy = {
       },
       {
         title: "Las fotos",
-        body: "Se recodifican al llegar, lo que borra los metadatos de la cámara — incluidas las coordenadas GPS que una foto de teléfono suele llevar sin que nadie lo note. La dirección de una foto no se puede adivinar, pero tampoco está protegida por contraseña: se abre sin haber iniciado sesión, como en todas partes donde las fotos pasan por una caché. Quien haya conseguido un enlace conserva por tanto la imagen, incluso después de deshacer un match. Borrar la foto, o la cuenta, la retira del servidor.",
+        body: "Se recodifican al llegar, lo que borra los metadatos de la cámara — incluidas las coordenadas GPS que una foto de teléfono suele llevar sin que nadie lo note. La dirección de una foto no se puede adivinar, pero tampoco está protegida por contraseña: se abre sin haber iniciado sesión, como en todas partes donde las fotos pasan por una caché. Quien haya conseguido un enlace conserva por tanto la imagen, incluso después de un bloqueo. Borrar la foto, o la cuenta, la retira del servidor.",
       },
       {
         title: "Eliminación",

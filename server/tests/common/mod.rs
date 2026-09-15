@@ -128,7 +128,7 @@ pub async fn migrate_once(url: &str) {
 }
 
 pub fn state(db: DatabaseConnection) -> AppState {
-    state_with_deck_budget(db, 1_000)
+    state_with_selection_size(db, 3)
 }
 
 /// Le jeton d'administration des tests. Trente-deux caractères, comme le
@@ -147,13 +147,13 @@ pub fn state_with_admin(db: DatabaseConnection) -> AppState {
 /// demanderait d'en peupler mille, donc il ne serait éprouvé par rien. Le
 /// rendre réglable est ce qui permet de le vérifier — et un exploitant peut
 /// s'en servir pour resserrer sans réécrire le serveur.
-pub fn state_with_deck_budget(db: DatabaseConnection, deck_daily_budget: u32) -> AppState {
-    build_state(db, deck_daily_budget, None)
+pub fn state_with_selection_size(db: DatabaseConnection, daily_selection_size: u32) -> AppState {
+    build_state(db, daily_selection_size, None)
 }
 
 fn build_state(
     db: DatabaseConnection,
-    deck_daily_budget: u32,
+    daily_selection_size: u32,
     admin_token: Option<String>,
 ) -> AppState {
     AppState::new(
@@ -170,7 +170,7 @@ fn build_state(
             // Les tests vérifient la forme de l'adresse d'une photo, donc
             // elle doit être stable et reconnaissable.
             public_base_url: "https://plum.test".into(),
-            deck_daily_budget,
+            daily_selection_size,
             admin_token,
         },
         // Each test builds its own app, so each gets a fresh limiter and one
@@ -332,6 +332,13 @@ pub mod deck_ages {
     pub const JUDGE_ONCE: i32 = 65;
     pub const SUSPENSION_REASON: i32 = 66;
     pub const SUSPENSION_GUARD: i32 = 67;
+    pub const SELECTION_CAP: i32 = 68;
+    pub const SELECTION_STABLE: i32 = 69;
+    pub const WRITING: i32 = 70;
+    pub const OUT_OF_SELECTION: i32 = 71;
+    pub const EMPTY_WRITE: i32 = 72;
+    pub const DECIDE_TWICE: i32 = 73;
+    pub const ERASURE: i32 = 74;
     pub const FLOOD: i32 = 51;
     pub const ORDINARY_PACE: i32 = 52;
     pub const RETRY_COST: i32 = 53;
@@ -443,58 +450,91 @@ pub async fn only_see_age(app: &axum::Router, token: &str, age: i32, interested_
     assert_eq!(status, StatusCode::OK, "préférences : {body}");
 }
 
-/// Cherche un profil dans tout le deck, page après page.
-///
-/// La première page ne suffit pas : pour un visiteur **sans position**, l'axe
-/// géographique n'isole plus rien — tout le monde est à distance inconnue —
-/// et il ne reste que l'âge, qui fuit d'une exécution à l'autre. Les
-/// candidats des passages précédents remplissent alors la page.
-pub async fn deck_contains(app: &axum::Router, token: &str, wanted: Uuid) -> bool {
-    let mut query = "?limit=50".to_owned();
-    for _ in 0..40 {
-        let (status, body) = call(
-            app,
-            request(
-                "GET",
-                &format!("/api/v1/discovery/deck{query}"),
-                Some(token),
-                None,
-            ),
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK, "deck : {body}");
-
-        if body["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|item| item["id"] == wanted.to_string())
-        {
-            return true;
-        }
-
-        match body["next_cursor"].as_str() {
-            Some(cursor) => query = format!("?limit=50&cursor={}", cursor.replace('|', "%7C")),
-            None => return false,
-        }
-    }
-    false
-}
-
-/// The identifiers in a viewer's deck, in order.
-pub async fn deck_ids(app: &axum::Router, token: &str, query: &str) -> Vec<Uuid> {
+/// La sélection du jour, telle que l'écran la reçoit.
+pub async fn selection(app: &axum::Router, token: &str) -> Value {
     let (status, body) = call(
         app,
+        request("GET", "/api/v1/discovery/selection", Some(token), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "sélection : {body}");
+    body
+}
+
+/// Quelqu'un est-il dans la sélection du jour ?
+///
+/// Plus de pagination à parcourir : la sélection tient en trois. C'est
+/// justement ce qui remplace le deck — et ce qui rend cette fonction triviale
+/// là où sa version précédente lisait quarante pages.
+pub async fn selection_contains(app: &axum::Router, token: &str, wanted: Uuid) -> bool {
+    selection(app, token).await["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["id"] == wanted.to_string())
+}
+
+/// Écrire à quelqu'un : le seul geste positif, et celui qui ouvre un fil.
+///
+/// Rend le statut et le corps, parce que la moitié des suites s'en servent
+/// pour poser un fil et l'autre moitié pour vérifier qu'on ne peut pas.
+pub async fn write_to(
+    app: &axum::Router,
+    token: &str,
+    target: Uuid,
+    body: &str,
+) -> (StatusCode, Value) {
+    // La sélection du jour est tirée à la première lecture, et écrire suppose
+    // qu'elle existe. Le client fait toujours les deux dans cet ordre — il
+    // affiche avant qu'on écrive — donc l'aide de test le fait aussi. Sans
+    // cette ligne, un test écrivait à quelqu'un que le serveur n'avait jamais
+    // proposé et recevait un 404 parfaitement correct.
+    selection(app, token).await;
+    call(
+        app,
         request(
-            "GET",
-            &format!("/api/v1/discovery/deck{query}"),
+            "POST",
+            &format!("/api/v1/profiles/{target}/write"),
+            Some(token),
+            Some(json!({ "body": body })),
+        ),
+    )
+    .await
+}
+
+/// Laisser passer.
+pub async fn pass(app: &axum::Router, token: &str, target: Uuid) -> StatusCode {
+    call(
+        app,
+        request(
+            "POST",
+            &format!("/api/v1/profiles/{target}/pass"),
             Some(token),
             None,
         ),
     )
-    .await;
-    assert_eq!(status, StatusCode::OK, "deck : {body}");
-    body["items"]
+    .await
+    .0
+}
+
+/// Ouvre un fil entre deux comptes, en passant par le vrai chemin.
+///
+/// Un seul message suffit désormais : il n'y a plus de double oui à
+/// orchestrer. Rend l'identifiant de la conversation.
+pub async fn open_thread(app: &axum::Router, token: &str, target: Uuid, body: &str) -> Uuid {
+    let (status, message) = write_to(app, token, target, body).await;
+    assert_eq!(status, StatusCode::OK, "premier message : {message}");
+    message["conversation_id"]
+        .as_str()
+        .expect("le message porte sa conversation")
+        .parse()
+        .expect("un identifiant de conversation")
+}
+
+/// The identifiers in a viewer's deck, in order.
+/// Les identifiants de la sélection du jour, dans l'ordre où elle les rend.
+pub async fn selection_ids(app: &axum::Router, token: &str) -> Vec<Uuid> {
+    selection(app, token).await["items"]
         .as_array()
         .expect("items")
         .iter()
