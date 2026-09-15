@@ -6,6 +6,7 @@ import type { PageKey } from "../i18n/routes";
 import { pathFor } from "../i18n/routes";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { PlumMark } from "./PlumMark";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 export function Layout({
   page,
@@ -54,6 +55,7 @@ export function Layout({
             Plum
           </Link>
           <LanguageSwitcher page={page} />
+          <ThemeSwitcher />
         </div>
       </header>
 

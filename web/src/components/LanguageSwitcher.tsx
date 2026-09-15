@@ -23,7 +23,7 @@ export function LanguageSwitcher({ page }: { page: PageKey }) {
   const copy = useCopy();
 
   return (
-    <nav className="langues" aria-label={copy.nav.languageLabel}>
+    <nav className="bascules bascules--fin" aria-label={copy.nav.languageLabel}>
       {languages.map((language) => {
         const code = language.toUpperCase();
         const name = languageNames[language];
@@ -31,7 +31,7 @@ export function LanguageSwitcher({ page }: { page: PageKey }) {
         return language === current ? (
           <span
             key={language}
-            className="langue langue--active"
+            className="pastille pastille--active"
             aria-current="true"
             aria-label={name}
             lang={language}
@@ -42,7 +42,7 @@ export function LanguageSwitcher({ page }: { page: PageKey }) {
           <Link
             key={language}
             to={pathFor(language, page)}
-            className="langue"
+            className="pastille"
             // `hreflang` dit au navigateur et au robot ce qu'il y a au bout
             // avant qu'ils y aillent ; `lang` dit comment prononcer l'étiquette.
             hrefLang={language}

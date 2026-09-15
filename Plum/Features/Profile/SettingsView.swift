@@ -10,6 +10,10 @@ struct SettingsView: View {
     @Environment(DeckRefreshSignal.self) private var deckRefresh
 
     @State private var draft = DiscoveryPreferences.default
+    /// Le seul réglage de cet écran qui ne parte pas au serveur : il vit sur
+    /// l'appareil, et s'applique donc sans attendre le bouton « OK ».
+    @AppStorage(AppearancePreference.storageKey)
+    private var appearance: AppearancePreference = .automatic
     @State private var locationSync: LocationSync?
     @State private var isConfirmingSignOut = false
     @State private var isConfirmingDeletion = false
@@ -64,6 +68,20 @@ struct SettingsView: View {
                     Toggle("Me montrer sur Plum", isOn: $draft.showMeOnPlum)
                 } footer: {
                     Text("Désactivé, votre profil n'apparaît plus dans les decks. Vos conversations restent.")
+                }
+
+                Section {
+                    Picker("Apparence", selection: $appearance) {
+                        ForEach(AppearancePreference.allCases) { choix in
+                            Label(choix.label, systemImage: choix.symbol).tag(choix)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                } header: {
+                    Text("Apparence")
+                } footer: {
+                    Text("Automatique suit le réglage de votre iPhone.")
                 }
 
                 Section("À propos") {

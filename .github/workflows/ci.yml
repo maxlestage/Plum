@@ -35,6 +35,9 @@ jobs:
       - name: Aucun nom de type en collision
         run: python3 Scripts/check_name_clashes.py
 
+      - name: Le thème clair/sombre est d'accord avec lui-même
+        run: python3 Scripts/check_theme.py
+
       - name: Le projet est à jour vis-à-vis des sources
         # Le pbxproj est généré : s'il diverge de l'arborescence, c'est qu'un
         # fichier a été ajouté ou supprimé sans régénérer.

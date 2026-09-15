@@ -8,7 +8,21 @@
       name="description"
       content="Plum est une application de rencontres pour iOS. Une photo, deux phrases, et on verra bien."
     />
-    <meta name="theme-color" content="#6B2D5C" />
+    <!-- Deux balises, et un `media` sur chacune : c'est la version qui
+         fonctionne sans JavaScript. Le script ci-dessous les réécrit dès
+         qu'un choix explicite existe. #40183A est le bas du dégradé de
+         l'icône — la même couleur de marque, celle qui ne vient pas
+         éclairer le haut d'un écran qu'on a voulu sombre. -->
+    <meta
+      name="theme-color"
+      content="#6B2D5C"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#40183A"
+      media="(prefers-color-scheme: dark)"
+    />
     <meta property="og:title" content="Plum — Une photo, deux phrases" />
     <meta
       property="og:description"
@@ -25,6 +39,27 @@
     <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="/site.webmanifest" />
+    <!--
+      Le choix de thème, relu avant le premier pixel.
+
+      Il est en clair dans la page, et pas dans le bundle, parce que le bundle
+      est chargé en `module` — donc différé. Une page pré-rendue en clair
+      s'afficherait le temps d'un éclair avant que React ne la repeigne : en
+      pleine nuit, c'est précisément ce qu'un thème sombre sert à éviter.
+
+      La clé « plum.theme » est recopiée de `src/theme.ts` ;
+      `Scripts/check_theme.py` vérifie qu'elles ne se sont pas séparées.
+    -->
+    <script>
+      try {
+        var choix = localStorage.getItem("plum.theme");
+        if (choix === "light" || choix === "dark") {
+          document.documentElement.dataset.theme = choix;
+        }
+      } catch (erreur) {
+        /* Navigation privée : le thème automatique reste juste. */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
