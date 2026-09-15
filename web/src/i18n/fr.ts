@@ -8,6 +8,12 @@ export const fr: Copy = {
     help: "Aide et contact",
     languageLabel: "Langue",
     skipToContent: "Aller au contenu",
+    themeLabel: "Thème",
+    themes: {
+      auto: "Thème automatique",
+      light: "Thème clair",
+      dark: "Thème sombre",
+    },
   },
 
   hero: {

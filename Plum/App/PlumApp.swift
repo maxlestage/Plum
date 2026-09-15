@@ -6,6 +6,13 @@ struct PlumApp: App {
     @State private var session: SessionStore
     @State private var deckRefresh = DeckRefreshSignal()
 
+    /// Posé ici plutôt que dans l'écran de réglages : `preferredColorScheme`
+    /// s'applique à la fenêtre, donc à ce qui est présenté par-dessus. Depuis
+    /// la feuille des réglages, il ne toucherait pas ce qu'il y a derrière —
+    /// on verrait le thème changer en fermant, pas en choisissant.
+    @AppStorage(AppearancePreference.storageKey)
+    private var appearance: AppearancePreference = .automatic
+
     init() {
         // Demo mode keeps the app fully usable without the Rust API running,
         // which is how previews, UI tests and design reviews get their data.
@@ -21,6 +28,7 @@ struct PlumApp: App {
                 .environment(session)
                 .environment(deckRefresh)
                 .tint(PlumTheme.Palette.plum)
+                .preferredColorScheme(appearance.colorScheme)
         }
     }
 }
