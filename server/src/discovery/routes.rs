@@ -8,7 +8,7 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use super::deck_query::{deck as query_deck, Candidate};
+use super::deck_query::{among as query_among, deck as query_deck, Candidate};
 use super::types::*;
 use crate::auth::routes::authenticate;
 use crate::auth::types::Gender;
@@ -201,14 +201,8 @@ async fn selection_still_showable(
     viewer: Uuid,
     vises: &[Uuid],
 ) -> ApiResult<Vec<Candidate>> {
-    if vises.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    // Large exprès : le tirage classe par distance, et les trois de ce matin
-    // peuvent s'être éloignées dans ce classement depuis.
-    let tous = query_deck(&state.db, viewer, 200, None).await?;
-    let mut par_id: std::collections::HashMap<Uuid, Candidate> = tous
+    let encore = query_among(&state.db, viewer, vises).await?;
+    let mut par_id: std::collections::HashMap<Uuid, Candidate> = encore
         .into_iter()
         .map(|candidat| (candidat.id, candidat))
         .collect();
