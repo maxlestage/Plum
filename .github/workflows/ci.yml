@@ -49,6 +49,43 @@ jobs:
             exit 1
           fi
 
+  site:
+    name: Mise en page du site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Dépendances
+        working-directory: web
+        run: npm ci
+
+      - name: Construire
+        working-directory: web
+        run: npm run build
+
+      # Le seul navigateur du dépôt. `--with-deps` installe aussi les
+      # bibliothèques système que Chromium réclame sur une image nue.
+      - name: Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      # Ce qu'aucun contrôle statique ne voit : une page qui glisse
+      # latéralement, et une bascule de thème qui a l'air de marcher.
+      #
+      # Ajouté après coup : j'avais vérifié l'en-tête à 400 px, où il tient, et
+      # il débordait de vingt-quatre pixels à 320 px — la largeur que rapporte
+      # un iPhone en affichage « Agrandi ». Personne ne relit une largeur.
+      - name: Aucune page ne glisse, la bascule de thème tient
+        working-directory: web
+        run: npm run verifier
+
   build:
     name: Build et tests iOS
     runs-on: macos-15
