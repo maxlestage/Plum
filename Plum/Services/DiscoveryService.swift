@@ -1,10 +1,14 @@
 import Foundation
 
 protocol DiscoveryServicing: Sendable {
-    func deck(cursor: String?, limit: Int) async throws -> Page<Profile>
-    func swipe(profileId: UUID, decision: SwipeDecision) async throws -> SwipeOutcome
-    /// Undoes the last pass. The one feature people actually pay for.
-    func rewind() async throws -> Profile?
+    /// Les profils du jour. Stable jusqu'à minuit : la même sélection le matin
+    /// et le soir.
+    func selection() async throws -> DailySelection
+    /// Écrire, et ouvrir le fil du même geste. Rend le message écrit, qui
+    /// porte l'identifiant de la conversation.
+    func write(profileId: UUID, body: String) async throws -> Message
+    /// Laisser passer. C'est une décision, et elle est définitive.
+    func pass(profileId: UUID) async throws
     func report(profileId: UUID, reason: String) async throws
     func block(profileId: UUID) async throws
 }
@@ -16,26 +20,19 @@ struct DiscoveryService: DiscoveryServicing {
         self.client = client
     }
 
-    func deck(cursor: String?, limit: Int = 20) async throws -> Page<Profile> {
-        var query = [URLQueryItem(name: "limit", value: String(limit))]
-        if let cursor {
-            query.append(URLQueryItem(name: "cursor", value: cursor))
-        }
-        return try await client.send(.get("discovery/deck", query: query), as: Page<Profile>.self)
+    func selection() async throws -> DailySelection {
+        try await client.send(.get("discovery/selection"), as: DailySelection.self)
     }
 
-    func swipe(profileId: UUID, decision: SwipeDecision) async throws -> SwipeOutcome {
-        let endpoint = Endpoint.post(
-            "discovery/swipes",
-            body: SwipeRequest(targetProfileId: profileId, decision: decision)
+    func write(profileId: UUID, body: String) async throws -> Message {
+        try await client.send(
+            .post("profiles/\(profileId.uuidString)/write", body: WriteFirstRequest(body: body)),
+            as: Message.self
         )
-        return try await client.send(endpoint, as: SwipeOutcome.self)
     }
 
-    func rewind() async throws -> Profile? {
-        struct RewindResponse: Decodable, Sendable { let profile: Profile? }
-        let response = try await client.send(.post("discovery/rewind"), as: RewindResponse.self)
-        return response.profile
+    func pass(profileId: UUID) async throws {
+        try await client.send(.post("profiles/\(profileId.uuidString)/pass"))
     }
 
     func report(profileId: UUID, reason: String) async throws {

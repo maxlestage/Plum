@@ -42,19 +42,21 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertNil(PlumDateFormat.date(from: "pas une date"))
     }
 
-    func testEncodesRequestsInSnakeCase() throws {
-        let request = SwipeRequest(
-            targetProfileId: UUID(uuidString: "8A1B0A2C-1111-4444-8888-0123456789AB")!,
-            decision: .superLike
-        )
+    /// La sélection arrive en snake_case ; les champs qui ne se décodent pas
+    /// donnent un écran vide, pas une erreur.
+    func testDecodesTheDailySelection() throws {
+        let json = """
+        {
+          "items": [],
+          "refreshes_at": "2026-02-02T00:00:00Z",
+          "size": 3
+        }
+        """
+        let selection = try JSONDecoder.plum.decode(DailySelection.self, from: Data(json.utf8))
 
-        let data = try JSONEncoder.plum.encode(request)
-        let object = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: data) as? [String: Any]
-        )
-
-        XCTAssertEqual(object["target_profile_id"] as? String, "8A1B0A2C-1111-4444-8888-0123456789AB")
-        XCTAssertEqual(object["decision"] as? String, "superLike")
+        XCTAssertTrue(selection.items.isEmpty)
+        XCTAssertEqual(selection.size, 3)
+        XCTAssertEqual(selection.refreshesAt, PlumDateFormat.date(from: "2026-02-02T00:00:00Z"))
     }
 
     func testDecodesChatEventsByType() throws {

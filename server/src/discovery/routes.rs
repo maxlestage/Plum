@@ -1,4 +1,4 @@
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::http::HeaderMap;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -12,47 +12,27 @@ use super::deck_query::{deck as query_deck, Candidate};
 use super::types::*;
 use crate::auth::routes::authenticate;
 use crate::auth::types::Gender;
-use crate::entities::{block, match_pair, profile, report, swipe};
+use crate::entities::{
+    block, conversation, match_pair, message, profile, report, selection, swipe,
+};
 use crate::error::{ApiError, ApiResult};
 use crate::live::routes::announce_match;
 use crate::profile::types::ProfileResponse;
-use crate::rate_limit::Quota;
 use crate::state::AppState;
 
-/// The client asks for 20. The cap is what stops someone asking for a
-/// million and making the server sort the whole table.
-const DEFAULT_LIMIT: u32 = 20;
-const MAX_LIMIT: u32 = 50;
+/// Ce qu'on peut écrire dans un premier message. Le même plafond que dans une
+/// conversation ouverte : c'est le même objet.
+const MAX_BODY: usize = 2_000;
 const MAX_REASON: usize = 500;
-
-/// La fenêtre du budget de deck. Le nombre, lui, vient de la configuration.
-///
-/// Rien ne bornait le deck. Un compte pouvait le parcourir page après page
-/// aussi vite que le réseau le permettait, et repartir avec le nom, l'âge, la
-/// ville, la biographie et l'adresse des photos de toutes les personnes dans
-/// son rayon. Les adresses de photos, elles, s'ouvrent sans jeton : une fois
-/// récoltées, elles restent valables. Dans une application de rencontres, ce
-/// sont des visages.
-///
-/// Mille, parce que ce plafond ne doit jamais rencontrer quelqu'un qui se sert
-/// de l'application : mille profils en une journée, personne ne les regarde.
-/// Ce n'est délibérément pas un quota de « likes » — celui-là reste absent,
-/// et pour la raison dite dans `SwipeOutcome` : ce serait deviner un modèle
-/// économique. Celui-ci ne limite pas ce qu'on peut faire, il limite ce qu'on
-/// peut emporter.
-///
-/// Il faut dire ce qu'il ne fait pas. Sur une base d'utilisateurs petite, il
-/// ne rend pas la récolte impossible : il la fait durer des jours au lieu de
-/// minutes, et il la rend visible dans les journaux. Le mur, lui, demanderait
-/// de lier la pagination aux verdicts rendus — un changement de comportement
-/// du deck, qui n'est pas à prendre sans y regarder.
-const DECK_WINDOW_SECONDS: u64 = 24 * 60 * 60;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/discovery/deck", get(deck))
-        .route("/discovery/swipes", post(swipe_route))
-        .route("/discovery/rewind", post(rewind))
+        .route("/discovery/selection", get(selection_of_the_day))
+        // Écrire et laisser passer sont les deux seules issues, et elles
+        // vivent sur le profil plutôt que sous `/discovery` : ce qu'on fait,
+        // c'est écrire *à quelqu'un*, pas rendre un verdict à un moteur.
+        .route("/profiles/{id}/write", post(write_first))
+        .route("/profiles/{id}/pass", post(pass_profile))
         .route("/profiles/{id}/report", post(report_profile))
         .route("/profiles/{id}/block", post(block_profile))
 }
@@ -72,131 +52,183 @@ fn candidate_into_profile(candidate: Candidate) -> ProfileResponse {
     }
 }
 
-async fn deck(
+/// La sélection du jour : trois profils, tirés une fois, stables jusqu'à
+/// minuit.
+///
+/// Ce qu'elle remplace, et pourquoi. Le deck n'avait pas de fond : il se
+/// paginait, et il fallait un geste par carte pour avancer. Un geste qu'on
+/// répète cent fois doit être minuscule — d'où le balayage, et d'où le fait
+/// qu'on décide de quelqu'un en un quart de seconde. Trois profils tiennent
+/// sur un écran et se lisent.
+///
+/// Le tirage est écrit en base, pas recalculé. Sans ça, rouvrir l'application
+/// rendrait trois autres personnes, et « la sélection du jour » ne voudrait
+/// rien dire. C'est aussi ce qui plafonne : il n'y a pas de quota à compter,
+/// on tire une fois.
+async fn selection_of_the_day(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Query(query): Query<DeckQuery>,
-) -> ApiResult<Json<Page<ProfileResponse>>> {
-    let claims = authenticate(&state, &headers)?;
-    let limit = query.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
-
-    // A cursor the server cannot read is a bad request, not an empty deck:
-    // silently starting over would look like the deck looping.
-    let cursor = match query.cursor.as_deref() {
-        Some(raw) => Some(
-            Cursor::decode(raw)
-                .ok_or_else(|| ApiError::BadRequest("Curseur de pagination invalide.".into()))?,
-        ),
-        None => None,
-    };
-
-    // One more than asked for: if it comes back, there is another page, and
-    // we know it without a second count query.
-    let mut candidates = query_deck(&state.db, claims.sub, limit + 1, cursor).await?;
-
-    // Compté après la requête, sur ce qui part vraiment : un deck épuisé qui
-    // rend trois profils ne coûte pas cinquante. Et compté avant de répondre,
-    // pour que le dépassement retienne la page plutôt que de la livrer en
-    // annonçant qu'elle n'aurait pas dû partir.
-    let served = candidates.len().min(limit as usize) as u32;
-    let decision = state
-        .limiter
-        .check_cost(
-            &format!("deck:{}", claims.sub),
-            Quota::new(state.config.deck_daily_budget, DECK_WINDOW_SECONDS),
-            served.max(1),
-        )
-        .await;
-    if !decision.allowed {
-        return Err(ApiError::RateLimited {
-            retry_after_seconds: decision.retry_after.as_secs().max(1),
-        });
-    }
-
-    let next_cursor = if candidates.len() as u32 > limit {
-        candidates.truncate(limit as usize);
-        candidates.last().map(|last| {
-            Cursor {
-                sort_km: last.sort_km,
-                id: last.id,
-            }
-            .encode()
-        })
-    } else {
-        None
-    };
-
-    let mut items: Vec<ProfileResponse> =
-        candidates.into_iter().map(candidate_into_profile).collect();
-    // Une requête pour les vingt cartes, pas vingt.
-    crate::photos::routes::attach(&state, &mut items.iter_mut().collect::<Vec<_>>()).await?;
-
-    Ok(Json(Page { items, next_cursor }))
-}
-
-async fn swipe_route(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(request): Json<SwipeRequest>,
-) -> ApiResult<Json<SwipeOutcome>> {
+) -> ApiResult<Json<SelectionResponse>> {
     let claims = authenticate(&state, &headers)?;
     let viewer = claims.sub;
-    let target = request.target_profile_id;
+    let today = Utc::now().date_naive();
+    let taille = state.config.daily_selection_size;
 
-    if viewer == target {
-        return Err(ApiError::BadRequest(
-            "On ne peut pas se juger soi-même.".into(),
-        ));
+    let mut deja = selection::Entity::find()
+        .filter(selection::Column::ViewerId.eq(viewer))
+        .filter(selection::Column::ServedOn.eq(today))
+        .order_by_asc(selection::Column::CreatedAt)
+        .all(&state.db)
+        .await?;
+
+    // Rien pour aujourd'hui : on tire. `query_deck` applique déjà tous les
+    // écarts — déjà tranché, bloqué d'un côté ou de l'autre, retiré, suspendu,
+    // hors des critères — donc il n'y a rien à refiltrer ici.
+    if deja.is_empty() {
+        let tires = query_deck(&state.db, viewer, taille, None).await?;
+        for candidat in &tires {
+            selection::ActiveModel {
+                id: Set(Uuid::new_v4()),
+                viewer_id: Set(viewer),
+                target_id: Set(candidat.id),
+                served_on: Set(today),
+                created_at: Set(Utc::now().into()),
+            }
+            .insert(&state.db)
+            .await?;
+        }
+        deja = selection::Entity::find()
+            .filter(selection::Column::ViewerId.eq(viewer))
+            .filter(selection::Column::ServedOn.eq(today))
+            .order_by_asc(selection::Column::CreatedAt)
+            .all(&state.db)
+            .await?;
     }
 
-    // The target has to exist, or a typo would be recorded as a verdict on
-    // nobody and quietly remove a card that was never there.
-    let target_profile = profile::Entity::find_by_id(target)
+    // Une personne tirée ce matin a pu, depuis, être tranchée, se retirer, ou
+    // être suspendue. La sélection est stable, pas figée : ce qui n'a plus
+    // lieu d'être montré ne l'est plus, et rien ne vient le remplacer — la
+    // sélection du jour a été tirée.
+    let vises: Vec<Uuid> = deja.iter().map(|ligne| ligne.target_id).collect();
+    let encore = selection_still_showable(&state, viewer, &vises).await?;
+
+    let mut items: Vec<ProfileResponse> = encore.into_iter().map(candidate_into_profile).collect();
+    crate::photos::routes::attach(&state, &mut items.iter_mut().collect::<Vec<_>>()).await?;
+
+    Ok(Json(SelectionResponse {
+        items,
+        refreshes_at: (today + chrono::Duration::days(1))
+            .and_hms_opt(0, 0, 0)
+            .expect("minuit existe")
+            .and_utc(),
+        size: taille,
+    }))
+}
+
+/// Les profils d'une sélection déjà tirée, revus au présent.
+///
+/// Le même tirage, filtré sur les personnes déjà choisies. Ça coûte une
+/// requête de plus que de relire les profils directement, et ça évite de
+/// montrer quelqu'un qui vous a bloqué depuis ce matin, s'est retiré, ou a été
+/// suspendu : la sélection est stable, pas figée.
+///
+/// Ce qui disparaît n'est **pas** remplacé. La sélection du jour a été tirée ;
+/// la remplir à nouveau ferait du départ de quelqu'un une occasion d'en voir
+/// un de plus.
+async fn selection_still_showable(
+    state: &AppState,
+    viewer: Uuid,
+    vises: &[Uuid],
+) -> ApiResult<Vec<Candidate>> {
+    if vises.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Large exprès : le tirage classe par distance, et les trois de ce matin
+    // peuvent s'être éloignées dans ce classement depuis.
+    let tous = query_deck(&state.db, viewer, 200, None).await?;
+    let mut par_id: std::collections::HashMap<Uuid, Candidate> = tous
+        .into_iter()
+        .map(|candidat| (candidat.id, candidat))
+        .collect();
+
+    // L'ordre de la sélection, pas celui de la distance : ces trois-là sont
+    // posées, et les voir changer de place d'une ouverture à l'autre donnerait
+    // l'impression qu'elles ont changé.
+    Ok(vises
+        .iter()
+        .filter_map(|vise| par_id.remove(vise))
+        .collect())
+}
+
+/// Laisser passer. C'est une décision, et elle est définitive.
+async fn pass_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> ApiResult<Json<()>> {
+    let claims = authenticate(&state, &headers)?;
+    record_verdict(&state, claims.sub, id, Verdict::Passed).await?;
+    Ok(Json(()))
+}
+
+/// Écrire, et c'est tout ce qu'il y a à faire d'un profil qui plaît.
+///
+/// Il n'y a plus de « j'aime » qui attend sa réciproque, donc plus d'écran
+/// « c'est un match ». Une conversation existe parce que quelqu'un a écrit
+/// quelque chose ; l'autre répond ou ne répond pas, et ne pas répondre est une
+/// réponse qui n'a besoin d'aucune interface.
+///
+/// Le `match_pair` reste, et il ne veut plus dire « double oui » : il veut dire
+/// « ces deux-là ont un fil ». Le reste du serveur — la liste, le socket, le
+/// blocage qui referme — s'appuie dessus et n'a pas à savoir d'où il vient.
+async fn write_first(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(request): Json<WriteRequest>,
+) -> ApiResult<Json<crate::chat::types::MessageResponse>> {
+    let claims = authenticate(&state, &headers)?;
+    let viewer = claims.sub;
+
+    let body = request.body.trim();
+    if body.is_empty() {
+        return Err(ApiError::BadRequest(
+            "Un message vide n'en est pas un.".into(),
+        ));
+    }
+    if body.chars().count() > MAX_BODY {
+        return Err(ApiError::BadRequest("Ce message est trop long.".into()));
+    }
+
+    // On n'écrit qu'à quelqu'un de sa sélection du jour. C'est ça, la limite —
+    // pas un quota posé à côté. Sans elle, l'adresse accepterait n'importe
+    // quel identifiant et rendrait l'envoi en masse trivial.
+    let today = Utc::now().date_naive();
+    let propose = selection::Entity::find()
+        .filter(selection::Column::ViewerId.eq(viewer))
+        .filter(selection::Column::TargetId.eq(id))
+        .filter(selection::Column::ServedOn.eq(today))
         .one(&state.db)
-        .await?
-        .ok_or(ApiError::NotFound)?;
+        .await?;
+    if propose.is_none() {
+        return Err(ApiError::NotFound);
+    }
 
-    let decision = request.decision;
+    record_verdict(&state, viewer, id, Verdict::Written).await?;
+
     let now = Utc::now();
+    let (lower, upper) = match_pair::ordered(viewer, id);
+    let corps = body.to_owned();
 
-    // The verdict and the match it may create go in together. A like written
-    // without its match would leave two people who both said yes and never
-    // hear about it, and no later request would put it right.
-    let created = state
+    // Le fil, la conversation et le premier message partent ensemble. Un fil
+    // créé sans son message laisserait une conversation vide chez quelqu'un
+    // qui n'a jamais rien reçu, et aucune requête plus tard ne le réparerait.
+    let ecrit = state
         .db
-        .transaction::<_, Option<match_pair::Model>, sea_orm::DbErr>(|txn| {
+        .transaction::<_, message::Model, sea_orm::DbErr>(move |txn| {
             Box::pin(async move {
-                swipe::ActiveModel {
-                    id: Set(Uuid::new_v4()),
-                    viewer_id: Set(viewer),
-                    target_id: Set(target),
-                    decision: Set(decision.as_str().to_owned()),
-                    created_at: Set(now.into()),
-                }
-                .insert(txn)
-                .await?;
-
-                if !decision.is_affirmative() {
-                    return Ok(None);
-                }
-
-                // Did they already say yes to us?
-                let reciprocal = swipe::Entity::find()
-                    .filter(swipe::Column::ViewerId.eq(target))
-                    .filter(swipe::Column::TargetId.eq(viewer))
-                    .one(txn)
-                    .await?;
-
-                let mutual = reciprocal
-                    .and_then(|other| SwipeDecision::parse(&other.decision))
-                    .is_some_and(SwipeDecision::is_affirmative);
-
-                if !mutual {
-                    return Ok(None);
-                }
-
-                let (lower, upper) = match_pair::ordered(viewer, target);
-                let created = match_pair::ActiveModel {
+                let pair = match_pair::ActiveModel {
                     id: Set(Uuid::new_v4()),
                     lower_id: Set(lower),
                     upper_id: Set(upper),
@@ -205,100 +237,93 @@ async fn swipe_route(
                 .insert(txn)
                 .await?;
 
-                Ok(Some(created))
+                let fil = conversation::ActiveModel {
+                    id: Set(Uuid::new_v4()),
+                    match_id: Set(pair.id),
+                    created_at: Set(now.into()),
+                    updated_at: Set(now.into()),
+                }
+                .insert(txn)
+                .await?;
+
+                message::ActiveModel {
+                    id: Set(Uuid::new_v4()),
+                    conversation_id: Set(fil.id),
+                    sender_id: Set(viewer),
+                    client_id: Set(Uuid::new_v4()),
+                    body: Set(corps),
+                    sent_at: Set(now.into()),
+                    read_at: Set(None),
+                }
+                .insert(txn)
+                .await
             })
         })
         .await
-        .map_err(|error| match error {
-            // The unique key on (viewer, target) speaking: the card was
-            // already judged. Answering 409 lets the client drop a stale card
-            // rather than show a failure for something already done.
-            sea_orm::TransactionError::Transaction(sea_orm::DbErr::Query(_))
-            | sea_orm::TransactionError::Transaction(sea_orm::DbErr::Exec(_)) => {
-                ApiError::BadRequest("Ce profil a déjà été jugé.".into())
-            }
-            sea_orm::TransactionError::Transaction(other) => ApiError::from(other),
-            sea_orm::TransactionError::Connection(other) => ApiError::from(other),
+        .map_err(|erreur| match erreur {
+            sea_orm::TransactionError::Transaction(inner) => ApiError::from(inner),
+            sea_orm::TransactionError::Connection(inner) => ApiError::from(inner),
         })?;
 
-    // L'autre l'apprend par le socket s'il est là, sinon en rouvrant
-    // l'application : un match est en base avant d'être annoncé, donc rien ne
-    // se perd quand personne n'écoute.
-    if let Some(model) = &created {
-        if let Some(mine) = profile::Entity::find_by_id(viewer).one(&state.db).await? {
-            // Le profil de celui qui vient de balayer : c'est lui que l'autre
-            // découvre, pas le sien — photos comprises, sans quoi la carte
-            // « c'est un match » s'ouvrirait sur un dégradé.
-            let mut profile = ProfileResponse::own(mine);
-            crate::photos::routes::attach_one(&state, &mut profile).await?;
-            announce_match(
-                &state,
-                target,
-                MatchResponse {
-                    id: model.id,
-                    matched_at: model.matched_at.into(),
-                    profile,
-                    conversation_id: None,
-                },
-            );
-        }
+    // L'autre l'apprend par le socket s'il est là, sinon en rouvrant. Le
+    // message est en base avant d'être annoncé, donc rien ne se perd quand
+    // personne n'écoute.
+    if let Some(mien) = profile::Entity::find_by_id(viewer).one(&state.db).await? {
+        let mut profil = ProfileResponse::own(mien);
+        crate::photos::routes::attach_one(&state, &mut profil).await?;
+        announce_match(
+            &state,
+            id,
+            MatchResponse {
+                id: ecrit.conversation_id,
+                profile: profil,
+                matched_at: now,
+                conversation_id: Some(ecrit.conversation_id),
+            },
+        );
     }
 
-    let matched = created.is_some();
-    let mut r#match = created.map(|model| MatchResponse {
-        id: model.id,
-        matched_at: model.matched_at.into(),
-        profile: ProfileResponse::own(target_profile),
-        conversation_id: None,
-    });
-    if let Some(found) = r#match.as_mut() {
-        crate::photos::routes::attach_one(&state, &mut found.profile).await?;
-    }
-
-    let response = SwipeOutcome {
-        matched,
-        r#match,
-        likes_remaining: None,
-    };
-
-    Ok(Json(response))
+    Ok(Json(ecrit.into()))
 }
 
-/// Undoes the last pass.
-///
-/// The row is deleted rather than marked undone: the deck excludes anyone
-/// already judged, so a row left in place would keep the profile hidden and
-/// the rewind would appear to do nothing.
-async fn rewind(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> ApiResult<Json<RewindResponse>> {
-    let claims = authenticate(&state, &headers)?;
+/// Écrit le verdict, et refuse ce qui ne se décide pas.
+async fn record_verdict(
+    state: &AppState,
+    viewer: Uuid,
+    target: Uuid,
+    verdict: Verdict,
+) -> ApiResult<()> {
+    if viewer == target {
+        return Err(ApiError::BadRequest(
+            "On ne peut pas se juger soi-même.".into(),
+        ));
+    }
 
-    let last_pass = swipe::Entity::find()
-        .filter(swipe::Column::ViewerId.eq(claims.sub))
-        .filter(swipe::Column::Decision.eq(SwipeDecision::Pass.as_str()))
-        .order_by_desc(swipe::Column::CreatedAt)
+    // La cible doit exister, sans quoi une coquille s'écrirait comme un
+    // verdict rendu sur personne.
+    profile::Entity::find_by_id(target)
         .one(&state.db)
-        .await?;
+        .await?
+        .ok_or(ApiError::NotFound)?;
 
-    let Some(last_pass) = last_pass else {
-        return Ok(Json(RewindResponse { profile: None }));
-    };
+    swipe::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        viewer_id: Set(viewer),
+        target_id: Set(target),
+        decision: Set(verdict.as_str().to_owned()),
+        created_at: Set(Utc::now().into()),
+    }
+    .insert(&state.db)
+    .await
+    .map_err(|erreur| match erreur {
+        // La clé unique sur (viewer, target) qui parle : c'est déjà tranché.
+        sea_orm::DbErr::Query(_) | sea_orm::DbErr::Exec(_) => {
+            ApiError::Conflict("Ce profil a déjà été tranché.".into())
+        }
+        autre => ApiError::from(autre),
+    })?;
 
-    let restored = profile::Entity::find_by_id(last_pass.target_id)
-        .one(&state.db)
-        .await?;
-
-    swipe::Entity::delete_by_id(last_pass.id)
-        .exec(&state.db)
-        .await?;
-
-    // The account may have gone since the pass. The verdict is still undone —
-    // there is simply no card to hand back.
-    Ok(Json(RewindResponse {
-        profile: restored.map(ProfileResponse::own),
-    }))
+    Ok(())
 }
 
 async fn report_profile(

@@ -19,7 +19,7 @@ protocol ProfileServicing: Sendable {
     /// stops routing to the onboarding flow.
     func completeProfile() async throws -> User
     /// Pushes the current position. The server computes every distance from
-    /// it; without this call the deck has nothing to sort by.
+    /// it; without this call the daily selection has nothing to sort by.
     func updateLocation(_ coordinate: Coordinate) async throws
 }
 

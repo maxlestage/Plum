@@ -14,7 +14,7 @@ struct RootView: View {
                     .transition(.opacity)
             case .signedIn:
                 // A brand-new account has no photo and no bio; sending it
-                // straight to the deck wastes everyone's swipes.
+                // straight to the selection puts an empty profile in front of people.
                 if session.needsOnboarding {
                     OnboardingView()
                         .transition(.opacity)
@@ -64,5 +64,5 @@ struct PlumMark: View {
     RootView()
         .environment(SessionStore(auth: AppEnvironment.preview.auth))
         .environment(\.services, .preview)
-        .environment(DeckRefreshSignal())
+        .environment(SelectionRefreshSignal())
 }

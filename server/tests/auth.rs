@@ -4,6 +4,7 @@ mod common;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
+use common::deck_ages::ERASURE;
 use common::*;
 use serde_json::json;
 use tower::ServiceExt;
@@ -415,35 +416,17 @@ async fn deleting_an_account_takes_everything_that_depends_on_it() {
     let reader = db.clone();
     let app = plum_server::app(state(db));
 
-    let (token, user) = sign_up_and_token(&app, "effacement").await;
-    let id: uuid::Uuid = user["id"].as_str().unwrap().parse().unwrap();
-    let (other, other_id) = sign_up_and_token(&app, "effacement-autre").await;
-    let other_id: uuid::Uuid = other_id["id"].as_str().unwrap().parse().unwrap();
+    // Deux comptes qui se voient l'un l'autre et personne d'autre : un âge à
+    // eux et un même point sur la carte. Sans ça, la sélection du jour est
+    // tirée dans toute la base et ne contient pas forcément la bonne personne
+    // — le tirage rend trois profils, pas une page qu'on parcourt.
+    let ici = private_cluster();
+    let (token, id) = candidate(&app, "effacement", ERASURE, "woman", Some(ici)).await;
+    let (other, other_id) = candidate(&app, "effacement-autre", ERASURE, "man", Some(ici)).await;
 
     // De quoi laisser des traces dans chaque table.
-    call(
-        &app,
-        request(
-            "PATCH",
-            "/api/v1/me/preferences",
-            Some(&token),
-            Some(json!({
-                "interested_in": "everyone", "min_age": 25, "max_age": 35,
-                "max_distance_km": 30, "show_me_on_plum": true
-            })),
-        ),
-    )
-    .await;
-    call(
-        &app,
-        request(
-            "POST",
-            "/api/v1/discovery/swipes",
-            Some(&token),
-            Some(json!({ "target_profile_id": other_id, "decision": "like" })),
-        ),
-    )
-    .await;
+    only_see_age(&app, &token, ERASURE, "everyone").await;
+    only_see_age(&app, &other, ERASURE, "everyone").await;
     call(
         &app,
         request(
@@ -454,17 +437,9 @@ async fn deleting_an_account_takes_everything_that_depends_on_it() {
         ),
     )
     .await;
-    // L'autre aime en retour : un match existe désormais.
-    call(
-        &app,
-        request(
-            "POST",
-            "/api/v1/discovery/swipes",
-            Some(&other),
-            Some(json!({ "target_profile_id": id, "decision": "like" })),
-        ),
-    )
-    .await;
+    // Un fil existe désormais entre les deux : quelqu'un a écrit.
+    let (status, body) = write_to(&app, &other, id, "Bonjour").await;
+    assert_eq!(status, StatusCode::OK, "premier message : {body}");
 
     let (status, _) = call(&app, request("DELETE", "/api/v1/me", Some(&token), None)).await;
     assert_eq!(status, StatusCode::OK);

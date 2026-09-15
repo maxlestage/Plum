@@ -32,12 +32,12 @@ export const fr: Copy = {
       body: "Le strict minimum pour qu'on ait envie de répondre. Une photo est obligatoire ; le reste se remplit en trente secondes.",
     },
     {
-      title: "On balaie",
-      body: "À droite si oui, à gauche si non, vers le haut si vraiment. Le chevron ouvre le profil complet quand trois lignes ne suffisent pas à décider.",
+      title: "Trois profils par jour",
+      body: "Pas de pile sans fond, pas de balayage. Trois personnes, la même sélection du matin au soir, et deux boutons : écrire, ou laisser passer. Trois, ça se lit.",
     },
     {
-      title: "On se parle, ou pas",
-      body: "Un match ouvre une conversation. Personne n'est obligé d'y aller, et se retirer tient en deux gestes.",
+      title: "Écrire, c'est tout le geste",
+      body: "Il n'y a pas de « j'aime » qui attend d'être rendu, donc pas d'écran « c'est un match ». Vous écrivez une phrase, elle arrive, et la personne répond ou ne répond pas. Ne pas répondre est une réponse.",
     },
   ],
 
@@ -45,11 +45,11 @@ export const fr: Copy = {
   principles: [
     {
       title: "Pas d'algorithme mystérieux",
-      body: "Le deck trie par distance et par vos critères. C'est tout. Rien n'est vendu, rien n'est mis en avant contre paiement.",
+      body: "La sélection du jour trie par distance et par vos critères. C'est tout. Rien n'est vendu, rien n'est mis en avant contre paiement.",
     },
     {
       title: "Bloquer ferme la conversation",
-      body: "Pas seulement le deck : le fil disparaît des deux côtés, les messages avec, et la personne bloquée ne peut plus écrire ni faire clignoter « en train d'écrire ». Un blocage qui laisserait la conversation ouverte ne serait qu'un filtre.",
+      body: "Pas seulement la sélection : le fil disparaît des deux côtés, les messages avec, et la personne bloquée ne peut plus écrire ni faire clignoter « en train d'écrire ». Un blocage qui laisserait la conversation ouverte ne serait qu'un filtre.",
     },
     {
       title: "Un signalement est lu",
@@ -61,11 +61,11 @@ export const fr: Copy = {
     },
     {
       title: "Les profils ne s'aspirent pas",
-      body: "Un compte ne peut pas parcourir le deck sans fin pour en récolter les prénoms, les biographies et les photos : le nombre de profils servis par jour est plafonné, très au-dessus de ce qu'une personne regarde et très en dessous de ce qu'un script voudrait.",
+      body: "Il n'y a pas de pile à parcourir pour en récolter les prénoms, les biographies et les photos. Trois profils par jour, c'est aussi ce que voit un script — et on n'écrit qu'aux personnes qu'on vous a proposées.",
     },
     {
       title: "Utilisable sans voir l'écran",
-      body: "Le deck se pilote au balayage, mais chaque verdict est aussi une action VoiceOver. Une application qu'on ne peut utiliser qu'à l'œil exclut du monde pour rien.",
+      body: "Des boutons nommés plutôt qu'un geste : « écrire » et « passer » se lisent à voix haute. Une application qu'on ne peut utiliser qu'à l'œil, ou qu'au poignet leste, exclut du monde pour rien.",
     },
   ],
 
@@ -103,7 +103,7 @@ export const fr: Copy = {
       },
       {
         title: "Fin du compte",
-        body: "La suppression du compte se fait depuis les réglages de l'application, sans passer par nous. Elle emporte les matchs, les messages et les photos.",
+        body: "La suppression du compte se fait depuis les réglages de l'application, sans passer par nous. Elle emporte les conversations, les messages et les photos.",
       },
     ],
   },
@@ -129,7 +129,7 @@ export const fr: Copy = {
       },
       {
         title: "Les photos",
-        body: "Elles sont réencodées à la réception, ce qui efface les métadonnées de l'appareil — dont les coordonnées GPS qu'une photo de téléphone porte souvent sans qu'on le sache. L'adresse d'une photo n'est pas devinable, mais elle n'est pas non plus protégée par un mot de passe : elle s'ouvre sans être connecté, comme partout où les photos passent par un cache. Qui a mis la main sur un lien garde donc l'image, y compris après un match défait. Supprimer la photo, ou le compte, la retire du serveur.",
+        body: "Elles sont réencodées à la réception, ce qui efface les métadonnées de l'appareil — dont les coordonnées GPS qu'une photo de téléphone porte souvent sans qu'on le sache. L'adresse d'une photo n'est pas devinable, mais elle n'est pas non plus protégée par un mot de passe : elle s'ouvre sans être connecté, comme partout où les photos passent par un cache. Qui a mis la main sur un lien garde donc l'image, y compris après un blocage. Supprimer la photo, ou le compte, la retire du serveur.",
       },
       {
         title: "Suppression",

@@ -92,21 +92,18 @@ struct Thread {
 /// Deux comptes qui ont matché, et leur conversation ouverte.
 async fn thread(app: &axum::Router, tag: &str, age: i32) -> Thread {
     let here = private_cluster();
-    let (a, a_id) = candidate(app, &format!("{tag}-a"), age, "woman", Some(here)).await;
+    let (a, _a_id) = candidate(app, &format!("{tag}-a"), age, "woman", Some(here)).await;
     let (b, b_id) = candidate(app, &format!("{tag}-b"), age, "man", Some(here)).await;
 
-    for (token, target) in [(&a, b_id), (&b, a_id)] {
-        call(
-            app,
-            request(
-                "POST",
-                "/api/v1/discovery/swipes",
-                Some(token),
-                Some(json!({ "target_profile_id": target, "decision": "like" })),
-            ),
-        )
-        .await;
-    }
+    // Écrire suppose que la personne soit dans la sélection du jour, donc que
+    // les critères la laissent passer. Les âges de ces suites sortent de la
+    // fourchette par défaut — c'était sans conséquence du temps où l'on
+    // balayait, puisque le verdict n'exigeait rien du tirage.
+    only_see_age(app, &a, age, "everyone").await;
+
+    // Un seul message ouvre le fil : il n'y a plus de double oui à orchestrer.
+    let (status, ouverture) = write_to(app, &a, b_id, "Premier message").await;
+    assert_eq!(status, StatusCode::OK, "premier message : {ouverture}");
 
     let (_, matches) = call(app, request("GET", "/api/v1/matches", Some(&a), None)).await;
     let match_id = matches["items"][0]["id"].as_str().expect("un match");
@@ -122,6 +119,23 @@ async fn thread(app: &axum::Router, tag: &str, age: i32) -> Thread {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "ouverture : {body}");
+
+    // Le fil s'ouvre forcément sur un message : c'est ce qui l'a créé. Le
+    // destinataire le lit tout de suite, pour que les suites qui comptent les
+    // non-lus partent de zéro plutôt que d'un.
+    call(
+        app,
+        request(
+            "POST",
+            &format!(
+                "/api/v1/conversations/{}/read",
+                body["id"].as_str().unwrap()
+            ),
+            Some(&b),
+            None,
+        ),
+    )
+    .await;
 
     Thread {
         a,
@@ -405,48 +419,42 @@ async fn an_unreadable_frame_does_not_close_the_socket() {
     assert_eq!(event["type"], "message");
 }
 
-/// Celui qui balaye l'apprend par sa réponse ; l'autre n'apprendrait rien
+/// Celui qui écrit l'apprend par sa réponse ; l'autre n'apprendrait rien
 /// avant d'avoir rouvert l'application.
+///
+/// L'événement s'appelle toujours « match » sur le fil, et ce n'est plus tout
+/// à fait le mot : il ne dit plus « vous vous êtes choisis » mais « quelqu'un
+/// vous a écrit ». Le renommer casserait les clients déjà installés pour un
+/// gain de vocabulaire ; il est renommé côté écran, où le mot se lit.
 #[tokio::test]
-async fn a_match_is_pushed_to_the_person_who_was_not_swiping() {
+async fn a_first_message_is_pushed_to_the_person_who_receives_it() {
     let Some(db) = database().await else { return };
     let app = plum_server::app(state(db));
     let address = listening(app.clone()).await;
 
     let here = private_cluster();
     let (a, a_id) = candidate(&app, "match-direct-a", LIVE_MATCH, "woman", Some(here)).await;
-    let (b, b_id) = candidate(&app, "match-direct-b", LIVE_MATCH, "man", Some(here)).await;
+    let (b, _) = candidate(&app, "match-direct-b", LIVE_MATCH, "man", Some(here)).await;
+    only_see_age(&app, &b, LIVE_MATCH, "everyone").await;
 
-    // A aime en premier : rien encore, personne n'a répondu.
-    call(
-        &app,
-        request(
-            "POST",
-            "/api/v1/discovery/swipes",
-            Some(&a),
-            Some(json!({ "target_profile_id": b_id, "decision": "like" })),
-        ),
-    )
-    .await;
-
+    // A écoute, sans rien avoir fait : c'est bien le point du test.
     let mut waiting = open_socket(address, &a).await;
 
-    call(
-        &app,
-        request(
-            "POST",
-            "/api/v1/discovery/swipes",
-            Some(&b),
-            Some(json!({ "target_profile_id": a_id, "decision": "like" })),
-        ),
-    )
-    .await;
+    let (status, body) = write_to(&app, &b, a_id, "Votre deuxième phrase m'a fait rire.").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
 
     let event = next_event(&mut waiting).await;
     assert_eq!(event["type"], "match");
     // Le profil poussé est celui de l'*autre*, sinon l'écran afficherait son
-    // propre visage sous « c'est un match ».
-    assert_eq!(event["match"]["profile"]["id"], b_id.to_string());
+    // propre visage.
+    assert_eq!(
+        event["match"]["profile"]["display_name"], "match-direct-b",
+        "c'est le profil de qui a écrit qui doit arriver"
+    );
+    assert!(
+        event["match"]["conversation_id"].is_string(),
+        "l'événement doit porter la conversation, sinon l'écran ne sait pas où aller"
+    );
 }
 
 /// Deux fenêtres de la même personne — le téléphone et l'iPad — doivent voir

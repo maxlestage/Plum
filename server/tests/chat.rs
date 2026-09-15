@@ -22,18 +22,15 @@ async fn thread(app: &axum::Router, tag: &str, age: i32) -> Thread {
     let (a, a_id) = candidate(app, &format!("{tag}-a"), age, "woman", Some(here)).await;
     let (b, b_id) = candidate(app, &format!("{tag}-b"), age, "man", Some(here)).await;
 
-    for (token, target) in [(&a, b_id), (&b, a_id)] {
-        call(
-            app,
-            request(
-                "POST",
-                "/api/v1/discovery/swipes",
-                Some(token),
-                Some(json!({ "target_profile_id": target, "decision": "like" })),
-            ),
-        )
-        .await;
-    }
+    // Écrire suppose que la personne soit dans la sélection du jour, donc que
+    // les critères la laissent passer. Les âges de ces suites sortent de la
+    // fourchette par défaut — c'était sans conséquence du temps où l'on
+    // balayait, puisque le verdict n'exigeait rien du tirage.
+    only_see_age(app, &a, age, "everyone").await;
+
+    // Un seul message ouvre le fil : il n'y a plus de double oui à orchestrer.
+    let (status, ouverture) = write_to(app, &a, b_id, "Premier message").await;
+    assert_eq!(status, StatusCode::OK, "premier message : {ouverture}");
 
     let (_, matches) = call(app, request("GET", "/api/v1/matches", Some(&a), None)).await;
     let match_id = matches["items"][0]["id"]
@@ -52,6 +49,23 @@ async fn thread(app: &axum::Router, tag: &str, age: i32) -> Thread {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "ouverture : {body}");
+
+    // Le fil s'ouvre forcément sur un message : c'est ce qui l'a créé. Le
+    // destinataire le lit tout de suite, pour que les suites qui comptent les
+    // non-lus partent de zéro plutôt que d'un.
+    call(
+        app,
+        request(
+            "POST",
+            &format!(
+                "/api/v1/conversations/{}/read",
+                body["id"].as_str().unwrap()
+            ),
+            Some(&b),
+            None,
+        ),
+    )
+    .await;
 
     Thread {
         a,
@@ -116,8 +130,11 @@ async fn a_conversation_comes_back_in_the_shape_the_client_decodes() {
     }
     assert_eq!(found["match_id"], t.match_id);
     assert_eq!(found["participant"]["id"], t.b_id.to_string());
-    assert!(found["last_message"].is_null(), "rien n'a encore été dit");
-    assert_eq!(found["unread_count"], 0);
+    // Un fil s'ouvre forcément sur un message — c'est lui qui l'a créé. Le
+    // cas « rien n'a encore été dit » a disparu avec le double oui : il n'y a
+    // plus de match silencieux à ouvrir.
+    assert_eq!(found["last_message"]["body"], "Premier message");
+    assert_eq!(found["unread_count"], 0, "il a été lu par le destinataire");
 }
 
 /// Deux appareils qui ouvrent l'écran en même temps ne doivent pas créer deux
@@ -215,8 +232,8 @@ async fn resending_the_same_client_id_does_not_duplicate_the_message() {
     let (_, thread_body) = call(&app, request("GET", &path, Some(&t.a), None)).await;
     assert_eq!(
         thread_body["items"].as_array().unwrap().len(),
-        1,
-        "le fil ne doit contenir qu'un message"
+        2,
+        "celui de l'ouverture et celui-ci — le renvoi n'en a pas ajouté un troisième"
     );
 }
 
@@ -360,7 +377,12 @@ async fn paging_the_thread_walks_back_without_repeating_or_skipping() {
     unique.sort();
     unique.dedup();
     assert_eq!(seen.len(), unique.len(), "un message est apparu deux fois");
-    assert_eq!(unique.len(), written.len(), "un message a été sauté");
+    assert_eq!(
+        unique.len(),
+        written.len() + 1,
+        "un message a été sauté — le « +1 » est celui qui a ouvert le fil, \
+         puisqu'un fil ne peut plus exister sans"
+    );
 }
 
 /// Une conversation à laquelle on n'appartient pas n'existe pas, de son point

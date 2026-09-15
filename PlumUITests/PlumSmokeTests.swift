@@ -43,24 +43,54 @@ final class PlumSmokeTests: XCTestCase {
         app.buttons["bouton-valider"].tap()
     }
 
-    func testSigningInReachesTheDeckAndASwipeAdvancesIt() {
+    /// La sélection s'affiche, et écrire ouvre bien une conversation.
+    ///
+    /// C'est le chemin entier du nouveau geste : plus de glissement, deux
+    /// boutons nommés, et un message qui part. Le test tape « Écrire » puis
+    /// « Envoyer » — s'il manquait le moindre maillon, on le verrait ici et
+    /// nulle part ailleurs, puisque aucun test unitaire ne traverse la vue.
+    func testSigningInReachesTheSelectionAndWritingOpensAThread() {
         signIn()
 
-        let like = app.buttons["J'aime"]
-        XCTAssertTrue(like.waitForExistence(timeout: timeout), "Le deck ne s'affiche pas après connexion")
+        let write = app.buttons["Écrire"].firstMatch
+        XCTAssertTrue(
+            write.waitForExistence(timeout: timeout),
+            "La sélection du jour ne s'affiche pas après connexion"
+        )
+        write.tap()
 
-        like.tap()
+        let send = app.buttons["Envoyer"]
+        XCTAssertTrue(send.waitForExistence(timeout: timeout), "La feuille d'écriture ne s'ouvre pas")
 
-        // A like either lands on the next card or on the match celebration —
-        // both are correct, and asserting only one would make this test
-        // hostage to the demo fixture.
-        let backOnTheDeck = app.buttons["J'aime"]
-        let celebration = app.buttons["Continuer à swiper"]
+        // Le champ est un `TextField` à axe vertical : vue texte sur certaines
+        // versions, champ texte sur d'autres. D'où l'identifiant plutôt qu'un
+        // `firstMatch`, qui attraperait le premier venu.
+        let byView = app.textViews["champ-premier-message"]
+        let field = byView.exists ? byView : app.textFields["champ-premier-message"]
+        XCTAssertTrue(field.waitForExistence(timeout: timeout), "Le champ de saisie est absent")
+        field.tap()
+        field.typeText("Votre deuxième phrase m'a fait rire.")
+
+        send.tap()
 
         XCTAssertTrue(
-            backOnTheDeck.waitForExistence(timeout: timeout)
-                || celebration.waitForExistence(timeout: timeout),
-            "Après un like, on doit voir la carte suivante ou l'écran de match"
+            app.alerts["Message envoyé"].waitForExistence(timeout: timeout),
+            "Après l'envoi, l'écran doit dire que la conversation est ouverte"
+        )
+    }
+
+    /// Laisser passer demande confirmation : c'est définitif, et le dire avant
+    /// remplace le retour en arrière qu'on ne peut plus offrir.
+    func testPassingAsksBeforeItIsFinal() {
+        signIn()
+
+        let pass = app.buttons["Passer"].firstMatch
+        XCTAssertTrue(pass.waitForExistence(timeout: timeout), "La sélection ne s'affiche pas")
+        pass.tap()
+
+        XCTAssertTrue(
+            app.buttons["Laisser passer"].waitForExistence(timeout: timeout),
+            "Un geste définitif doit demander confirmation"
         )
     }
 
@@ -124,23 +154,23 @@ final class PlumSmokeTests: XCTestCase {
 }
 
 extension PlumSmokeTests {
-    /// The card shows three lines of bio; without this screen people swipe on
-    /// photographs alone. The sheet has to open from the deck and carry the
-    /// whole profile.
-    func testTheFullProfileOpensFromTheDeck() {
+    /// La carte montre la photo, le nom et les deux phrases ; le reste — les
+    /// autres photos, les centres d'intérêt — est derrière. Toucher la carte
+    /// doit l'ouvrir, sans quoi on décide encore sur une seule image.
+    func testTheFullProfileOpensFromTheCard() {
         signIn()
 
-        let openDetail = app.buttons["Voir le profil complet"]
+        // La photo de la première carte porte le nom de la personne : c'est
+        // elle qui ouvre le profil. On vise le premier bouton dont l'étiquette
+        // contient « ans », qui est la forme de cette étiquette.
+        let card = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] %@", " ans")
+        ).firstMatch
         XCTAssertTrue(
-            openDetail.waitForExistence(timeout: timeout),
-            "La carte du dessus doit proposer d'ouvrir le profil complet"
+            card.waitForExistence(timeout: timeout),
+            "La première carte de la sélection doit être ouvrable"
         )
-
-        // Tap by coordinate. `tap()` first asks the accessibility layer to
-        // scroll the element into view, which fails on this one — it sits
-        // inside a card that carries a drag gesture, and the scroll action
-        // errors even though the button is plainly on screen.
-        openDetail.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        card.tap()
 
         // Ne pas s'appuyer sur le texte affiché : plumSectionHeader() applique
         // .textCase(.uppercase), donc « À propos » se rend « À PROPOS ». Le
@@ -157,8 +187,8 @@ extension PlumSmokeTests {
 
         close.tap()
         XCTAssertTrue(
-            app.buttons["J'aime"].waitForExistence(timeout: timeout),
-            "Fermer doit ramener au deck"
+            app.buttons["Passer"].firstMatch.waitForExistence(timeout: timeout),
+            "Fermer doit ramener à la sélection"
         )
     }
 }

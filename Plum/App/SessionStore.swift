@@ -32,7 +32,7 @@ final class SessionStore {
     var currentUserId: UUID? { state.user?.id }
 
     /// Called once at launch: restores a keychain session so returning users
-    /// land straight on the deck.
+    /// land straight on today's selection.
     func restore() async {
         watchForExpiry()
         if let user = await auth.restoreSession() {

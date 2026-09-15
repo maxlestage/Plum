@@ -10,15 +10,19 @@ import XCTest
 private struct RefusingDiscoveryService: DiscoveryServicing {
     struct Down: Error {}
 
-    func deck(cursor: String?, limit: Int) async throws -> Page<Profile> {
-        Page(items: SampleData.deck, nextCursor: nil)
+    func selection() async throws -> DailySelection {
+        DailySelection(
+            items: SampleData.selection,
+            refreshesAt: .now.addingTimeInterval(3_600),
+            size: SampleData.selection.count
+        )
     }
 
-    func swipe(profileId: UUID, decision: SwipeDecision) async throws -> SwipeOutcome {
-        SwipeOutcome(matched: false, match: nil, likesRemaining: nil)
+    func write(profileId: UUID, body: String) async throws -> Message {
+        Message(id: UUID(), conversationId: UUID(), senderId: UUID(), body: body, sentAt: .now)
     }
 
-    func rewind() async throws -> Profile? { nil }
+    func pass(profileId: UUID) async throws {}
 
     func report(profileId: UUID, reason: String) async throws { throw Down() }
 
@@ -26,17 +30,17 @@ private struct RefusingDiscoveryService: DiscoveryServicing {
 }
 
 @MainActor
-final class DeckSafetyActionTests: XCTestCase {
+final class SelectionSafetyActionTests: XCTestCase {
     /// Le silence d'avant : la carte partait, l'appel échouait dans un `try?`,
     /// et la personne revenait au chargement suivant sans explication. Sur un
     /// geste de sécurité, laisser quelqu'un se croire protégé est pire que de
     /// lui dire que ça a raté.
     func testAFailedBlockSaysSoAndPutsTheCardBack() async {
         let viewModel = DiscoveryViewModel(discovery: RefusingDiscoveryService())
-        await viewModel.loadInitialDeck()
+        await viewModel.load()
 
-        guard let profile = viewModel.topProfile else {
-            return XCTFail("Le deck de démonstration doit avoir des cartes")
+        guard let profile = viewModel.profiles.first else {
+            return XCTFail("La sélection de démonstration doit avoir des profils")
         }
         let before = viewModel.profiles.map(\.id)
 
@@ -52,10 +56,10 @@ final class DeckSafetyActionTests: XCTestCase {
 
     func testAFailedReportSaysSoToo() async {
         let viewModel = DiscoveryViewModel(discovery: RefusingDiscoveryService())
-        await viewModel.loadInitialDeck()
+        await viewModel.load()
 
-        guard let profile = viewModel.topProfile else {
-            return XCTFail("Le deck de démonstration doit avoir des cartes")
+        guard let profile = viewModel.profiles.first else {
+            return XCTFail("La sélection de démonstration doit avoir des profils")
         }
 
         await viewModel.report(profile, reason: "Harcèlement")
@@ -67,10 +71,10 @@ final class DeckSafetyActionTests: XCTestCase {
     /// Et quand ça marche, rien ne s'affiche et la carte reste partie.
     func testASuccessfulBlockIsSilentAndKeepsTheCardGone() async {
         let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
-        await viewModel.loadInitialDeck()
+        await viewModel.load()
 
-        guard let profile = viewModel.topProfile else {
-            return XCTFail("Le deck de démonstration doit avoir des cartes")
+        guard let profile = viewModel.profiles.first else {
+            return XCTFail("La sélection de démonstration doit avoir des profils")
         }
 
         await viewModel.block(profile)
@@ -81,8 +85,8 @@ final class DeckSafetyActionTests: XCTestCase {
 
     func testTheNoticeCanBeDismissed() async {
         let viewModel = DiscoveryViewModel(discovery: RefusingDiscoveryService())
-        await viewModel.loadInitialDeck()
-        guard let profile = viewModel.topProfile else { return XCTFail("deck vide") }
+        await viewModel.load()
+        guard let profile = viewModel.profiles.first else { return XCTFail("sélection vide") }
 
         await viewModel.block(profile)
         XCTAssertNotNil(viewModel.safetyFailure)

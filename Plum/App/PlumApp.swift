@@ -4,7 +4,7 @@ import SwiftUI
 struct PlumApp: App {
     @State private var services: AppEnvironment
     @State private var session: SessionStore
-    @State private var deckRefresh = DeckRefreshSignal()
+    @State private var deckRefresh = SelectionRefreshSignal()
 
     /// Posé ici plutôt que dans l'écran de réglages : `preferredColorScheme`
     /// s'applique à la fenêtre, donc à ce qui est présenté par-dessus. Depuis
