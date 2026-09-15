@@ -20,15 +20,12 @@ final class MatchesViewModel {
         self.chatService = chatService
     }
 
-    /// Matches nobody has written to yet: the rail exists to unblock exactly
-    /// these.
-    var unstartedMatches: [Match] {
-        let started = Set(conversations.compactMap(\.lastMessage).map(\.conversationId))
-        return matches.filter { match in
-            guard let conversationId = match.conversationId else { return true }
-            return !started.contains(conversationId)
-        }
-    }
+    // `unstartedMatches` vivait ici : les matchs à qui personne n'avait encore
+    // écrit, montrés dans une rangée en haut de la boîte pour débloquer
+    // exactement ce cas. Il ne peut plus s'en produire — un fil naît *avec*
+    // son premier message, dans la même transaction — donc la rangée était
+    // vide en toutes circonstances. Une interface qui ne peut rien afficher
+    // est pire qu'absente : on la croit en panne.
 
     var isEmpty: Bool {
         matches.isEmpty && conversations.isEmpty && !state.isLoading

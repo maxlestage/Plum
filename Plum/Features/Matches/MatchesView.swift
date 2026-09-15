@@ -12,7 +12,7 @@ struct MatchesView: View {
             PlumBackground {
                 content
             }
-            .navigationTitle("Vos matchs")
+            .navigationTitle("Vos conversations")
             .navigationDestination(item: $openedConversation) { conversation in
                 ChatView(conversation: conversation) {
                     // Reported, blocked or unmatched: the row has to go.
@@ -70,20 +70,10 @@ struct MatchesView: View {
             EmptyStateView(
                 systemImage: "heart.slash",
                 title: "Rien encore",
-                message: "Les matchs arrivent quand deux personnes se disent oui. Retournez swiper."
+                message: "Une conversation s'ouvre quand quelqu'un écrit — vous, ou l'autre. Vos trois profils du jour sont dans l'onglet Aujourd'hui."
             )
         } else {
             List {
-                if !viewModel.unstartedMatches.isEmpty {
-                    Section {
-                        newMatchesRail(viewModel)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                    } header: {
-                        Text("Nouveaux matchs").plumSectionHeader()
-                    }
-                }
-
                 Section {
                     ForEach(viewModel.conversations) { conversation in
                         Button {
@@ -114,47 +104,11 @@ struct MatchesView: View {
                         }
                         .listRowBackground(Color.clear)
                     }
-                } header: {
-                    if !viewModel.conversations.isEmpty {
-                        Text("Messages").plumSectionHeader()
-                    }
                 }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .refreshable { await viewModel.load() }
-        }
-    }
-
-    private func newMatchesRail(_ viewModel: MatchesViewModel) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: PlumTheme.Spacing.m) {
-                ForEach(viewModel.unstartedMatches) { match in
-                    Button {
-                        Task { @MainActor in
-                            openedConversation = await viewModel.conversation(for: match)
-                        }
-                    } label: {
-                        VStack(spacing: PlumTheme.Spacing.xs) {
-                            AvatarView(profile: match.profile, diameter: 72, showsActivityDot: true)
-                                .overlay {
-                                    if match.isFresh {
-                                        Circle()
-                                            .stroke(PlumTheme.Palette.warmGradient, lineWidth: 3)
-                                    }
-                                }
-                            Text(match.profile.displayName)
-                                .font(.plumCaption)
-                                .lineLimit(1)
-                                .foregroundStyle(PlumTheme.Palette.primaryText)
-                        }
-                        .frame(width: 78)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, PlumTheme.Spacing.m)
-            .padding(.vertical, PlumTheme.Spacing.s)
         }
     }
 
