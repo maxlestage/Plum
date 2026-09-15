@@ -583,3 +583,83 @@ async fn distances_are_coarse_enough_not_to_locate_anyone() {
         );
     }
 }
+
+/// « Trois autres profils demain » doit être vrai.
+///
+/// Ça ne l'était pas : le tirage prend les plus proches, et ne rien décider ne
+/// change rien au classement — quelqu'un qui ouvre l'application pour regarder
+/// revoyait les trois mêmes visages indéfiniment, pendant que l'écran lui
+/// promettait autre chose. Mesuré en reculant la date d'un jour, puis corrigé.
+#[tokio::test]
+async fn tomorrow_brings_other_people() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db.clone()));
+    let here = private_cluster();
+
+    let (viewer, viewer_id) = candidate(&app, "demain", TOMORROW, "woman", Some(here)).await;
+    only_see_age(&app, &viewer, TOMORROW, "everyone").await;
+    for index in 0..8 {
+        candidate(
+            &app,
+            &format!("demain-{index}"),
+            TOMORROW,
+            "man",
+            Some(north_of(here, 1.0 + f64::from(index))),
+        )
+        .await;
+    }
+
+    let premier = selection_ids(&app, &viewer).await;
+    assert_eq!(premier.len(), 3);
+
+    // On ne tranche sur personne, et on attend demain.
+    advance_one_day(&db, viewer_id).await;
+    let second = selection_ids(&app, &viewer).await;
+
+    assert_eq!(second.len(), 3, "demain doit être plein aussi");
+    for personne in &second {
+        assert!(
+            !premier.contains(personne),
+            "la même personne revient dès le lendemain : « trois autres profils » est faux"
+        );
+    }
+}
+
+/// Mais un vivier trop petit doit quand même remplir l'écran.
+///
+/// La règle précédente, seule, donnerait une sélection à moitié vide alors
+/// qu'il y a des gens à montrer. Un écran vide est un mensonge d'un autre
+/// genre — et au lancement, tous les viviers sont petits.
+#[tokio::test]
+async fn a_small_pool_still_fills_the_selection() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db.clone()));
+    let here = private_cluster();
+
+    let (viewer, viewer_id) = candidate(&app, "vivier", SMALL_POOL, "woman", Some(here)).await;
+    only_see_age(&app, &viewer, SMALL_POOL, "everyone").await;
+    // Exactement trois : il n'y a personne d'autre à proposer demain.
+    for index in 0..3 {
+        candidate(
+            &app,
+            &format!("vivier-{index}"),
+            SMALL_POOL,
+            "man",
+            Some(north_of(here, 1.0 + f64::from(index))),
+        )
+        .await;
+    }
+
+    let premier = selection_ids(&app, &viewer).await;
+    assert_eq!(premier.len(), 3);
+
+    advance_one_day(&db, viewer_id).await;
+    let second = selection_ids(&app, &viewer).await;
+
+    assert_eq!(
+        second.len(),
+        3,
+        "avec trois personnes en tout, demain doit les remontrer plutôt que \
+         d'afficher un écran vide"
+    );
+}
