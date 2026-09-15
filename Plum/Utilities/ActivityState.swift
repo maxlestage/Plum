@@ -17,6 +17,14 @@ enum ActivityState: Sendable, Equatable {
         if case .loading = self { return true }
         return false
     }
+
+    /// Le chargement a abouti. Distinct de « pas en cours » : une liste vide
+    /// parce qu'on n'a rien demandé et une liste vide parce qu'il n'y a rien
+    /// ne se disent pas pareil à l'écran.
+    var isReady: Bool {
+        if case .ready = self { return true }
+        return false
+    }
 }
 
 extension Error {

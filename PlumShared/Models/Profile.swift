@@ -1,6 +1,6 @@
 import Foundation
 
-/// The public card of a member: what shows up in someone else's deck.
+/// The public card of a member: what shows up in someone else's daily selection.
 struct Profile: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var displayName: String

@@ -8,43 +8,71 @@ import XCTest
 /// elle seule qu'un test peut tenir.
 @MainActor
 final class MatchActivityTests: XCTestCase {
-    /// Un match doit poser sa carte, avec la date du serveur.
-    func testAMatchOpensItsCard() async {
-        let journal = RecordingMatchActivityService()
-        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService(), activities: journal)
-        await viewModel.loadInitialDeck()
+    /// Un premier message reçu doit poser sa carte, avec la date du serveur.
+    ///
+    /// Le déclencheur a déménagé : il naissait d'un double oui, et il n'y en a
+    /// plus. S'il n'avait pas suivi, la carte de l'écran verrouillé ne serait
+    /// simplement jamais apparue — et rien ne l'aurait dit, puisque personne
+    /// ne teste l'absence d'une notification.
+    func testAFirstMessageOpensItsCard() {
+        let match = Match(
+            id: UUID(),
+            profile: SampleData.selection[0],
+            matchedAt: Date(timeIntervalSince1970: 1_757_800_000),
+            conversationId: UUID()
+        )
 
-        guard let profile = viewModel.topProfile else {
-            return XCTFail("Le deck de démonstration doit avoir des cartes")
-        }
-        await viewModel.swipe(profile, decision: .like)
+        let suite = MainTabView.reaction(
+            to: .matchCreated(match),
+            mine: SampleData.currentUser.id,
+            showingMessages: false
+        )
 
-        // Le service de démonstration ne fait matcher que certains profils :
-        // on ne vérifie donc qu'une implication, et elle suffit.
-        if let match = viewModel.newMatch {
-            let begun = await journal.begun
-            XCTAssertEqual(begun, [match.id], "un match doit poser exactement une carte")
-        } else {
-            let begun = await journal.begun
-            XCTAssertTrue(begun.isEmpty, "sans match, aucune carte ne doit être posée")
-        }
+        XCTAssertEqual(suite.beginActivity, match)
+        XCTAssertTrue(suite.badge)
     }
 
-    /// Un passe ne doit rien poser. C'est le cas qui se casse en silence :
-    /// une carte « vous avez matché » après un refus serait une erreur qu'on
-    /// ne pardonne pas à une application de rencontres.
-    func testAPassOpensNothing() async {
-        let journal = RecordingMatchActivityService()
-        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService(), activities: journal)
-        await viewModel.loadInitialDeck()
+    /// Un message ordinaire ne pose rien. C'est le cas qui se casse en
+    /// silence : une carte « quelqu'un vous a écrit » à chaque réponse d'une
+    /// conversation en cours serait une notification de trop, à chaque phrase.
+    func testAnOrdinaryMessageOpensNothing() {
+        let message = Message(
+            id: UUID(),
+            conversationId: UUID(),
+            senderId: UUID(),
+            body: "ça va ?",
+            sentAt: .now
+        )
 
-        guard let profile = viewModel.topProfile else {
-            return XCTFail("Le deck de démonstration doit avoir des cartes")
-        }
-        await viewModel.swipe(profile, decision: .pass)
+        let suite = MainTabView.reaction(
+            to: .messageReceived(message),
+            mine: SampleData.currentUser.id,
+            showingMessages: false
+        )
 
-        let begun = await journal.begun
-        XCTAssertTrue(begun.isEmpty, "un passe ne pose pas de carte")
+        XCTAssertNil(suite.beginActivity)
+        XCTAssertTrue(suite.badge, "un message d'autrui compte quand même")
+    }
+
+    /// Le socket renvoie nos propres messages : se mettre une pastille à
+    /// soi-même pour ce qu'on vient d'écrire est absurde.
+    func testMyOwnEchoedMessageDoesNotBadgeMe() {
+        let mien = Message(
+            id: UUID(),
+            conversationId: UUID(),
+            senderId: SampleData.currentUser.id,
+            body: "salut",
+            sentAt: .now
+        )
+
+        let suite = MainTabView.reaction(
+            to: .messageReceived(mien),
+            mine: SampleData.currentUser.id,
+            showingMessages: false
+        )
+
+        XCTAssertFalse(suite.badge)
+        XCTAssertNil(suite.beginActivity)
     }
 
     /// Le premier message efface la carte : elle a fait son travail.

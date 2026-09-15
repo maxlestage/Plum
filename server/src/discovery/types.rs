@@ -4,47 +4,58 @@ use uuid::Uuid;
 
 use crate::profile::types::ProfileResponse;
 
-/// Mirrors the Swift enum. `superLike` is camelCase on the wire for the same
-/// reason as `nonBinary`: Swift leaves raw values alone.
+/// Ce qu'on peut décider d'une personne proposée. Deux issues, pas trois.
+///
+/// Il y avait « j'aime », « passer » et « coup de cœur », et un match naissait
+/// d'un double oui. Ça demandait un geste par carte sur un paquet sans fond —
+/// c'est-à-dire le balayage, dont on ne veut plus.
+///
+/// Il reste : on écrit, ou on laisse passer. Écrire n'est pas un vote qu'on
+/// espère voir confirmé, c'est une conversation qui commence ; ne rien
+/// répondre est une réponse, et elle n'a pas besoin d'écran.
+///
+/// Les anciennes valeurs (`like`, `superLike`) restent lisibles en base : ce
+/// sont des verdicts déjà rendus, et ce qui compte d'eux — « cette personne a
+/// déjà été vue » — n'a pas changé. Rien à migrer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SwipeDecision {
-    #[serde(rename = "like")]
-    Like,
-    #[serde(rename = "pass")]
-    Pass,
-    #[serde(rename = "superLike")]
-    SuperLike,
+#[serde(rename_all = "snake_case")]
+pub enum Verdict {
+    Written,
+    Passed,
 }
 
-impl SwipeDecision {
+impl Verdict {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Like => "like",
-            Self::Pass => "pass",
-            Self::SuperLike => "superLike",
+            Self::Written => "written",
+            Self::Passed => "pass",
         }
-    }
-
-    pub fn parse(value: &str) -> Option<Self> {
-        match value {
-            "like" => Some(Self::Like),
-            "pass" => Some(Self::Pass),
-            "superLike" => Some(Self::SuperLike),
-            _ => None,
-        }
-    }
-
-    /// A super like is a like that shouts. Both can make a match.
-    pub fn is_affirmative(self) -> bool {
-        matches!(self, Self::Like | Self::SuperLike)
     }
 }
 
+/// La sélection du jour.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct SelectionResponse {
+    pub items: Vec<ProfileResponse>,
+    /// Quand la prochaine sélection sera tirée.
+    ///
+    /// Minuit UTC, et il faut le dire plutôt que le laisser deviner : sans
+    /// fuseau par compte, « demain » est le demain du serveur. Pour la France
+    /// ça décale le renouvellement à une ou deux heures du matin, ce qui est
+    /// acceptable ; pour quelqu'un à l'autre bout du monde, non. Le jour où
+    /// des comptes vivent ailleurs, c'est ici que ça se règle.
+    pub refreshes_at: DateTime<Utc>,
+    /// Combien la sélection compte quand elle est pleine, pour que l'écran
+    /// puisse dire « il en reste deux » sans le déduire.
+    pub size: u32,
+}
+
+/// Le premier message, celui qui ouvre tout.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct SwipeRequest {
-    pub target_profile_id: Uuid,
-    pub decision: SwipeDecision,
+pub struct WriteRequest {
+    pub body: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -58,19 +69,6 @@ pub struct MatchResponse {
     pub conversation_id: Option<Uuid>,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub struct SwipeOutcome {
-    pub matched: bool,
-    pub r#match: Option<MatchResponse>,
-    /// `null` means unlimited.
-    ///
-    /// Deliberately null: a daily like cap is what a dating app normally
-    /// sells, and there is nothing to sell here yet. Inventing a quota would
-    /// be guessing at a business model rather than implementing one.
-    pub likes_remaining: Option<i32>,
-}
-
 /// The client's `Page<T>`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -81,21 +79,8 @@ pub struct Page<T> {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct DeckQuery {
-    pub limit: Option<u32>,
-    pub cursor: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub struct ReportRequest {
     pub reason: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub struct RewindResponse {
-    pub profile: Option<ProfileResponse>,
 }
 
 /// Where the last page stopped: the sort key and the identifier that breaks
@@ -131,26 +116,22 @@ impl Cursor {
 mod tests {
     use super::*;
 
+    /// Ce que le client lit sur le fil. Deux valeurs, et « pass » garde son
+    /// orthographe d'avant : la colonne contient déjà des lignes qui la
+    /// portent, et les relire autrement rendrait au tirage des gens qui ont
+    /// été écartés.
     #[test]
-    fn the_decision_wire_values_match_the_swift_raw_values() {
-        let pairs = [
-            (SwipeDecision::Like, "\"like\""),
-            (SwipeDecision::Pass, "\"pass\""),
-            // The one that would be "super_like" if anyone tidied it.
-            (SwipeDecision::SuperLike, "\"superLike\""),
-        ];
-
-        for (value, expected) in pairs {
-            assert_eq!(serde_json::to_string(&value).unwrap(), expected);
-            assert_eq!(SwipeDecision::parse(value.as_str()), Some(value));
-        }
-    }
-
-    #[test]
-    fn a_super_like_counts_as_a_like() {
-        assert!(SwipeDecision::SuperLike.is_affirmative());
-        assert!(SwipeDecision::Like.is_affirmative());
-        assert!(!SwipeDecision::Pass.is_affirmative());
+    fn the_verdicts_keep_the_spelling_the_database_already_holds() {
+        assert_eq!(Verdict::Written.as_str(), "written");
+        assert_eq!(Verdict::Passed.as_str(), "pass");
+        assert_eq!(
+            serde_json::to_string(&Verdict::Written).unwrap(),
+            "\"written\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Verdict::Passed).unwrap(),
+            "\"passed\""
+        );
     }
 
     /// The cursor crosses the wire and comes back; a distance that does not

@@ -51,15 +51,6 @@ enum PlumTheme {
         static let medium: CGFloat = 18
         static let card: CGFloat = 28
     }
-
-    enum Layout {
-        /// Past this drag distance a card is committed; below it, it springs
-        /// back. Shared with the gesture tests.
-        static let swipeCommitThreshold: CGFloat = 110
-        static let swipeUpCommitThreshold: CGFloat = 140
-        static let maxCardRotation: Double = 12
-        static let cardStackDepth = 3
-    }
 }
 
 extension Color {

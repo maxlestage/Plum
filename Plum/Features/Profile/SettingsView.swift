@@ -7,7 +7,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.services) private var services
     @Environment(SessionStore.self) private var session
-    @Environment(DeckRefreshSignal.self) private var deckRefresh
+    @Environment(SelectionRefreshSignal.self) private var deckRefresh
 
     @State private var draft = DiscoveryPreferences.default
     /// Le seul réglage de cet écran qui ne parte pas au serveur : il vit sur
@@ -104,7 +104,7 @@ struct SettingsView: View {
                     Button("OK") {
                         Task { @MainActor in
                             await viewModel.updatePreferences(draft)
-                            // The deck lives in another tab and stays alive:
+                            // La sélection vit dans un autre onglet et reste en vie :
                             // without this the new criteria wait for a relaunch.
                             deckRefresh.invalidate()
                         }
@@ -198,5 +198,5 @@ extension SettingsView {
     )
     .environment(SessionStore(auth: AppEnvironment.preview.auth))
     .environment(\.services, .preview)
-    .environment(DeckRefreshSignal())
+    .environment(SelectionRefreshSignal())
 }

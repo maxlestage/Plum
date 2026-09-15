@@ -29,7 +29,7 @@ enum OnboardingStep: Int, CaseIterable, Identifiable, Sendable {
 }
 
 /// Walks a brand-new account through the minimum it needs before it can
-/// appear in anyone's deck.
+/// appear in anyone's selection.
 ///
 /// The gate exists because the alternative is worse for everyone: a profile
 /// with no photo and no bio wastes the swipe of every person it reaches.

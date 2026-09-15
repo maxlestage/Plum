@@ -44,7 +44,7 @@ final class LocationSync {
     }
 
     /// Pushes a fresh position if we are allowed to. Silent on failure: a
-    /// missing position degrades the deck, it does not break it.
+    /// missing position degrades the selection, it does not break it.
     @discardableResult
     func sync() async -> Bool {
         guard !isSyncing else { return false }

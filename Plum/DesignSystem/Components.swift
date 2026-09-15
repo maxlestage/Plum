@@ -92,7 +92,7 @@ struct AvatarView: View {
     }
 }
 
-/// The empty state used by the deck, the matches list and the inbox.
+/// The empty state used by the daily selection, the matches list and the inbox.
 struct EmptyStateView: View {
     let systemImage: String
     let title: String

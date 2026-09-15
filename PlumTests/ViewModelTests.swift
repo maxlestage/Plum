@@ -71,65 +71,83 @@ final class AuthValidationTests: XCTestCase {
 }
 
 @MainActor
-final class DiscoveryViewModelTests: XCTestCase {
-    func testLoadsTheDeckAndExposesTheTopCard() async {
+final class SelectionViewModelTests: XCTestCase {
+    func testLoadsTheSelectionOfTheDay() async {
         let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
 
-        await viewModel.loadInitialDeck()
+        await viewModel.load()
 
-        XCTAssertEqual(viewModel.topProfile?.id, SampleData.deck.first?.id)
-        XCTAssertLessThanOrEqual(
-            viewModel.visibleProfiles.count,
-            PlumTheme.Layout.cardStackDepth
-        )
+        XCTAssertEqual(viewModel.profiles.first?.id, SampleData.selection.first?.id)
+        XCTAssertEqual(viewModel.size, SampleData.selection.count)
+        XCTAssertNotNil(viewModel.refreshesAt, "l'écran doit pouvoir dire quand revenir")
     }
 
-    /// The card leaves the stack immediately: waiting for the network would
-    /// make the gesture feel broken.
-    func testSwipeRemovesTheCardBeforeTheServerAnswers() async {
+    /// Écrire ouvre un fil tout de suite : il n'y a personne à attendre.
+    func testWritingOpensAThreadAndTakesTheProfileOut() async {
         let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
-        await viewModel.loadInitialDeck()
-        guard let top = viewModel.topProfile else {
-            return XCTFail("Le deck devait contenir au moins un profil")
+        await viewModel.load()
+        guard let premier = viewModel.profiles.first else {
+            return XCTFail("La sélection devait contenir au moins un profil")
         }
 
-        await viewModel.swipe(top, decision: .pass)
+        let parti = await viewModel.write(to: premier, body: "  Votre deuxième phrase.  ")
 
-        XCTAssertFalse(viewModel.profiles.contains { $0.id == top.id })
-        XCTAssertTrue(viewModel.canRewind, "Un passe doit pouvoir être annulé")
-    }
-
-    func testRewindOnlyAppliesAfterAPass() async {
-        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
-        await viewModel.loadInitialDeck()
-        guard let top = viewModel.topProfile else {
-            return XCTFail("Le deck devait contenir au moins un profil")
-        }
-
-        await viewModel.swipe(top, decision: .like)
-        XCTAssertFalse(viewModel.canRewind)
-
-        await viewModel.rewind()
-        XCTAssertNotEqual(viewModel.topProfile?.id, top.id)
-    }
-
-    /// The thresholds are what separates "I changed my mind" from a decision.
-    func testGestureThresholds() {
-        XCTAssertNil(DiscoveryView.decision(for: CGSize(width: 40, height: 0)))
-        XCTAssertEqual(DiscoveryView.decision(for: CGSize(width: 200, height: 0)), .like)
-        XCTAssertEqual(DiscoveryView.decision(for: CGSize(width: -200, height: 0)), .pass)
-        XCTAssertEqual(DiscoveryView.decision(for: CGSize(width: 0, height: -200)), .superLike)
+        XCTAssertTrue(parti)
+        XCTAssertFalse(viewModel.profiles.contains { $0.id == premier.id })
         XCTAssertEqual(
-            DiscoveryView.decision(for: CGSize(width: 200, height: -200)),
-            .like,
-            "Un geste franchement latéral reste un like, pas un coup de cœur"
+            viewModel.justOpened?.displayName,
+            premier.displayName,
+            "l'écran doit pouvoir dire vers quelle conversation aller"
         )
     }
 
-    func testExitTranslationsLeaveTheScreen() {
-        XCTAssertGreaterThan(DiscoveryView.exitTranslation(for: .like).width, 400)
-        XCTAssertLessThan(DiscoveryView.exitTranslation(for: .pass).width, -400)
-        XCTAssertLessThan(DiscoveryView.exitTranslation(for: .superLike).height, -400)
+    /// Un message vide n'en est pas un, et le geste ne doit rien consommer.
+    ///
+    /// C'est le pendant du seuil de glissement qui séparait autrefois « j'ai
+    /// changé d'avis » d'une décision : ici, la décision est le texte.
+    func testAnEmptyMessageIsNotSentAndCostsNothing() async {
+        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
+        await viewModel.load()
+        guard let premier = viewModel.profiles.first else {
+            return XCTFail("La sélection devait contenir au moins un profil")
+        }
+        let avant = viewModel.profiles.count
+
+        for vide in ["", "   ", "\n\t "] {
+            let parti = await viewModel.write(to: premier, body: vide)
+            XCTAssertFalse(parti, "« \(vide) » est parti")
+        }
+
+        XCTAssertEqual(viewModel.profiles.count, avant, "la sélection a été entamée")
+        XCTAssertNil(viewModel.justOpened)
+    }
+
+    func testPassingTakesTheProfileOut() async {
+        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
+        await viewModel.load()
+        guard let premier = viewModel.profiles.first else {
+            return XCTFail("La sélection devait contenir au moins un profil")
+        }
+
+        await viewModel.pass(premier)
+
+        XCTAssertFalse(viewModel.profiles.contains { $0.id == premier.id })
+        XCTAssertNil(viewModel.safetyFailure)
+    }
+
+    /// Une sélection vide au chargement et une sélection épuisée ne disent pas
+    /// la même chose à l'écran : l'une attend, l'autre annonce demain.
+    func testAnEmptySelectionIsOnlyEmptyOnceItHasLoaded() async {
+        let viewModel = DiscoveryViewModel(discovery: DemoDiscoveryService())
+
+        XCTAssertFalse(viewModel.isEmpty, "rien n'a encore été demandé")
+
+        await viewModel.load()
+        for profile in viewModel.profiles {
+            await viewModel.pass(profile)
+        }
+
+        XCTAssertTrue(viewModel.isEmpty)
     }
 }
 
@@ -257,7 +275,7 @@ final class OnboardingViewModelTests: XCTestCase {
     }
 
     /// The photo gate is the whole point of the flow: without it a new account
-    /// reaches the deck as an empty card.
+    /// reaches the selection as an empty card.
     func testAPhotoIsRequiredBeforeLeavingTheFirstStep() async {
         let viewModel = makeViewModel(session: SessionStore(auth: DemoAuthService()))
 

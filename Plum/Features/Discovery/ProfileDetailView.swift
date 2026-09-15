@@ -1,14 +1,15 @@
 import SwiftUI
 
-/// The full profile behind a card.
+/// Le profil entier, derrière la carte.
 ///
-/// The deck only ever showed three lines of bio and a strip of interests,
-/// which is not enough to decide anything — so people swiped on photos alone.
-/// This is the screen that makes a considered decision possible, with the same
-/// three verdicts available from inside it.
+/// La carte montre la photo, le nom et les deux phrases. Ici il y a les autres
+/// photos et les centres d'intérêt, pour qui veut regarder avant d'écrire —
+/// et les deux mêmes issues, pour ne pas avoir à refermer et retrouver la
+/// carte.
 struct ProfileDetailView: View {
     let profile: Profile
-    let onDecision: (SwipeDecision) -> Void
+    let onWrite: () -> Void
+    let onPass: () -> Void
     var onReport: ((String) -> Void)?
     var onBlock: (() -> Void)?
 
@@ -33,8 +34,8 @@ struct ProfileDetailView: View {
             }
             .safeAreaInset(edge: .bottom) { actions }
             .navigationBarTitleDisplayMode(.inline)
-            // Presented from here rather than bounced back to the deck:
-            // handing the deck a new sheet while this one dismisses cancels
+            // Presented from here rather than bounced back to the list:
+            // handing it a new sheet while this one dismisses cancels
             // it, because both would ride the same binding.
             .sheet(isPresented: $isReporting) {
                 ReportSheet(profile: profile) { reason in
@@ -122,47 +123,37 @@ struct ProfileDetailView: View {
         .padding(.horizontal, PlumTheme.Spacing.l)
     }
 
-    /// The same three verdicts as the deck, so a decision made here does not
-    /// require backing out and finding the card again.
+    /// Les deux mêmes issues que sur la carte.
+    ///
+    /// Des boutons nommés, pas des ronds à icône : « Écrire » et « Passer »
+    /// disent ce qu'ils font. Les trois ronds d'avant — croix, étoile, cœur —
+    /// se devinaient par habitude d'une autre application, ce qui est
+    /// précisément ce dont on sort.
     private var actions: some View {
-        HStack(spacing: PlumTheme.Spacing.l) {
-            CircularActionButton(
-                systemImage: "xmark",
-                tint: PlumTheme.Palette.pass,
-                accessibilityTitle: "Passer"
-            ) {
-                decide(.pass)
+        HStack(spacing: PlumTheme.Spacing.s) {
+            Button {
+                onPass()
+                dismiss()
+            } label: {
+                Text("Passer").frame(maxWidth: .infinity)
             }
+            .buttonStyle(PlumSecondaryButtonStyle())
 
-            CircularActionButton(
-                systemImage: "star.fill",
-                tint: PlumTheme.Palette.superLike,
-                diameter: 48,
-                accessibilityTitle: "Coup de cœur"
-            ) {
-                decide(.superLike)
+            Button {
+                onWrite()
+                dismiss()
+            } label: {
+                Label("Écrire", systemImage: "square.and.pencil")
+                    .frame(maxWidth: .infinity)
             }
-
-            CircularActionButton(
-                systemImage: "heart.fill",
-                tint: PlumTheme.Palette.like,
-                isProminent: true,
-                accessibilityTitle: "J'aime"
-            ) {
-                decide(.like)
-            }
+            .buttonStyle(PlumPrimaryButtonStyle())
         }
-        .padding(.vertical, PlumTheme.Spacing.m)
+        .padding(PlumTheme.Spacing.m)
         .frame(maxWidth: .infinity)
         .background(.bar)
-    }
-
-    private func decide(_ decision: SwipeDecision) {
-        onDecision(decision)
-        dismiss()
     }
 }
 
 #Preview {
-    ProfileDetailView(profile: SampleData.deck[0], onDecision: { _ in })
+    ProfileDetailView(profile: SampleData.selection[0], onWrite: {}, onPass: {})
 }

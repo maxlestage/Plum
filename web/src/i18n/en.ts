@@ -32,12 +32,12 @@ export const en: Copy = {
       body: "The least it takes for someone to want to reply. A photo is required; the rest takes thirty seconds.",
     },
     {
-      title: "You swipe",
-      body: "Right for yes, left for no, up if you really mean it. The chevron opens the full profile when three lines aren't enough to decide.",
+      title: "Three profiles a day",
+      body: "No bottomless stack, no swiping. Three people, the same selection from morning to night, and two buttons: write, or let it go. Three is a number you can actually read.",
     },
     {
-      title: "You talk, or you don't",
-      body: "A match opens a conversation. Nobody has to use it, and leaving takes two taps.",
+      title: "Writing is the whole gesture",
+      body: "There is no like waiting to be returned, so there is no \"it's a match\" screen. You write a sentence, it arrives, and the person answers or doesn't. Not answering is an answer.",
     },
   ],
 
@@ -45,11 +45,11 @@ export const en: Copy = {
   principles: [
     {
       title: "No mysterious algorithm",
-      body: "The deck sorts by distance and by your filters. That's all. Nothing is sold, and nobody is promoted for paying.",
+      body: "The daily selection sorts by distance and by your filters. That's all. Nothing is sold, and nobody is promoted for paying.",
     },
     {
       title: "Blocking closes the conversation",
-      body: "Not just the deck: the thread disappears on both sides, messages included, and the blocked person can no longer write or make a typing indicator blink. A block that left the conversation open would only be a filter.",
+      body: "Not just the selection: the thread disappears on both sides, messages included, and the blocked person can no longer write or make a typing indicator blink. A block that left the conversation open would only be a filter.",
     },
     {
       title: "A report gets read",
@@ -61,11 +61,11 @@ export const en: Copy = {
     },
     {
       title: "Profiles cannot be harvested",
-      body: "One account cannot page through the deck forever to collect names, bios and photos: the number of profiles served per day is capped, far above what a person looks at and far below what a script would want.",
+      body: "There is no stack to page through for names, bios and photos. Three profiles a day is also what a script sees — and you can only write to the people you were shown.",
     },
     {
       title: "Usable without seeing the screen",
-      body: "The deck is driven by swiping, but every verdict is a VoiceOver action too. An app you can only use with your eyes shuts people out for no reason.",
+      body: "Named buttons rather than a gesture: \"write\" and \"pass\" read out loud. An app you can only use with your eyes, or with a steady thumb, shuts people out for no reason.",
     },
   ],
 
@@ -103,7 +103,7 @@ export const en: Copy = {
       },
       {
         title: "Closing your account",
-        body: "Deleting your account happens in the app's settings, without going through us. It takes the matches, the messages and the photos with it.",
+        body: "Deleting your account happens in the app's settings, without going through us. It takes the conversations, the messages and the photos with it.",
       },
     ],
   },
@@ -129,7 +129,7 @@ export const en: Copy = {
       },
       {
         title: "Photos",
-        body: "They are re-encoded on arrival, which strips the camera metadata — including the GPS coordinates a phone photo often carries without anyone noticing. A photo's address cannot be guessed, but it is not password-protected either: it opens without signing in, as everywhere photos go through a cache. So anyone who got hold of a link keeps the image, including after an unmatch. Deleting the photo, or the account, removes it from the server.",
+        body: "They are re-encoded on arrival, which strips the camera metadata — including the GPS coordinates a phone photo often carries without anyone noticing. A photo's address cannot be guessed, but it is not password-protected either: it opens without signing in, as everywhere photos go through a cache. So anyone who got hold of a link keeps the image, including after a block. Deleting the photo, or the account, removes it from the server.",
       },
       {
         title: "Deletion",

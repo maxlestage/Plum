@@ -270,13 +270,13 @@ final class APIClientTests: XCTestCase {
         )
 
         let endpoint = Endpoint.post(
-            "discovery/swipes",
-            body: SwipeRequest(targetProfileId: UUID(), decision: .like)
+            "profiles/\(UUID().uuidString)/write",
+            body: WriteFirstRequest(body: "Bonjour")
         )
-        _ = try? await client.send(endpoint, as: SwipeOutcome.self)
+        _ = try? await client.send(endpoint, as: Message.self)
 
         let sent = await transport.recordedRequests()
-        XCTAssertEqual(sent.count, 1, "Un swipe rejoué serait compté deux fois")
+        XCTAssertEqual(sent.count, 1, "Un premier message rejoué partirait deux fois")
     }
 
     func testRetriesGiveUpAndSurfaceTheLastError() async {

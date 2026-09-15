@@ -5,7 +5,6 @@ mod common;
 use axum::http::StatusCode;
 use common::deck_ages::*;
 use common::*;
-use serde_json::json;
 
 /// Fait matcher deux comptes et rend leurs jetons et identifiants.
 async fn matched_pair(
@@ -17,19 +16,9 @@ async fn matched_pair(
     let (a, a_id) = candidate(app, &format!("{tag}-a"), age, "woman", Some(here)).await;
     let (b, b_id) = candidate(app, &format!("{tag}-b"), age, "man", Some(here)).await;
 
-    for (token, target) in [(&a, b_id), (&b, a_id)] {
-        let (status, body) = call(
-            app,
-            request(
-                "POST",
-                "/api/v1/discovery/swipes",
-                Some(token),
-                Some(json!({ "target_profile_id": target, "decision": "like" })),
-            ),
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK, "{body}");
-    }
+    // Un seul message ouvre le fil : il n'y a plus de double oui à orchestrer.
+    let (status, body) = write_to(app, &a, b_id, "Premier message").await;
+    assert_eq!(status, StatusCode::OK, "premier message : {body}");
 
     (a, a_id, b, b_id)
 }
@@ -66,33 +55,31 @@ async fn a_match_appears_for_both_people_in_the_shape_the_client_decodes() {
     }
 }
 
+/// Laisser passer ne crée rien.
+///
+/// Ce test remplace « un j'aime sans réponse n'est pas un match », qui n'a
+/// plus de situation à décrire : il n'y a plus de j'aime qui attend, et écrire
+/// ouvre le fil tout de suite. Ce qui reste à vérifier est l'autre moitié —
+/// que l'issue négative, elle, n'ouvre rien.
 #[tokio::test]
-async fn a_like_without_an_answer_produces_no_match() {
+async fn passing_on_someone_creates_nothing() {
     let Some(db) = database().await else { return };
     let app = plum_server::app(state(db));
     let here = private_cluster();
 
     let (a, _) = candidate(&app, "sans-retour-a", MATCHING, "woman", Some(here)).await;
     let (_, b_id) = candidate(&app, "sans-retour-b", MATCHING, "man", Some(here)).await;
+    assert!(selection_contains(&app, &a, b_id).await);
 
-    call(
-        &app,
-        request(
-            "POST",
-            "/api/v1/discovery/swipes",
-            Some(&a),
-            Some(json!({ "target_profile_id": b_id, "decision": "like" })),
-        ),
-    )
-    .await;
+    assert_eq!(pass(&app, &a, b_id).await, StatusCode::OK);
 
     let (_, body) = call(&app, request("GET", "/api/v1/matches", Some(&a), None)).await;
-    let found = body["items"]
+    let trouve = body["items"]
         .as_array()
         .unwrap()
         .iter()
         .any(|m| m["profile"]["id"] == b_id.to_string());
-    assert!(!found, "un j'aime sans réponse n'est pas un match");
+    assert!(!trouve, "laisser passer ne doit ouvrir aucun fil");
 }
 
 /// Le cas pour lequel le curseur existe : plusieurs matchs, paginés un par un.
@@ -108,18 +95,16 @@ async fn paging_the_matches_sees_each_one_once() {
     for index in 0..5 {
         let (other, other_id) =
             candidate(&app, &format!("match-{index}"), REWIND, "man", Some(here)).await;
-        for (token, target) in [(&viewer, other_id), (&other, viewer_id)] {
-            call(
-                &app,
-                request(
-                    "POST",
-                    "/api/v1/discovery/swipes",
-                    Some(token),
-                    Some(json!({ "target_profile_id": target, "decision": "like" })),
-                ),
-            )
-            .await;
-        }
+        // Chacun ne cherche que des femmes : sa sélection du jour ne contient
+        // donc que l'observatrice, et pas les quatre hommes créés à côté. Sans
+        // ça, trois places pour cinq candidats et le tirage laisse dehors la
+        // seule personne à qui ce test veut faire écrire.
+        only_see_age(&app, &other, REWIND, "women").await;
+        // C'est l'autre qui écrit : l'observateur ne peut écrire qu'aux trois
+        // personnes de sa sélection, et il en faut cinq ici. Chacun a la
+        // sienne, donc chacun peut écrire une fois.
+        let (status, body) = write_to(&app, &other, viewer_id, "Bonjour").await;
+        assert_eq!(status, StatusCode::OK, "{body}");
         expected.push(other_id.to_string());
     }
 
@@ -211,7 +196,7 @@ async fn unmatching_removes_it_for_both_without_reviving_the_card() {
     }
 
     assert!(
-        !deck_ids(&app, &a, "").await.contains(&b_id),
+        !selection_ids(&app, &a).await.contains(&b_id),
         "la carte ne doit pas revenir : le verdict tient toujours"
     );
 }
