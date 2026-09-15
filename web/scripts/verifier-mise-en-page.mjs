@@ -151,8 +151,99 @@ try {
   serveur.close();
 }
 
+// ---------------------------------------------------------------------------
+// Et pendant qu'on s'en sert.
+//
+// Tout ce qui précède mesure une page au repos. Une page peut tenir au
+// chargement et déborder au premier geste : le lien d'évitement, caché à
+// `left: -9999px`, revient à `left: 0` dès qu'on l'atteint au clavier, et il
+// est plus large que certains écrans. Les pastilles de thème, elles, changent
+// des couleurs — en principe rien de géométrique, ce qui est exactement le
+// genre de « en principe » qui se vérifie en trois secondes.
+// ---------------------------------------------------------------------------
+
+const navigateur2 = await chromium.launch(
+  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
+);
+const serveur2 = http.createServer(serveur.listeners("request")[0]);
+await new Promise((ok) => serveur2.listen(0, ok));
+const base2 = `http://127.0.0.1:${serveur2.address().port}`;
+
+try {
+  for (const [largeur, hauteur] of [
+    [180, 600],
+    [320, 568],
+    [390, 844],
+  ]) {
+    const contexte = await navigateur2.newContext({
+      viewport: { width: largeur, height: hauteur },
+    });
+    const page = await contexte.newPage();
+    // Cinq secondes suffisent à cliquer un bouton visible ; les trente par
+    // défaut ne servent qu'à rallonger l'attente quand c'est déjà cassé.
+    page.setDefaultTimeout(5000);
+    await page.goto(`${base2}/fr/`, { waitUntil: "networkidle" });
+
+    const glisse = () =>
+      page.evaluate(() => {
+        const r = document.documentElement;
+        return r.scrollWidth > r.clientWidth
+          ? `${r.scrollWidth}px de contenu pour ${r.clientWidth}px`
+          : null;
+      });
+
+    const gestes = [
+      ["le lien d'évitement reçoit le focus", async () => {
+        await page.keyboard.press("Tab");
+      }],
+      ["on choisit le thème sombre", async () => {
+        await page.click('[aria-label="Thème sombre"]');
+      }],
+      ["on choisit le thème clair", async () => {
+        await page.click('[aria-label="Thème clair"]');
+      }],
+      ["on revient au thème automatique", async () => {
+        await page.click('[aria-label="Thème automatique"]');
+      }],
+      ["on descend au bas de la page", async () => {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      }],
+      ["on change de langue", async () => {
+        await page.click('[aria-label="English"]');
+        await page.waitForURL(/\/en\//);
+      }],
+    ];
+
+    for (const [libelle, geste] of gestes) {
+      mesures++;
+      try {
+        await geste();
+      } catch (erreur) {
+        // Un geste qui échoue *est* un défaut de mise en page, et c'est même
+        // le pire : quelque chose recouvre le bouton. Sans ce filet, le script
+        // mourait sur « Timeout 30000ms exceeded » — vrai, rouge, et muet sur
+        // la cause. Un contrôle dont l'échec n'explique rien est un contrôle
+        // qu'on apprend à ignorer.
+        echecs.push(
+          `${largeur}×${hauteur} — impossible de faire « ${libelle} » : ` +
+            `${String(erreur).split("\n")[0]}\n        (un élément en recouvre ` +
+            `probablement un autre)`,
+        );
+        continue;
+      }
+      await page.waitForTimeout(120);
+      const souci = await glisse();
+      if (souci) echecs.push(`${largeur}×${hauteur} après « ${libelle} » — ${souci}`);
+    }
+    await contexte.close();
+  }
+} finally {
+  await navigateur2.close();
+  serveur2.close();
+}
+
 if (echecs.length) {
-  console.error(`✗ ${echecs.length} page(s) glissent latéralement :\n`);
+  console.error(`✗ ${echecs.length} défaut(s) de mise en page :\n`);
   for (const echec of echecs) console.error(`  - ${echec}`);
   console.error(
     "\n  Un en-tête qui ne tient pas se met à la ligne ; il ne rétrécit pas ses\n" +
@@ -162,5 +253,6 @@ if (echecs.length) {
 }
 
 console.log(
-  `✓ aucune page ne glisse — ${mesures} mesures, de 180 à 1280 px de large`,
+  `✓ aucune page ne glisse — ${mesures} mesures, de 180 à 1280 px de large,` +
+    " au repos et sous six gestes",
 );
