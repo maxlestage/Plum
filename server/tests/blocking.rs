@@ -505,3 +505,226 @@ async fn a_blocked_person_cannot_make_the_other_screen_blink() {
 
     stays_quiet(&mut blocked, "celui qui est bloqué").await;
 }
+
+// --- et le retour en arrière -------------------------------------------
+//
+// Bloquer doit être facile à faire quand on se sent menacé — donc facile à
+// faire trop vite, sur un doute. Sans déblocage, ce geste-là est définitif et
+// muet : la personne a disparu de partout, il n'y a nulle part où la
+// retrouver, et rien à l'écran ne dit même qui on a bloqué.
+
+async fn unblock(app: &axum::Router, token: &str, target: uuid::Uuid) -> StatusCode {
+    let (status, body) = call(
+        app,
+        request(
+            "DELETE",
+            &format!("/api/v1/profiles/{target}/block"),
+            Some(token),
+            None,
+        ),
+    )
+    .await;
+    assert_ne!(status, StatusCode::METHOD_NOT_ALLOWED, "déblocage : {body}");
+    status
+}
+
+async fn blocked_list(app: &axum::Router, token: &str) -> Value {
+    let (status, body) = call(app, request("GET", "/api/v1/me/blocks", Some(token), None)).await;
+    assert_eq!(status, StatusCode::OK, "liste des blocages : {body}");
+    body
+}
+
+/// La promesse du bouton : la personne peut revenir.
+///
+/// C'est le test qui tient tout le reste. Le tirage écarte deux choses à la
+/// fois — les blocages et les verdicts déjà rendus — et écrire à quelqu'un
+/// laisse un verdict. Un déblocage qui ne retirerait que la ligne de blocage
+/// rendrait 200, viderait la liste, et laisserait la personne exactement aussi
+/// invisible qu'avant.
+#[tokio::test]
+async fn unblocking_brings_the_person_back_into_the_selection() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let t = thread(&app, "debloc-retour", UNBLOCK_RETURNS).await;
+
+    block(&app, &t.a, t.b_id).await;
+    assert!(
+        !selection_contains(&app, &t.a, t.b_id).await,
+        "le blocage n'a rien caché du tout"
+    );
+
+    assert_eq!(unblock(&app, &t.a, t.b_id).await, StatusCode::OK);
+
+    assert!(
+        selection_contains(&app, &t.a, t.b_id).await,
+        "débloquée, la personne reste invisible"
+    );
+}
+
+/// Le même geste, à moitié fait — l'état qu'un déblocage naïf laisserait.
+///
+/// Écrit en base plutôt qu'appelé par la route, parce que c'est justement ce
+/// que la route ne fait pas. Sans lui, rien ne dirait *pourquoi* le verdict
+/// part avec le blocage, et quelqu'un pourrait simplifier `unblock_profile`
+/// en gardant tous les autres tests verts sauf un, sans savoir lequel.
+#[tokio::test]
+async fn removing_only_the_block_leaves_the_person_invisible() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db.clone()));
+    let t = thread(&app, "debloc-moitie", UNBLOCK_HALF).await;
+
+    block(&app, &t.a, t.b_id).await;
+
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    plum_server::entities::block::Entity::delete_many()
+        .filter(plum_server::entities::block::Column::BlockerId.eq(t.a_id))
+        .filter(plum_server::entities::block::Column::BlockedId.eq(t.b_id))
+        .exec(&db)
+        .await
+        .expect("le blocage s'efface");
+
+    assert!(
+        !selection_contains(&app, &t.a, t.b_id).await,
+        "le verdict n'écarte plus personne : le déblocage n'a plus rien à défaire"
+    );
+}
+
+/// De qui on parle. Une liste de blocages sans les noms serait une liste
+/// d'identifiants — donc un écran où l'on débloque au hasard.
+#[tokio::test]
+async fn the_blocked_list_says_who_was_blocked_and_empties_on_release() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let t = thread(&app, "debloc-liste", UNBLOCK_LIST).await;
+
+    assert!(
+        blocked_list(&app, &t.a)
+            .await
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "la liste part vide"
+    );
+
+    block(&app, &t.a, t.b_id).await;
+
+    let liste = blocked_list(&app, &t.a).await;
+    let items = liste.as_array().unwrap();
+    assert_eq!(items.len(), 1, "un blocage, une ligne : {liste}");
+    assert_eq!(items[0]["id"], t.b_id.to_string());
+    assert!(
+        items[0]["display_name"].is_string(),
+        "la ligne ne dit pas qui c'est : {liste}"
+    );
+    assert!(items[0]["blocked_at"].is_string(), "sans date : {liste}");
+
+    // La liste est la nôtre, pas celle de tout le monde : celui qu'on a bloqué
+    // n'apprend pas qu'il l'a été.
+    assert!(
+        blocked_list(&app, &t.b)
+            .await
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "la liste fuit les blocages des autres"
+    );
+
+    assert_eq!(unblock(&app, &t.a, t.b_id).await, StatusCode::OK);
+    assert!(
+        blocked_list(&app, &t.a)
+            .await
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "la ligne survit au déblocage"
+    );
+}
+
+/// Se raviser n'annule que sa propre décision.
+///
+/// Le verdict de l'autre sur nous lui appartient. Le lui reprendre parce qu'on
+/// a débloqué reviendrait à se remettre soi-même devant les yeux de quelqu'un
+/// qui avait déjà dit non — et le blocage, qu'il n'a ni posé ni retiré,
+/// n'aurait servi qu'à ça.
+#[tokio::test]
+async fn unblocking_does_not_undo_the_other_persons_verdict() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let here = private_cluster();
+    let (a, a_id) = candidate(
+        &app,
+        "debloc-sens-a",
+        UNBLOCK_ONE_SIDED,
+        "woman",
+        Some(here),
+    )
+    .await;
+    let (b, b_id) = candidate(&app, "debloc-sens-b", UNBLOCK_ONE_SIDED, "man", Some(here)).await;
+    only_see_age(&app, &a, UNBLOCK_ONE_SIDED, "everyone").await;
+    only_see_age(&app, &b, UNBLOCK_ONE_SIDED, "everyone").await;
+
+    // `b` a vu `a` et a laissé passer. C'est sa décision à lui.
+    assert!(selection_contains(&app, &b, a_id).await, "b doit voir a");
+    assert_eq!(pass(&app, &b, a_id).await, StatusCode::OK);
+
+    // `a` bloque puis se ravise.
+    block(&app, &a, b_id).await;
+    assert_eq!(unblock(&app, &a, b_id).await, StatusCode::OK);
+
+    assert!(
+        !selection_contains(&app, &b, a_id).await,
+        "le déblocage de a a effacé le verdict de b"
+    );
+}
+
+/// Appuyer deux fois ne doit pas ressembler à un échec — et débloquer
+/// quelqu'un qu'on n'a jamais bloqué non plus : c'est l'état où l'on voulait
+/// arriver.
+#[tokio::test]
+async fn unblocking_is_idempotent() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let t = thread(&app, "debloc-deux-fois", UNBLOCK_TWICE).await;
+
+    assert_eq!(
+        unblock(&app, &t.a, t.b_id).await,
+        StatusCode::OK,
+        "débloquer sans blocage"
+    );
+
+    block(&app, &t.a, t.b_id).await;
+    assert_eq!(unblock(&app, &t.a, t.b_id).await, StatusCode::OK);
+    assert_eq!(
+        unblock(&app, &t.a, t.b_id).await,
+        StatusCode::OK,
+        "le second appui"
+    );
+}
+
+/// Ce que débloquer ne rend pas : la conversation.
+///
+/// Bloquer l'a supprimée, elle et ses messages, des deux côtés. Rouvrir la
+/// porte ne ressuscite rien, et l'écran doit le dire plutôt que de laisser
+/// croire qu'on va retrouver le fil là où on l'avait laissé.
+#[tokio::test]
+async fn unblocking_does_not_bring_the_conversation_back() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let t = thread(&app, "debloc-fil", UNBLOCK_THREAD).await;
+
+    block(&app, &t.a, t.b_id).await;
+    assert_eq!(unblock(&app, &t.a, t.b_id).await, StatusCode::OK);
+
+    let (status, body) = send(&app, &t.a, &t.id).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "le fil est revenu : {body}");
+
+    let (_, matches) = call(&app, request("GET", "/api/v1/matches", Some(&t.a), None)).await;
+    assert!(
+        !matches["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["profile"]["id"] == t.b_id.to_string()),
+        "le match est revenu : {matches}"
+    );
+}

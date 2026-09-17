@@ -47,7 +47,11 @@ pub fn router() -> Router<AppState> {
         .route("/profiles/{id}/write", post(write_first))
         .route("/profiles/{id}/pass", post(pass_profile))
         .route("/profiles/{id}/report", post(report_profile))
-        .route("/profiles/{id}/block", post(block_profile))
+        .route(
+            "/profiles/{id}/block",
+            post(block_profile).delete(unblock_profile),
+        )
+        .route("/me/blocks", get(list_blocks))
 }
 
 fn candidate_into_profile(candidate: Candidate) -> ProfileResponse {
@@ -65,14 +69,14 @@ fn candidate_into_profile(candidate: Candidate) -> ProfileResponse {
     }
 }
 
-/// La sélection du jour : trois profils, tirés une fois, stables jusqu'à
-/// minuit.
+/// La sélection du jour : une poignée de profils, tirés une fois, stables
+/// jusqu'à minuit.
 ///
 /// Ce qu'elle remplace, et pourquoi. Le deck n'avait pas de fond : il se
 /// paginait, et il fallait un geste par carte pour avancer. Un geste qu'on
 /// répète cent fois doit être minuscule — d'où le balayage, et d'où le fait
-/// qu'on décide de quelqu'un en un quart de seconde. Trois profils tiennent
-/// sur un écran et se lisent.
+/// qu'on décide de quelqu'un en un quart de seconde. Deux à cinq profils
+/// tiennent sur un écran et se lisent.
 ///
 /// Le tirage est écrit en base, pas recalculé. Sans ça, rouvrir l'application
 /// rendrait trois autres personnes, et « la sélection du jour » ne voudrait
@@ -85,7 +89,12 @@ async fn selection_of_the_day(
     let claims = authenticate(&state, &headers)?;
     let viewer = claims.sub;
     let today = Utc::now().date_naive();
-    let taille = state.config.daily_selection_size;
+    let taille = taille_du_jour(
+        state.config.daily_selection_min,
+        state.config.daily_selection_max,
+        viewer,
+        today,
+    );
 
     let mut deja = selection::Entity::find()
         .filter(selection::Column::ViewerId.eq(viewer))
@@ -133,8 +142,69 @@ async fn selection_of_the_day(
             .and_hms_opt(0, 0, 0)
             .expect("minuit existe")
             .and_utc(),
-        size: taille,
+        // Ce qui a vraiment été tiré, pas ce qu'on visait. L'écran s'en sert
+        // pour dire « il en reste deux sur quatre » ; annoncer la cible ferait
+        // mentir cette phrase les jours où le voisinage n'avait pas de quoi
+        // remplir la sélection — « il en reste deux sur quatre » avec deux
+        // profils à l'écran et rien qui vienne.
+        size: deja.len() as u32,
     }))
+}
+
+/// Combien de profils aujourd'hui, pour cette personne.
+///
+/// Un compte fixe se transforme en habitude : on sait ce qu'on va trouver
+/// avant d'ouvrir, on l'expédie, et l'application redevient la pile qu'elle ne
+/// voulait pas être. Un nombre qui change se regarde.
+///
+/// Tiré d'un brassage de l'identifiant et du jour plutôt que du hasard, pour
+/// une raison concrète : le tirage s'écrit en base ligne par ligne, et une
+/// écriture coupée au milieu laisse une sélection partielle. Redemander la
+/// même journée doit retomber sur la même cible, sinon le rattrapage vise un
+/// autre nombre que celui qu'il rattrape. C'est aussi ce qui permet de
+/// l'éprouver : une suite peut faire défiler dix jours et lire la suite des
+/// comptes, ce qu'un `rand` rendrait invérifiable.
+///
+/// Imprévisible pour qui le vit, reproductible pour qui le vérifie — les deux
+/// comptent, et ce n'est pas la même exigence que celle d'un générateur
+/// cryptographique : personne ne gagne rien à deviner qu'il aura quatre
+/// profils demain.
+///
+/// Publique pour les suites d'intégration : elles ne peuvent pas avancer
+/// l'horloge du serveur — `advance_one_day` recule les lignes déjà servies,
+/// ce qui ne change pas la date que cette fonction reçoit — donc elles
+/// vérifient que le tirage du jour vaut bien ce qu'elle annonce pour
+/// aujourd'hui, et le module de tests ci-dessous se charge de la variation
+/// d'un jour à l'autre.
+pub fn taille_du_jour(min: u32, max: u32, viewer: Uuid, jour: chrono::NaiveDate) -> u32 {
+    debug_assert!(min <= max, "la configuration redresse déjà la fourchette");
+    let etendue = u64::from(max.saturating_sub(min)) + 1;
+    min + (brassage(viewer, jour) % etendue) as u32
+}
+
+/// FNV-1a, écrit ici plutôt qu'emprunté à `DefaultHasher`.
+///
+/// `DefaultHasher` ne promet rien sur la stabilité de ses valeurs d'une
+/// version de Rust à l'autre : une mise à jour du compilateur redistribuerait
+/// les comptes de tout le monde, et les suites qui lisent une séquence
+/// précise tomberaient sans que rien du produit n'ait changé.
+fn brassage(viewer: Uuid, jour: chrono::NaiveDate) -> u64 {
+    use chrono::Datelike;
+    const BASE: u64 = 0xcbf2_9ce4_8422_2325;
+    const PREMIER: u64 = 0x0000_0100_0000_01b3;
+
+    let mut empreinte = BASE;
+    let mut avaler = |octet: u8| {
+        empreinte ^= u64::from(octet);
+        empreinte = empreinte.wrapping_mul(PREMIER);
+    };
+    for octet in viewer.as_bytes() {
+        avaler(*octet);
+    }
+    for octet in jour.num_days_from_ce().to_le_bytes() {
+        avaler(octet);
+    }
+    empreinte
 }
 
 /// Le tirage du jour : qui, et dans quel ordre.
@@ -159,7 +229,7 @@ async fn draw(
     taille: u32,
 ) -> ApiResult<Vec<Uuid>> {
     // Large exprès : il faut de quoi écarter les déjà-vus et tomber quand même
-    // sur trois personnes.
+    // sur le compte du jour.
     let candidats = query_deck(&state.db, viewer, taille.saturating_mul(20).max(50), None).await?;
 
     // Quand chacun a été proposé pour la dernière fois. Absent de la table
@@ -413,6 +483,106 @@ async fn report_profile(
     Ok(())
 }
 
+/// Qui on a bloqué, avec de quoi les reconnaître.
+///
+/// Sans cette liste, le déblocage serait injoignable : on ne débloque pas
+/// quelqu'un dont on ne se rappelle plus le nom, et il n'y a nulle part
+/// ailleurs où le retrouver — le profil a disparu de partout, c'est tout
+/// l'intérêt d'un blocage.
+async fn list_blocks(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Vec<BlockedPerson>>> {
+    let claims = authenticate(&state, &headers)?;
+
+    let blocages = block::Entity::find()
+        .filter(block::Column::BlockerId.eq(claims.sub))
+        .order_by_desc(block::Column::CreatedAt)
+        .all(&state.db)
+        .await?;
+
+    let vises: Vec<Uuid> = blocages.iter().map(|b| b.blocked_id).collect();
+    let profils = profile::Entity::find()
+        .filter(profile::Column::Id.is_in(vises))
+        .all(&state.db)
+        .await?;
+
+    Ok(Json(
+        blocages
+            .into_iter()
+            .map(|blocage| BlockedPerson {
+                id: blocage.blocked_id,
+                // Le compte a pu partir depuis : la ligne reste, le nom non.
+                display_name: profils
+                    .iter()
+                    .find(|p| p.id == blocage.blocked_id)
+                    .map(|p| p.display_name.clone()),
+                blocked_at: blocage.created_at.into(),
+            })
+            .collect(),
+    ))
+}
+
+/// Débloquer, et le faire vraiment.
+///
+/// Retirer la ligne de blocage ne suffit pas, et c'est mesuré : le tirage
+/// écarte aussi les profils déjà tranchés, donc la personne resterait
+/// invisible. La route rendrait 200, la liste se viderait, et rien ne
+/// changerait à l'écran — une route décorative, exactement le défaut que ce
+/// dépôt traque partout ailleurs.
+///
+/// Le verdict qu'on avait rendu sur elle part donc avec le blocage. **Pas le
+/// sien sur nous** : qu'on se ravise ne rend pas à l'autre une décision qu'il
+/// a prise. Concrètement, elle peut revenir dans notre sélection ; nous ne
+/// revenons dans la sienne que s'il ne s'était jamais prononcé.
+///
+/// Ce qui ne revient pas : la conversation. Bloquer l'a supprimée, avec ses
+/// messages, des deux côtés. Débloquer rouvre une porte, il ne ressuscite
+/// rien — et le dire vaut mieux que de laisser espérer.
+async fn unblock_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> ApiResult<()> {
+    let claims = authenticate(&state, &headers)?;
+
+    let existant = block::Entity::find()
+        .filter(block::Column::BlockerId.eq(claims.sub))
+        .filter(block::Column::BlockedId.eq(id))
+        .one(&state.db)
+        .await?;
+
+    // Rien à défaire : la réponse est la même que si on venait de le faire.
+    // Un 404 ici ferait échouer un second appui sur un bouton qui a marché.
+    let Some(existant) = existant else {
+        return Ok(());
+    };
+
+    // Les deux ensemble : un blocage retiré sans son verdict laisse la
+    // personne invisible, et un verdict retiré sans son blocage la laisse
+    // bloquée. L'un sans l'autre est un état que rien ne décrit.
+    state
+        .db
+        .transaction::<_, (), sea_orm::DbErr>(move |txn| {
+            Box::pin(async move {
+                block::Entity::delete_by_id(existant.id).exec(txn).await?;
+                swipe::Entity::delete_many()
+                    .filter(swipe::Column::ViewerId.eq(claims.sub))
+                    .filter(swipe::Column::TargetId.eq(id))
+                    .exec(txn)
+                    .await?;
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|erreur| match erreur {
+            sea_orm::TransactionError::Transaction(inner) => ApiError::from(inner),
+            sea_orm::TransactionError::Connection(inner) => ApiError::from(inner),
+        })?;
+
+    Ok(())
+}
+
 /// Blocking is idempotent: someone pressing it twice is telling us the same
 /// thing, and an error would read as though it had not worked.
 async fn block_profile(
@@ -464,4 +634,91 @@ async fn block_profile(
         .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn jour(n: i64) -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 1, 1).unwrap() + chrono::Duration::days(n)
+    }
+
+    /// Les deux bornes égales rendent le comportement fixe. C'est ce dont se
+    /// servent les suites qui doivent connaître le compte à l'avance, donc
+    /// c'est ce qui tient la moitié des tests d'intégration debout.
+    #[test]
+    fn une_fourchette_plate_ne_varie_pas() {
+        let qui = Uuid::new_v4();
+        for n in 0..50 {
+            assert_eq!(taille_du_jour(3, 3, qui, jour(n)), 3);
+        }
+    }
+
+    /// Le compte reste dans la fourchette, bornes comprises.
+    ///
+    /// Les deux bouts sont ce qu'un modulo rate : `min` seul quand l'étendue
+    /// est mal calculée, `max` jamais atteint quand elle est trop courte d'un.
+    #[test]
+    fn le_compte_couvre_la_fourchette_sans_la_deborder() {
+        let mut vus = std::collections::BTreeSet::new();
+        for _ in 0..200 {
+            let qui = Uuid::new_v4();
+            for n in 0..30 {
+                let taille = taille_du_jour(2, 5, qui, jour(n));
+                assert!(
+                    (2..=5).contains(&taille),
+                    "{taille} est hors de la fourchette"
+                );
+                vus.insert(taille);
+            }
+        }
+        assert_eq!(
+            vus,
+            [2, 3, 4, 5].into_iter().collect(),
+            "une fourchette dont un bout ne sort jamais n'est pas la fourchette annoncée"
+        );
+    }
+
+    /// Le même jour rend le même compte. C'est ce qui permet de rattraper un
+    /// tirage coupé en plein milieu sans viser un autre nombre.
+    #[test]
+    fn le_meme_jour_rend_le_meme_compte() {
+        let qui = Uuid::new_v4();
+        for n in 0..20 {
+            let une_fois = taille_du_jour(1, 9, qui, jour(n));
+            assert_eq!(taille_du_jour(1, 9, qui, jour(n)), une_fois);
+        }
+    }
+
+    /// Deux personnes n'ont pas la même journée. Sans le brassage de
+    /// l'identifiant, le compte ne dépendrait que de la date et tout le monde
+    /// aurait le même — ce qui se remarque, et ce qui n'est pas ce qu'on a
+    /// dit.
+    #[test]
+    fn deux_personnes_ne_suivent_pas_la_meme_suite() {
+        let une = (0..40).map(|n| taille_du_jour(1, 9, Uuid::from_u128(1), jour(n)));
+        let autre: Vec<u32> = (0..40)
+            .map(|n| taille_du_jour(1, 9, Uuid::from_u128(2), jour(n)))
+            .collect();
+        assert_ne!(une.collect::<Vec<_>>(), autre);
+    }
+
+    /// Et le compte bouge d'un jour à l'autre pour une même personne : c'est
+    /// exactement ce qui a été demandé, et une fonction qui rendrait la même
+    /// valeur tout le temps passerait tous les autres tests de ce module.
+    #[test]
+    fn le_compte_bouge_dun_jour_a_lautre() {
+        for graine in 1..200u128 {
+            let qui = Uuid::from_u128(graine);
+            let suite: std::collections::BTreeSet<u32> = (0..15)
+                .map(|n| taille_du_jour(2, 5, qui, jour(n)))
+                .collect();
+            assert!(
+                suite.len() > 1,
+                "quinze jours d'affilée avec le même compte pour {qui}"
+            );
+        }
+    }
 }

@@ -19,18 +19,23 @@ pub struct Config {
     /// Where the built presentation site lives. Absent in a plain `cargo run`,
     /// present in the image.
     pub site_dir: Option<String>,
-    /// Combien de profils la sélection du jour contient.
+    /// Entre combien et combien de profils la sélection du jour contient.
     ///
-    /// Trois, et le nombre est le produit lui-même : c'est ce qui permet de
-    /// lire chaque profil au lieu de le balayer. Réglable par l'environnement
-    /// pour une raison et une seule — sans cela, éprouver la limite
-    /// demanderait de peupler assez de profils pour la dépasser, donc elle ne
-    /// serait éprouvée par rien.
+    /// Une poignée, et le petit nombre est le produit lui-même : c'est ce qui
+    /// permet de lire chaque profil au lieu de le balayer. Il remplace le
+    /// budget de deck, qui plafonnait ce qu'on pouvait emporter d'un paquet
+    /// sans fond ; le paquet n'existe plus, et quatre profils par jour bornent
+    /// la récolte bien plus serré que mille ne le faisaient.
     ///
-    /// Il remplace le budget de deck, qui plafonnait ce qu'on pouvait emporter
-    /// d'un paquet sans fond. Le paquet n'existe plus : trois profils par jour
-    /// bornent la récolte bien plus serré que mille ne le faisaient.
-    pub daily_selection_size: u32,
+    /// **Pourquoi une fourchette et pas un nombre.** Un compte fixe se
+    /// transforme en habitude : on sait ce qu'on va trouver, on l'expédie, et
+    /// l'application redevient la pile qu'elle ne voulait pas être. Un nombre
+    /// qui change d'un jour à l'autre se regarde.
+    ///
+    /// Les deux bornes égales redonnent le comportement fixe — c'est ce dont
+    /// se servent les suites qui doivent connaître le compte à l'avance.
+    pub daily_selection_min: u32,
+    pub daily_selection_max: u32,
     /// Le jeton qui ouvre la file de modération, s'il y en a un.
     ///
     /// Absent par défaut, et c'est délibéré : tant qu'il n'est pas posé, la
@@ -76,6 +81,9 @@ impl Config {
             return Err(ConfigError::WeakSecret);
         }
 
+        let bas = parse_or("DAILY_SELECTION_MIN", 2)?.clamp(1, 20) as u32;
+        let haut = parse_or("DAILY_SELECTION_MAX", 5)?.clamp(1, 20) as u32;
+
         Ok(Self {
             database_url,
             port,
@@ -94,8 +102,12 @@ impl Config {
             admin_token: admin_token(),
             // Au moins un : une sélection vide serait une application sans
             // rien dedans, et `0` dans l'environnement se lit comme une
-            // faute de frappe plutôt que comme une intention.
-            daily_selection_size: parse_or("DAILY_SELECTION_SIZE", 3)?.clamp(1, 20) as u32,
+            // faute de frappe plutôt que comme une intention. Le plafond du
+            // bas remonte avec la borne haute, parce qu'une fourchette à
+            // l'envers ne veut rien dire et qu'une panique au démarrage pour
+            // ça coûterait plus cher qu'elle ne rapporte.
+            daily_selection_min: bas,
+            daily_selection_max: haut.max(bas),
             public_base_url: env::var("PUBLIC_BASE_URL")
                 .ok()
                 .filter(|url| !url.is_empty())

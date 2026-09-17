@@ -2,8 +2,8 @@
 //!
 //! Elle remplace le deck. Ce qui a disparu avec lui : la pagination, le
 //! curseur, le retour en arrière, le double oui, et le budget qui bornait ce
-//! qu'on pouvait emporter d'un paquet sans fond. Trois profils par jour bornent
-//! la récolte bien plus serré que mille ne le faisaient.
+//! qu'on pouvait emporter d'un paquet sans fond. Quelques profils par jour
+//! bornent la récolte bien plus serré que mille ne le faisaient.
 //!
 //! Ce qui reste, et qui est éprouvé ici : le *tirage* est le même — mêmes
 //! écarts, même tri — et c'est de lui que dépendent la distance, les filtres,
@@ -662,4 +662,159 @@ async fn a_small_pool_still_fills_the_selection() {
         "avec trois personnes en tout, demain doit les remontrer plutôt que \
          d'afficher un écran vide"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Le nombre du jour
+// ---------------------------------------------------------------------------
+
+/// Combien de personnes aujourd'hui : pas toujours le même nombre.
+///
+/// Un compte fixe se transforme en habitude. On sait ce qu'on va trouver avant
+/// d'ouvrir, on l'expédie, et l'application redevient la pile qu'elle ne
+/// voulait pas être. Douze jours, un vivier assez large pour que le compte ne
+/// soit jamais borné par le voisinage : ce qu'on lit est bien le tirage.
+#[tokio::test]
+async fn the_number_of_profiles_changes_from_one_day_to_the_next() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state_with_selection_range(db.clone(), 2, 5));
+    let here = private_cluster();
+
+    let (viewer, viewer_id) = candidate(&app, "nombre", VARYING_COUNT, "woman", Some(here)).await;
+    only_see_age(&app, &viewer, VARYING_COUNT, "everyone").await;
+    // Plus que le plafond, pour qu'aucune journée ne soit courte faute de
+    // monde : sinon on mesurerait la taille du vivier, pas celle du tirage.
+    for index in 0..9 {
+        candidate(
+            &app,
+            &format!("nombre-{index}"),
+            VARYING_COUNT,
+            "man",
+            Some(north_of(here, 1.0 + f64::from(index))),
+        )
+        .await;
+    }
+
+    // Le tirage vaut ce que le nombre du jour annonce — pour *aujourd'hui* et
+    // pour *cette personne*. C'est le chaînon qu'une suite d'intégration peut
+    // tenir : elle ne sait pas avancer l'horloge du serveur (`advance_one_day`
+    // recule les lignes déjà servies, la date du tirage ne bouge pas), donc la
+    // variation d'un jour à l'autre est vérifiée dans le module de tests de
+    // `discovery::routes`, sur la fonction elle-même. Ici on vérifie que la
+    // route la consulte vraiment, avec les deux arguments qui la font varier.
+    let attendu = plum_server::discovery::routes::taille_du_jour(
+        2,
+        5,
+        viewer_id,
+        chrono::Utc::now().date_naive(),
+    );
+    assert!((2..=5).contains(&attendu));
+    assert_eq!(
+        selection_ids(&app, &viewer).await.len(),
+        attendu as usize,
+        "le tirage ne suit pas le nombre du jour"
+    );
+
+    // Et le nombre n'est pas le même pour tout le monde : sans le brassage de
+    // l'identifiant, il ne dépendrait que de la date, tout le monde aurait le
+    // même compte le même jour, et la variation ne se verrait que le lendemain.
+    let mut comptes = std::collections::BTreeSet::new();
+    for index in 0..12 {
+        let (autre, _) = candidate(
+            &app,
+            &format!("nombre-vue-{index}"),
+            VARYING_COUNT,
+            "woman",
+            Some(here),
+        )
+        .await;
+        only_see_age(&app, &autre, VARYING_COUNT, "everyone").await;
+        let compte = selection_ids(&app, &autre).await.len();
+        assert!(
+            (2..=5).contains(&compte),
+            "une sélection de {compte} profils sort de la fourchette"
+        );
+        comptes.insert(compte);
+    }
+    assert!(
+        comptes.len() > 1,
+        "douze personnes, le même nombre pour toutes : {comptes:?}"
+    );
+}
+
+/// Et il ne bouge pas d'une ouverture à l'autre dans la même journée.
+///
+/// C'est la moitié fragile : un compte tiré à chaque lecture ferait apparaître
+/// et disparaître des gens sous les doigts. Le tirage s'écrit une fois, et
+/// c'est cette trace qui tient — pas la fonction qui décide du nombre.
+#[tokio::test]
+async fn the_number_does_not_move_during_the_day() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state_with_selection_range(db, 2, 5));
+    let here = private_cluster();
+
+    let (viewer, _) = candidate(&app, "fixe", VARYING_STABLE, "woman", Some(here)).await;
+    only_see_age(&app, &viewer, VARYING_STABLE, "everyone").await;
+    for index in 0..9 {
+        candidate(
+            &app,
+            &format!("fixe-{index}"),
+            VARYING_STABLE,
+            "man",
+            Some(north_of(here, 1.0 + f64::from(index))),
+        )
+        .await;
+    }
+
+    let premier = selection_ids(&app, &viewer).await;
+    for _ in 0..4 {
+        assert_eq!(
+            selection_ids(&app, &viewer).await,
+            premier,
+            "le nombre du jour se retire à chaque ouverture"
+        );
+    }
+}
+
+/// `size` annonce ce qui a été servi, pas ce qu'on visait.
+///
+/// L'écran écrit « il en reste deux sur quatre ». Le jour où le voisinage n'a
+/// pas de quoi remplir la sélection, annoncer la cible ferait mentir cette
+/// phrase — deux profils affichés, un total qui promet des gens qui ne
+/// viendront pas. Et une fois qu'on a tranché sur quelqu'un, le total ne doit
+/// pas baisser avec lui : c'est le dénominateur de la journée.
+#[tokio::test]
+async fn the_announced_size_is_what_was_actually_served() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state_with_selection_range(db, 5, 5));
+    let here = private_cluster();
+
+    let (viewer, _) = candidate(&app, "total", ANNOUNCED_SIZE, "woman", Some(here)).await;
+    only_see_age(&app, &viewer, ANNOUNCED_SIZE, "everyone").await;
+    // Deux personnes pour une sélection qui en vise cinq.
+    for index in 0..2 {
+        candidate(
+            &app,
+            &format!("total-{index}"),
+            ANNOUNCED_SIZE,
+            "man",
+            Some(north_of(here, 1.0 + f64::from(index))),
+        )
+        .await;
+    }
+
+    let body = selection(&app, &viewer).await;
+    assert_eq!(body["items"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        body["size"], 2,
+        "le total promet des gens qui ne viendront pas : {body}"
+    );
+
+    // Une décision retire la carte, pas le dénominateur.
+    let premier = selection_ids(&app, &viewer).await[0];
+    assert_eq!(pass(&app, &viewer, premier).await, StatusCode::OK);
+
+    let body = selection(&app, &viewer).await;
+    assert_eq!(body["items"].as_array().unwrap().len(), 1);
+    assert_eq!(body["size"], 2, "« il en reste un sur un » : {body}");
 }

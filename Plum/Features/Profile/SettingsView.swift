@@ -84,6 +84,14 @@ struct SettingsView: View {
                     Text("Automatique suit le réglage de votre iPhone.")
                 }
 
+                Section {
+                    NavigationLink("Personnes bloquées") { BlockedListView() }
+                } header: {
+                    Text("Sécurité")
+                } footer: {
+                    Text("Bloquer se fait vite, et c'est voulu. C'est ici qu'on revient dessus.")
+                }
+
                 Section("À propos") {
                     Link("Conditions d'utilisation", destination: LegalLinks.terms)
                     Link("Confidentialité", destination: LegalLinks.privacy)

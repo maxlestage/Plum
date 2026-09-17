@@ -31,7 +31,7 @@ final class DiscoveryViewModel {
         self.discovery = discovery
     }
 
-    /// Combien il reste à décider sur les trois du jour.
+    /// Combien il reste à décider sur la sélection du jour.
     var remaining: Int { profiles.count }
 
     var isEmpty: Bool {

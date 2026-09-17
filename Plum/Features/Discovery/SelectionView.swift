@@ -191,14 +191,15 @@ struct SelectionView: View {
             }
             // Le compte restant, pas un quota de « j'aime » : il dit ce qu'il
             // reste à lire, pas ce qu'il reste à dépenser.
+            //
+            // Le nombre vient du serveur et change d'un jour à l'autre, donc
+            // rien ici ne peut l'écrire en toutes lettres — et le singulier
+            // arrive vraiment, les jours où le voisinage n'avait qu'une
+            // personne à proposer.
             if let size = viewModel.size, !viewModel.profiles.isEmpty {
-                Text(
-                    viewModel.remaining == size
-                        ? "Vos \(size) profils du jour."
-                        : "Il en reste \(viewModel.remaining) sur \(size)."
-                )
-                .font(.plumCallout)
-                .foregroundStyle(PlumTheme.Palette.secondaryText)
+                Text(Self.countLine(remaining: viewModel.remaining, size: size))
+                    .font(.plumCallout)
+                    .foregroundStyle(PlumTheme.Palette.secondaryText)
             }
         }
         .padding(.top, PlumTheme.Spacing.s)
@@ -226,12 +227,27 @@ struct SelectionView: View {
         .padding(.top, PlumTheme.Spacing.xl)
     }
 
+    /// Combien il reste à lire, et sur combien.
+    ///
+    /// Rendu par une fonction plutôt que par un ternaire dans la vue : c'est
+    /// la seule phrase de l'écran qui compte des gens, et elle doit rester
+    /// juste au singulier comme au pluriel.
+    static func countLine(remaining: Int, size: Int) -> String {
+        guard remaining == size else {
+            return "Il en reste \(remaining) sur \(size)."
+        }
+        return size == 1 ? "Un profil pour aujourd'hui." : "Vos \(size) profils du jour."
+    }
+
+    /// Ne promet pas de nombre : il n'est pas le même tous les jours, et une
+    /// phrase qui annonçait « trois autres profils » serait fausse deux jours
+    /// sur trois.
     private func nextTimeLine(_ viewModel: DiscoveryViewModel) -> String {
         guard let next = viewModel.refreshesAt else {
-            return "Trois autres profils demain."
+            return "Une nouvelle sélection demain."
         }
         let heure = next.formatted(date: .omitted, time: .shortened)
-        return "Trois autres profils à partir de \(heure)."
+        return "Une nouvelle sélection à partir de \(heure)."
     }
 
     /// Quelqu'un qui se connecte sur un nouvel appareil saute l'accueil, donc
