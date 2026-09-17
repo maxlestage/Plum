@@ -32,8 +32,8 @@ export const es: Copy = {
       body: "Lo mínimo para que alguien tenga ganas de responder. La foto es obligatoria; lo demás se rellena en treinta segundos.",
     },
     {
-      title: "Tres perfiles al día",
-      body: "Ni montón sin fondo ni deslizar. Tres personas, la misma selección de la mañana a la noche, y dos botones: escribir, o dejar pasar. Tres se leen.",
+      title: "Unos pocos perfiles al día",
+      body: "Ni montón sin fondo ni deslizar. De dos a cinco personas, la misma selección de la mañana a la noche, y dos botones: escribir, o dejar pasar. El número cambia cada día — una cifra fija se acaba despachando.",
     },
     {
       title: "Escribir es todo el gesto",
@@ -49,7 +49,7 @@ export const es: Copy = {
     },
     {
       title: "Bloquear cierra la conversación",
-      body: "No solo la selección: el hilo desaparece por ambos lados, con los mensajes, y quien está bloqueado ya no puede escribir ni hacer parpadear «escribiendo». Un bloqueo que dejara la conversación abierta sería solo un filtro.",
+      body: "No solo la selección: el hilo desaparece por ambos lados, con los mensajes, y quien está bloqueado ya no puede escribir ni hacer parpadear «escribiendo». Un bloqueo que dejara la conversación abierta sería solo un filtro. Y como a veces se bloquea por una duda, la lista de personas bloqueadas está en los ajustes, con la opción de deshacerlo — la conversación, eso sí, no vuelve.",
     },
     {
       title: "Una denuncia se lee",
@@ -61,7 +61,7 @@ export const es: Copy = {
     },
     {
       title: "Los perfiles no se pueden aspirar",
-      body: "No hay un montón que recorrer para recolectar nombres, biografías y fotos. Tres perfiles al día es también lo que ve un script — y solo se escribe a las personas que te han propuesto.",
+      body: "No hay un montón que recorrer para recolectar nombres, biografías y fotos. Unos pocos perfiles al día es también lo que ve un script — y solo se escribe a las personas que te han propuesto.",
     },
     {
       title: "Utilizable sin ver la pantalla",

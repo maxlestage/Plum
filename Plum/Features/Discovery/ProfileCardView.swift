@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Ce n'est plus une carte qu'on balaie : elle ne bouge pas, elle ne
 /// s'empile pas, et elle porte ses deux issues écrites en toutes lettres.
-/// Trois par jour se lisent ; c'est ce qui permet de les écrire au lieu de
+/// Une poignée par jour se lit ; c'est ce qui permet de les écrire au lieu de
 /// les jeter d'un revers de pouce.
 struct ProfileCardView: View {
     let profile: Profile
