@@ -5,18 +5,18 @@ use crate::m20260101_000001_create_users::Users;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-/// La sélection du jour : trois profils, et c'est tout.
+/// La sélection du jour : une poignée de profils, et c'est tout.
 ///
 /// Elle remplace le deck, qui n'avait pas de fond. Un deck sans fin demande un
 /// geste sans fin — c'est ce qui rend le balayage nécessaire, et c'est
-/// précisément ce dont on ne veut plus. Trois profils tiennent sur un écran et
-/// se décident au bouton.
+/// précisément ce dont on ne veut plus. Une poignée de profils tient sur un
+/// écran et se décide au bouton.
 ///
 /// La table sert deux choses à la fois, et c'est pour ça qu'elle existe plutôt
 /// que d'être calculée :
 ///
 /// - **la stabilité.** Sans trace de ce qui a été servi, rouvrir l'application
-///   retirerait la requête et rendrait trois autres personnes. La sélection du
+///   retirerait la requête et rendrait d'autres personnes. La sélection du
 ///   jour doit être la même le matin et le soir.
 /// - **le plafond.** Trois par jour n'est pas un quota posé à côté : c'est la
 ///   conséquence du tirage unique. Il n'y a rien à compter.

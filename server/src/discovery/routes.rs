@@ -69,14 +69,14 @@ fn candidate_into_profile(candidate: Candidate) -> ProfileResponse {
     }
 }
 
-/// La sélection du jour : trois profils, tirés une fois, stables jusqu'à
-/// minuit.
+/// La sélection du jour : une poignée de profils, tirés une fois, stables
+/// jusqu'à minuit.
 ///
 /// Ce qu'elle remplace, et pourquoi. Le deck n'avait pas de fond : il se
 /// paginait, et il fallait un geste par carte pour avancer. Un geste qu'on
 /// répète cent fois doit être minuscule — d'où le balayage, et d'où le fait
-/// qu'on décide de quelqu'un en un quart de seconde. Trois profils tiennent
-/// sur un écran et se lisent.
+/// qu'on décide de quelqu'un en un quart de seconde. Deux à cinq profils
+/// tiennent sur un écran et se lisent.
 ///
 /// Le tirage est écrit en base, pas recalculé. Sans ça, rouvrir l'application
 /// rendrait trois autres personnes, et « la sélection du jour » ne voudrait
@@ -229,7 +229,7 @@ async fn draw(
     taille: u32,
 ) -> ApiResult<Vec<Uuid>> {
     // Large exprès : il faut de quoi écarter les déjà-vus et tomber quand même
-    // sur trois personnes.
+    // sur le compte du jour.
     let candidats = query_deck(&state.db, viewer, taille.saturating_mul(20).max(50), None).await?;
 
     // Quand chacun a été proposé pour la dernière fois. Absent de la table

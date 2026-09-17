@@ -2,8 +2,8 @@
 //!
 //! Elle remplace le deck. Ce qui a disparu avec lui : la pagination, le
 //! curseur, le retour en arrière, le double oui, et le budget qui bornait ce
-//! qu'on pouvait emporter d'un paquet sans fond. Trois profils par jour bornent
-//! la récolte bien plus serré que mille ne le faisaient.
+//! qu'on pouvait emporter d'un paquet sans fond. Quelques profils par jour
+//! bornent la récolte bien plus serré que mille ne le faisaient.
 //!
 //! Ce qui reste, et qui est éprouvé ici : le *tirage* est le même — mêmes
 //! écarts, même tri — et c'est de lui que dépendent la distance, les filtres,
