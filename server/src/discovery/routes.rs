@@ -47,7 +47,11 @@ pub fn router() -> Router<AppState> {
         .route("/profiles/{id}/write", post(write_first))
         .route("/profiles/{id}/pass", post(pass_profile))
         .route("/profiles/{id}/report", post(report_profile))
-        .route("/profiles/{id}/block", post(block_profile))
+        .route(
+            "/profiles/{id}/block",
+            post(block_profile).delete(unblock_profile),
+        )
+        .route("/me/blocks", get(list_blocks))
 }
 
 fn candidate_into_profile(candidate: Candidate) -> ProfileResponse {
@@ -409,6 +413,106 @@ async fn report_profile(
     }
     .insert(&state.db)
     .await?;
+
+    Ok(())
+}
+
+/// Qui on a bloqué, avec de quoi les reconnaître.
+///
+/// Sans cette liste, le déblocage serait injoignable : on ne débloque pas
+/// quelqu'un dont on ne se rappelle plus le nom, et il n'y a nulle part
+/// ailleurs où le retrouver — le profil a disparu de partout, c'est tout
+/// l'intérêt d'un blocage.
+async fn list_blocks(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Vec<BlockedPerson>>> {
+    let claims = authenticate(&state, &headers)?;
+
+    let blocages = block::Entity::find()
+        .filter(block::Column::BlockerId.eq(claims.sub))
+        .order_by_desc(block::Column::CreatedAt)
+        .all(&state.db)
+        .await?;
+
+    let vises: Vec<Uuid> = blocages.iter().map(|b| b.blocked_id).collect();
+    let profils = profile::Entity::find()
+        .filter(profile::Column::Id.is_in(vises))
+        .all(&state.db)
+        .await?;
+
+    Ok(Json(
+        blocages
+            .into_iter()
+            .map(|blocage| BlockedPerson {
+                id: blocage.blocked_id,
+                // Le compte a pu partir depuis : la ligne reste, le nom non.
+                display_name: profils
+                    .iter()
+                    .find(|p| p.id == blocage.blocked_id)
+                    .map(|p| p.display_name.clone()),
+                blocked_at: blocage.created_at.into(),
+            })
+            .collect(),
+    ))
+}
+
+/// Débloquer, et le faire vraiment.
+///
+/// Retirer la ligne de blocage ne suffit pas, et c'est mesuré : le tirage
+/// écarte aussi les profils déjà tranchés, donc la personne resterait
+/// invisible. La route rendrait 200, la liste se viderait, et rien ne
+/// changerait à l'écran — une route décorative, exactement le défaut que ce
+/// dépôt traque partout ailleurs.
+///
+/// Le verdict qu'on avait rendu sur elle part donc avec le blocage. **Pas le
+/// sien sur nous** : qu'on se ravise ne rend pas à l'autre une décision qu'il
+/// a prise. Concrètement, elle peut revenir dans notre sélection ; nous ne
+/// revenons dans la sienne que s'il ne s'était jamais prononcé.
+///
+/// Ce qui ne revient pas : la conversation. Bloquer l'a supprimée, avec ses
+/// messages, des deux côtés. Débloquer rouvre une porte, il ne ressuscite
+/// rien — et le dire vaut mieux que de laisser espérer.
+async fn unblock_profile(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> ApiResult<()> {
+    let claims = authenticate(&state, &headers)?;
+
+    let existant = block::Entity::find()
+        .filter(block::Column::BlockerId.eq(claims.sub))
+        .filter(block::Column::BlockedId.eq(id))
+        .one(&state.db)
+        .await?;
+
+    // Rien à défaire : la réponse est la même que si on venait de le faire.
+    // Un 404 ici ferait échouer un second appui sur un bouton qui a marché.
+    let Some(existant) = existant else {
+        return Ok(());
+    };
+
+    // Les deux ensemble : un blocage retiré sans son verdict laisse la
+    // personne invisible, et un verdict retiré sans son blocage la laisse
+    // bloquée. L'un sans l'autre est un état que rien ne décrit.
+    state
+        .db
+        .transaction::<_, (), sea_orm::DbErr>(move |txn| {
+            Box::pin(async move {
+                block::Entity::delete_by_id(existant.id).exec(txn).await?;
+                swipe::Entity::delete_many()
+                    .filter(swipe::Column::ViewerId.eq(claims.sub))
+                    .filter(swipe::Column::TargetId.eq(id))
+                    .exec(txn)
+                    .await?;
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|erreur| match erreur {
+            sea_orm::TransactionError::Transaction(inner) => ApiError::from(inner),
+            sea_orm::TransactionError::Connection(inner) => ApiError::from(inner),
+        })?;
 
     Ok(())
 }

@@ -341,6 +341,12 @@ pub mod deck_ages {
     pub const ERASURE: i32 = 74;
     pub const TOMORROW: i32 = 75;
     pub const SMALL_POOL: i32 = 76;
+    pub const UNBLOCK_RETURNS: i32 = 77;
+    pub const UNBLOCK_HALF: i32 = 78;
+    pub const UNBLOCK_LIST: i32 = 79;
+    pub const UNBLOCK_ONE_SIDED: i32 = 80;
+    pub const UNBLOCK_TWICE: i32 = 81;
+    pub const UNBLOCK_THREAD: i32 = 82;
     pub const FLOOD: i32 = 51;
     pub const ORDINARY_PACE: i32 = 52;
     pub const RETRY_COST: i32 = 53;

@@ -193,9 +193,10 @@ Quelques points qui ne se devinent pas à la lecture des routes :
 - `PATCH /me/location` rafraîchit aussi l'horodatage d'activité, qui est ce qui
   allume la pastille verte.
 
-**Fait aussi** : le deck — `GET /discovery/deck`, `POST /discovery/swipes`,
-`POST /discovery/rewind`, `POST /profiles/{id}/report`,
-`POST /profiles/{id}/block`.
+**Fait aussi** : la sélection du jour — `GET /discovery/selection`,
+`POST /profiles/{id}/write`, `POST /profiles/{id}/pass`,
+`POST /profiles/{id}/report`, `POST /profiles/{id}/block`,
+`DELETE /profiles/{id}/block`, `GET /me/blocks`.
 
 Les points qui ne se lisent pas dans la liste des routes :
 
@@ -206,6 +207,13 @@ Les points qui ne se lisent pas dans la liste des routes :
   écritures naïves échouent précisément sur les ex æquo : `distance >` les
   saute, `distance >=` les répète. Un test pagine sept candidats placés au
   même point, deux par deux, et vérifie qu'aucun n'est vu deux fois ni oublié.
+- **Débloquer retire aussi le verdict qu'on avait rendu.** Le tirage écarte
+  deux choses à la fois : les blocages et les profils déjà tranchés. Ne retirer
+  que la ligne de blocage rendrait 200, viderait la liste, et laisserait la
+  personne exactement aussi invisible qu'avant — une route décorative. Le
+  verdict de l'autre sur nous, lui, reste : se raviser n'annule pas la décision
+  de quelqu'un d'autre. Deux tests tiennent les deux moitiés, et chacun tombe
+  quand on retire sa moitié.
 - **Tout est exclu dans la requête**, pas après coup : déjà jugé, bloqué dans
   un sens ou dans l'autre, masqué, hors bornes d'âge ou de distance. Filtrer
   une page déjà récupérée rendrait des pages courtes ou vides alors qu'il

@@ -51,6 +51,18 @@ pub struct SelectionResponse {
     pub size: u32,
 }
 
+/// Quelqu'un qu'on a bloqué.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct BlockedPerson {
+    pub id: Uuid,
+    /// Absent quand le compte est parti depuis. La ligne de blocage, elle,
+    /// reste — et l'écran doit dire « compte supprimé » plutôt qu'une ligne
+    /// vide qui ressemble à un bogue.
+    pub display_name: Option<String>,
+    pub blocked_at: DateTime<Utc>,
+}
+
 /// Le premier message, celui qui ouvre tout.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]

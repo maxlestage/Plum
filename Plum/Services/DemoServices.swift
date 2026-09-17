@@ -157,6 +157,9 @@ actor DemoProfileService: ProfileServicing {
 
 actor DemoDiscoveryService: DiscoveryServicing {
     private var remaining = SampleData.selection
+    /// La démonstration garde ses blocages en mémoire : sans ça l'écran de
+    /// déblocage serait toujours vide, et une revue le prendrait pour un bogue.
+    private var bloques: [BlockedPerson] = []
 
     func selection() async throws -> DailySelection {
         await DemoMode.pause()
@@ -193,7 +196,21 @@ actor DemoDiscoveryService: DiscoveryServicing {
     }
 
     func block(profileId: UUID) async throws {
+        guard let parti = remaining.first(where: { $0.id == profileId }) else { return }
         remaining.removeAll { $0.id == profileId }
+        bloques.append(
+            BlockedPerson(id: parti.id, displayName: parti.displayName, blockedAt: .now)
+        )
+    }
+
+    func blocks() async throws -> [BlockedPerson] {
+        await DemoMode.pause()
+        return bloques
+    }
+
+    func unblock(profileId: UUID) async throws {
+        await DemoMode.pause()
+        bloques.removeAll { $0.id == profileId }
     }
 }
 
