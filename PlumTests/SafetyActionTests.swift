@@ -326,3 +326,52 @@ final class BlockedListTests: XCTestCase {
         XCTAssertTrue(viewModel.people.isEmpty)
     }
 }
+
+/// La phrase qui compte des gens.
+///
+/// Le nombre du jour vient du serveur et n'est plus toujours le même, donc
+/// aucune formulation ne peut l'écrire en toutes lettres — et le singulier
+/// arrive vraiment, les jours où le voisinage n'avait qu'une personne à
+/// proposer.
+final class SelectionCountLineTests: XCTestCase {
+    func testAFullDayNamesTheNumberItActuallyHas() {
+        XCTAssertEqual(
+            SelectionView.countLine(remaining: 4, size: 4),
+            "Vos 4 profils du jour."
+        )
+        XCTAssertEqual(
+            SelectionView.countLine(remaining: 2, size: 2),
+            "Vos 2 profils du jour."
+        )
+    }
+
+    func testOneProfileDoesNotReadAsAPluralMistake() {
+        XCTAssertEqual(
+            SelectionView.countLine(remaining: 1, size: 1),
+            "Un profil pour aujourd'hui."
+        )
+    }
+
+    func testAPartlyDecidedDayCountsBothHalves() {
+        XCTAssertEqual(
+            SelectionView.countLine(remaining: 1, size: 5),
+            "Il en reste 1 sur 5."
+        )
+    }
+
+    /// Aucune des trois phrases ne doit annoncer un nombre écrit en toutes
+    /// lettres : c'est exactement ce que disait l'écran d'avant, et c'était
+    /// faux dès que le compte a cessé d'être fixe.
+    func testNoLineSpellsOutAFixedNumber() {
+        for phrase in [
+            SelectionView.countLine(remaining: 3, size: 3),
+            SelectionView.countLine(remaining: 1, size: 1),
+            SelectionView.countLine(remaining: 2, size: 5),
+        ] {
+            XCTAssertFalse(
+                phrase.lowercased().contains("trois"),
+                "« \(phrase) » promet un nombre qui n'est plus garanti"
+            )
+        }
+    }
+}

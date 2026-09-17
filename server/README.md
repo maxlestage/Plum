@@ -129,6 +129,7 @@ déploiement en le signalant. Rien ne casse avant que Heroku n'existe.
 | `REFRESH_TOKEN_TTL_DAYS` | 60 par défaut. |
 | `REDIS_URL` | **Facultatif.** Sans lui, la limitation de débit compte dans le processus — donc par dyno, ce qui est plus faible mais démarre sans add-on. Heroku Key-Value Store présente un certificat auto-signé : l'URL `rediss://` doit porter `#insecure`, et le serveur le signale au démarrage si elle ne l'a pas. |
 | `DATABASE_MAX_CONNECTIONS` | 10 par défaut. Heroku Postgres Essential-0 en autorise **20 pour tout le compte**, pas par dyno : dépasser ce plafond produit une erreur qui ne nomme ni le plan ni la limite. |
+| `DAILY_SELECTION_MIN` / `DAILY_SELECTION_MAX` | 2 et 5 par défaut : combien de profils la sélection du jour contient, tiré dans cette fourchette. Deux bornes égales redonnent un compte fixe. |
 | `PUBLIC_BASE_URL` | L'adresse publique du déploiement, sans barre finale. Elle sert à écrire les adresses des photos, qui doivent être absolues : `AsyncImage` ne résout pas un chemin relatif. Sans elle, le serveur se rabat sur `http://127.0.0.1:{PORT}` — utile pour un `cargo run`, inutilisable depuis un téléphone. |
 
 ## Ce qui est fait, ce qui ne l'est pas
@@ -207,6 +208,17 @@ Les points qui ne se lisent pas dans la liste des routes :
   écritures naïves échouent précisément sur les ex æquo : `distance >` les
   saute, `distance >=` les répète. Un test pagine sept candidats placés au
   même point, deux par deux, et vérifie qu'aucun n'est vu deux fois ni oublié.
+- **Le nombre de profils du jour n'est pas le même tous les jours.** Un compte
+  fixe se transforme en habitude : on sait ce qu'on va trouver avant d'ouvrir,
+  on l'expédie, et l'application redevient la pile qu'elle ne voulait pas être.
+  Le nombre sort d'un brassage de l'identifiant et de la date, pas d'un `rand` :
+  le tirage s'écrit en base ligne par ligne, et une écriture coupée au milieu
+  doit pouvoir être reprise en visant le même nombre. C'est aussi ce qui permet
+  de l'éprouver — une suite fait défiler les jours et lit la suite des comptes.
+- **`size` annonce ce qui a été servi, pas ce qui était visé.** L'écran écrit
+  « il en reste deux sur quatre » ; le jour où le voisinage n'a pas de quoi
+  remplir la sélection, annoncer la cible promettrait des gens qui ne viendront
+  pas.
 - **Débloquer retire aussi le verdict qu'on avait rendu.** Le tirage écarte
   deux choses à la fois : les blocages et les profils déjà tranchés. Ne retirer
   que la ligne de blocage rendrait 200, viderait la liste, et laisserait la

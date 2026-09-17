@@ -70,7 +70,7 @@ struct MatchesView: View {
             EmptyStateView(
                 systemImage: "heart.slash",
                 title: "Rien encore",
-                message: "Une conversation s'ouvre quand quelqu'un écrit — vous, ou l'autre. Vos trois profils du jour sont dans l'onglet Aujourd'hui."
+                message: "Une conversation s'ouvre quand quelqu'un écrit — vous, ou l'autre. Votre sélection du jour est dans l'onglet Aujourd'hui."
             )
         } else {
             List {

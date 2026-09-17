@@ -32,8 +32,8 @@ export const fr: Copy = {
       body: "Le strict minimum pour qu'on ait envie de répondre. Une photo est obligatoire ; le reste se remplit en trente secondes.",
     },
     {
-      title: "Trois profils par jour",
-      body: "Pas de pile sans fond, pas de balayage. Trois personnes, la même sélection du matin au soir, et deux boutons : écrire, ou laisser passer. Trois, ça se lit.",
+      title: "Quelques profils par jour",
+      body: "Pas de pile sans fond, pas de balayage. Deux à cinq personnes, la même sélection du matin au soir, et deux boutons : écrire, ou laisser passer. Le nombre change chaque jour — un compte fixe, on finit par l'expédier.",
     },
     {
       title: "Écrire, c'est tout le geste",
@@ -61,7 +61,7 @@ export const fr: Copy = {
     },
     {
       title: "Les profils ne s'aspirent pas",
-      body: "Il n'y a pas de pile à parcourir pour en récolter les prénoms, les biographies et les photos. Trois profils par jour, c'est aussi ce que voit un script — et on n'écrit qu'aux personnes qu'on vous a proposées.",
+      body: "Il n'y a pas de pile à parcourir pour en récolter les prénoms, les biographies et les photos. Quelques profils par jour, c'est aussi ce que voit un script — et on n'écrit qu'aux personnes qu'on vous a proposées.",
     },
     {
       title: "Utilisable sans voir l'écran",

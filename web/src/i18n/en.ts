@@ -32,8 +32,8 @@ export const en: Copy = {
       body: "The least it takes for someone to want to reply. A photo is required; the rest takes thirty seconds.",
     },
     {
-      title: "Three profiles a day",
-      body: "No bottomless stack, no swiping. Three people, the same selection from morning to night, and two buttons: write, or let it go. Three is a number you can actually read.",
+      title: "A few profiles a day",
+      body: "No bottomless stack, no swiping. Two to five people, the same selection from morning to night, and two buttons: write, or let it go. The number changes every day — a fixed count is one you end up rushing through.",
     },
     {
       title: "Writing is the whole gesture",
@@ -61,7 +61,7 @@ export const en: Copy = {
     },
     {
       title: "Profiles cannot be harvested",
-      body: "There is no stack to page through for names, bios and photos. Three profiles a day is also what a script sees — and you can only write to the people you were shown.",
+      body: "There is no stack to page through for names, bios and photos. A few profiles a day is also what a script sees — and you can only write to the people you were shown.",
     },
     {
       title: "Usable without seeing the screen",
