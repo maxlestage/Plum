@@ -49,7 +49,7 @@ export const fr: Copy = {
     },
     {
       title: "Bloquer ferme la conversation",
-      body: "Pas seulement la sélection : le fil disparaît des deux côtés, les messages avec, et la personne bloquée ne peut plus écrire ni faire clignoter « en train d'écrire ». Un blocage qui laisserait la conversation ouverte ne serait qu'un filtre.",
+      body: "Pas seulement la sélection : le fil disparaît des deux côtés, les messages avec, et la personne bloquée ne peut plus écrire ni faire clignoter « en train d'écrire ». Un blocage qui laisserait la conversation ouverte ne serait qu'un filtre. Et parce qu'on bloque parfois sur un doute, la liste des personnes bloquées est dans les réglages, avec de quoi revenir en arrière — la conversation, elle, ne revient pas.",
     },
     {
       title: "Un signalement est lu",

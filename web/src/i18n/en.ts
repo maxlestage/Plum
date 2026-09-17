@@ -49,7 +49,7 @@ export const en: Copy = {
     },
     {
       title: "Blocking closes the conversation",
-      body: "Not just the selection: the thread disappears on both sides, messages included, and the blocked person can no longer write or make a typing indicator blink. A block that left the conversation open would only be a filter.",
+      body: "Not just the selection: the thread disappears on both sides, messages included, and the blocked person can no longer write or make a typing indicator blink. A block that left the conversation open would only be a filter. And because people sometimes block on a doubt, the list of blocked people sits in the settings, with a way to undo it — the conversation, though, does not come back.",
     },
     {
       title: "A report gets read",

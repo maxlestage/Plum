@@ -49,7 +49,7 @@ export const es: Copy = {
     },
     {
       title: "Bloquear cierra la conversación",
-      body: "No solo la selección: el hilo desaparece por ambos lados, con los mensajes, y quien está bloqueado ya no puede escribir ni hacer parpadear «escribiendo». Un bloqueo que dejara la conversación abierta sería solo un filtro.",
+      body: "No solo la selección: el hilo desaparece por ambos lados, con los mensajes, y quien está bloqueado ya no puede escribir ni hacer parpadear «escribiendo». Un bloqueo que dejara la conversación abierta sería solo un filtro. Y como a veces se bloquea por una duda, la lista de personas bloqueadas está en los ajustes, con la opción de deshacerlo — la conversación, eso sí, no vuelve.",
     },
     {
       title: "Una denuncia se lee",
