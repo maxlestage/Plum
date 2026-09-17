@@ -11,6 +11,12 @@ protocol DiscoveryServicing: Sendable {
     func pass(profileId: UUID) async throws
     func report(profileId: UUID, reason: String) async throws
     func block(profileId: UUID) async throws
+    /// Qui on a bloqué. C'est le seul endroit où ces personnes existent
+    /// encore : le blocage les a retirées de partout ailleurs.
+    func blocks() async throws -> [BlockedPerson]
+    /// Se raviser. Le serveur retire aussi le verdict qu'on avait rendu :
+    /// sans ça la personne resterait invisible et le bouton ne ferait rien.
+    func unblock(profileId: UUID) async throws
 }
 
 struct DiscoveryService: DiscoveryServicing {
@@ -44,5 +50,13 @@ struct DiscoveryService: DiscoveryServicing {
 
     func block(profileId: UUID) async throws {
         try await client.send(.post("profiles/\(profileId.uuidString)/block"))
+    }
+
+    func blocks() async throws -> [BlockedPerson] {
+        try await client.send(.get("me/blocks"), as: [BlockedPerson].self)
+    }
+
+    func unblock(profileId: UUID) async throws {
+        try await client.send(.delete("profiles/\(profileId.uuidString)/block"))
     }
 }

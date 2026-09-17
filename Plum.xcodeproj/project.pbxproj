@@ -33,6 +33,7 @@
 		48FA884E09ED0175EC0C4F67 /* MatchesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54280A92066F6529C0B5401E /* MatchesViewModel.swift */; };
 		FFE4C076AAA1890ACC5A72A2 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC18CB8097EF0D1F30AB5229 /* OnboardingView.swift */; };
 		6CA8170C02399A39C937E12C /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45628057C25EBEB3D42D3CFC /* OnboardingViewModel.swift */; };
+		74D08F157DC79BF8F54A2BAD /* BlockedListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14D82409534B25FAEDD36F7 /* BlockedListView.swift */; };
 		3A4F70DE4E334CB7B2BCCAED /* EditProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BF7BA10460120395D88AFB4 /* EditProfileView.swift */; };
 		DB391994C6E05243F41A327F /* FlowLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9AEA30DDF8DB6F3D7BC076D /* FlowLayout.swift */; };
 		586984E1568BABA29F3E9882 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A486F36F0D6F6CA606B752 /* ProfileView.swift */; };
@@ -68,6 +69,7 @@
 		B770BABDBF7352B28E7409A5 /* RelativeDateFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F15EA39F5171BABA582F1DF /* RelativeDateFormatting.swift */; };
 		D3BE02391E8E6F8AAE2D1AA6 /* MatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5ABBE1B725FF9B615DB1CA4 /* MatchActivityAttributes.swift */; };
 		E7C71ED49D3AC744B8E922D0 /* AuthTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26105B9367A2B8389525C8EB /* AuthTokens.swift */; };
+		056806ECCB32DE1467C780AB /* BlockedPerson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29DF750815BA846D71FB9D5B /* BlockedPerson.swift */; };
 		2578842BF24935B067939146 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91114DBECB3665FBEA09192C /* Conversation.swift */; };
 		9475AD75C869446F0C627D58 /* DiscoveryPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228A23585A442B2B95F11570 /* DiscoveryPreferences.swift */; };
 		70C163CF22F543D6D4630414 /* Gender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71AFAA871EEFA2498E7D0658 /* Gender.swift */; };
@@ -86,6 +88,7 @@
 		C31D19DB1D2C8A70A2339405 /* PlumWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF7C021ECFF1EA5345687A9 /* PlumWidgetBundle.swift */; };
 		0781A01B79BA6AE751CF021F /* MatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5ABBE1B725FF9B615DB1CA4 /* MatchActivityAttributes.swift */; };
 		E408843B183CDEE3EB949F51 /* AuthTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26105B9367A2B8389525C8EB /* AuthTokens.swift */; };
+		CD1B98480EA00F98B6488AE3 /* BlockedPerson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29DF750815BA846D71FB9D5B /* BlockedPerson.swift */; };
 		CFBAC342659D4656FFF50253 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91114DBECB3665FBEA09192C /* Conversation.swift */; };
 		D2E215C07CD441F926195D14 /* DiscoveryPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228A23585A442B2B95F11570 /* DiscoveryPreferences.swift */; };
 		E5FE283B8D3112B7CA861243 /* Gender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71AFAA871EEFA2498E7D0658 /* Gender.swift */; };
@@ -105,6 +108,7 @@
 		24F027AD685A02F58BDB2341 /* ThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D1F997B84876BF4EB057715 /* ThreadView.swift */; };
 		A2286D9921499806581708A4 /* WatchSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D123DFDA760D83DFA59F2E99 /* WatchSessionStore.swift */; };
 		716BAF2FE01F0EC007ECB0D3 /* AuthTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26105B9367A2B8389525C8EB /* AuthTokens.swift */; };
+		B440110793944DB75030E436 /* BlockedPerson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29DF750815BA846D71FB9D5B /* BlockedPerson.swift */; };
 		2D5FF315014416AA364E8685 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91114DBECB3665FBEA09192C /* Conversation.swift */; };
 		6F5CE3D4FE1C85861E9F81F4 /* DiscoveryPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 228A23585A442B2B95F11570 /* DiscoveryPreferences.swift */; };
 		FC897FC5EC1E91421EB691C1 /* Gender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71AFAA871EEFA2498E7D0658 /* Gender.swift */; };
@@ -225,6 +229,7 @@
 		54280A92066F6529C0B5401E /* MatchesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchesViewModel.swift; sourceTree = "<group>"; };
 		DC18CB8097EF0D1F30AB5229 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		45628057C25EBEB3D42D3CFC /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
+		E14D82409534B25FAEDD36F7 /* BlockedListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockedListView.swift; sourceTree = "<group>"; };
 		1BF7BA10460120395D88AFB4 /* EditProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileView.swift; sourceTree = "<group>"; };
 		D9AEA30DDF8DB6F3D7BC076D /* FlowLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowLayout.swift; sourceTree = "<group>"; };
 		B0A486F36F0D6F6CA606B752 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -260,6 +265,7 @@
 		3F15EA39F5171BABA582F1DF /* RelativeDateFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeDateFormatting.swift; sourceTree = "<group>"; };
 		D5ABBE1B725FF9B615DB1CA4 /* MatchActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchActivityAttributes.swift; sourceTree = "<group>"; };
 		26105B9367A2B8389525C8EB /* AuthTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTokens.swift; sourceTree = "<group>"; };
+		29DF750815BA846D71FB9D5B /* BlockedPerson.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockedPerson.swift; sourceTree = "<group>"; };
 		91114DBECB3665FBEA09192C /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
 		228A23585A442B2B95F11570 /* DiscoveryPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryPreferences.swift; sourceTree = "<group>"; };
 		71AFAA871EEFA2498E7D0658 /* Gender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gender.swift; sourceTree = "<group>"; };
@@ -436,6 +442,7 @@
 		09CA6289B5C38B62DDC88058 /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				E14D82409534B25FAEDD36F7 /* BlockedListView.swift */,
 				1BF7BA10460120395D88AFB4 /* EditProfileView.swift */,
 				D9AEA30DDF8DB6F3D7BC076D /* FlowLayout.swift */,
 				B0A486F36F0D6F6CA606B752 /* ProfileView.swift */,
@@ -533,6 +540,7 @@
 			isa = PBXGroup;
 			children = (
 				26105B9367A2B8389525C8EB /* AuthTokens.swift */,
+				29DF750815BA846D71FB9D5B /* BlockedPerson.swift */,
 				91114DBECB3665FBEA09192C /* Conversation.swift */,
 				228A23585A442B2B95F11570 /* DiscoveryPreferences.swift */,
 				71AFAA871EEFA2498E7D0658 /* Gender.swift */,
@@ -813,6 +821,7 @@
 				48FA884E09ED0175EC0C4F67 /* MatchesViewModel.swift in Sources */,
 				FFE4C076AAA1890ACC5A72A2 /* OnboardingView.swift in Sources */,
 				6CA8170C02399A39C937E12C /* OnboardingViewModel.swift in Sources */,
+				74D08F157DC79BF8F54A2BAD /* BlockedListView.swift in Sources */,
 				3A4F70DE4E334CB7B2BCCAED /* EditProfileView.swift in Sources */,
 				DB391994C6E05243F41A327F /* FlowLayout.swift in Sources */,
 				586984E1568BABA29F3E9882 /* ProfileView.swift in Sources */,
@@ -847,6 +856,7 @@
 				B770BABDBF7352B28E7409A5 /* RelativeDateFormatting.swift in Sources */,
 				D3BE02391E8E6F8AAE2D1AA6 /* MatchActivityAttributes.swift in Sources */,
 				E7C71ED49D3AC744B8E922D0 /* AuthTokens.swift in Sources */,
+				056806ECCB32DE1467C780AB /* BlockedPerson.swift in Sources */,
 				2578842BF24935B067939146 /* Conversation.swift in Sources */,
 				9475AD75C869446F0C627D58 /* DiscoveryPreferences.swift in Sources */,
 				70C163CF22F543D6D4630414 /* Gender.swift in Sources */,
@@ -872,6 +882,7 @@
 				C31D19DB1D2C8A70A2339405 /* PlumWidgetBundle.swift in Sources */,
 				0781A01B79BA6AE751CF021F /* MatchActivityAttributes.swift in Sources */,
 				E408843B183CDEE3EB949F51 /* AuthTokens.swift in Sources */,
+				CD1B98480EA00F98B6488AE3 /* BlockedPerson.swift in Sources */,
 				CFBAC342659D4656FFF50253 /* Conversation.swift in Sources */,
 				D2E215C07CD441F926195D14 /* DiscoveryPreferences.swift in Sources */,
 				E5FE283B8D3112B7CA861243 /* Gender.swift in Sources */,
@@ -898,6 +909,7 @@
 				24F027AD685A02F58BDB2341 /* ThreadView.swift in Sources */,
 				A2286D9921499806581708A4 /* WatchSessionStore.swift in Sources */,
 				716BAF2FE01F0EC007ECB0D3 /* AuthTokens.swift in Sources */,
+				B440110793944DB75030E436 /* BlockedPerson.swift in Sources */,
 				2D5FF315014416AA364E8685 /* Conversation.swift in Sources */,
 				6F5CE3D4FE1C85861E9F81F4 /* DiscoveryPreferences.swift in Sources */,
 				FC897FC5EC1E91421EB691C1 /* Gender.swift in Sources */,

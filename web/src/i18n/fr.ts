@@ -32,8 +32,8 @@ export const fr: Copy = {
       body: "Le strict minimum pour qu'on ait envie de répondre. Une photo est obligatoire ; le reste se remplit en trente secondes.",
     },
     {
-      title: "Trois profils par jour",
-      body: "Pas de pile sans fond, pas de balayage. Trois personnes, la même sélection du matin au soir, et deux boutons : écrire, ou laisser passer. Trois, ça se lit.",
+      title: "Quelques profils par jour",
+      body: "Pas de pile sans fond, pas de balayage. Deux à cinq personnes, la même sélection du matin au soir, et deux boutons : écrire, ou laisser passer. Le nombre change chaque jour — un compte fixe, on finit par l'expédier.",
     },
     {
       title: "Écrire, c'est tout le geste",
@@ -49,7 +49,7 @@ export const fr: Copy = {
     },
     {
       title: "Bloquer ferme la conversation",
-      body: "Pas seulement la sélection : le fil disparaît des deux côtés, les messages avec, et la personne bloquée ne peut plus écrire ni faire clignoter « en train d'écrire ». Un blocage qui laisserait la conversation ouverte ne serait qu'un filtre.",
+      body: "Pas seulement la sélection : le fil disparaît des deux côtés, les messages avec, et la personne bloquée ne peut plus écrire ni faire clignoter « en train d'écrire ». Un blocage qui laisserait la conversation ouverte ne serait qu'un filtre. Et parce qu'on bloque parfois sur un doute, la liste des personnes bloquées est dans les réglages, avec de quoi revenir en arrière — la conversation, elle, ne revient pas.",
     },
     {
       title: "Un signalement est lu",
@@ -61,7 +61,7 @@ export const fr: Copy = {
     },
     {
       title: "Les profils ne s'aspirent pas",
-      body: "Il n'y a pas de pile à parcourir pour en récolter les prénoms, les biographies et les photos. Trois profils par jour, c'est aussi ce que voit un script — et on n'écrit qu'aux personnes qu'on vous a proposées.",
+      body: "Il n'y a pas de pile à parcourir pour en récolter les prénoms, les biographies et les photos. Quelques profils par jour, c'est aussi ce que voit un script — et on n'écrit qu'aux personnes qu'on vous a proposées.",
     },
     {
       title: "Utilisable sans voir l'écran",

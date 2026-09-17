@@ -131,6 +131,12 @@ pub fn state(db: DatabaseConnection) -> AppState {
     state_with_selection_size(db, 3)
 }
 
+/// Le même état, avec une fourchette : le nombre de profils change d'un jour
+/// à l'autre, comme en production.
+pub fn state_with_selection_range(db: DatabaseConnection, min: u32, max: u32) -> AppState {
+    build_state(db, min, max, None)
+}
+
 /// Le jeton d'administration des tests. Trente-deux caractères, comme le
 /// serveur l'exige — un jeton plus court serait ignoré, et la suite
 /// vérifierait alors une porte fermée en croyant l'avoir ouverte.
@@ -138,7 +144,7 @@ pub const ADMIN_TOKEN: &str = "jeton-de-test-de-trente-deux-car";
 
 /// Le même état, avec la file de modération ouverte.
 pub fn state_with_admin(db: DatabaseConnection) -> AppState {
-    build_state(db, 1_000, Some(ADMIN_TOKEN.to_owned()))
+    build_state(db, 1_000, 1_000, Some(ADMIN_TOKEN.to_owned()))
 }
 
 /// Le même état, avec un budget de deck choisi.
@@ -147,13 +153,17 @@ pub fn state_with_admin(db: DatabaseConnection) -> AppState {
 /// demanderait d'en peupler mille, donc il ne serait éprouvé par rien. Le
 /// rendre réglable est ce qui permet de le vérifier — et un exploitant peut
 /// s'en servir pour resserrer sans réécrire le serveur.
+/// Les deux bornes égales : le compte ne bouge plus, et une suite peut donc
+/// l'écrire noir sur blanc. La variation a sa propre suite, qui pose une
+/// vraie fourchette.
 pub fn state_with_selection_size(db: DatabaseConnection, daily_selection_size: u32) -> AppState {
-    build_state(db, daily_selection_size, None)
+    build_state(db, daily_selection_size, daily_selection_size, None)
 }
 
 fn build_state(
     db: DatabaseConnection,
-    daily_selection_size: u32,
+    daily_selection_min: u32,
+    daily_selection_max: u32,
     admin_token: Option<String>,
 ) -> AppState {
     AppState::new(
@@ -170,7 +180,8 @@ fn build_state(
             // Les tests vérifient la forme de l'adresse d'une photo, donc
             // elle doit être stable et reconnaissable.
             public_base_url: "https://plum.test".into(),
-            daily_selection_size,
+            daily_selection_min,
+            daily_selection_max,
             admin_token,
         },
         // Each test builds its own app, so each gets a fresh limiter and one
@@ -341,6 +352,15 @@ pub mod deck_ages {
     pub const ERASURE: i32 = 74;
     pub const TOMORROW: i32 = 75;
     pub const SMALL_POOL: i32 = 76;
+    pub const UNBLOCK_RETURNS: i32 = 77;
+    pub const UNBLOCK_HALF: i32 = 78;
+    pub const UNBLOCK_LIST: i32 = 79;
+    pub const UNBLOCK_ONE_SIDED: i32 = 80;
+    pub const UNBLOCK_TWICE: i32 = 81;
+    pub const UNBLOCK_THREAD: i32 = 82;
+    pub const VARYING_COUNT: i32 = 83;
+    pub const VARYING_STABLE: i32 = 84;
+    pub const ANNOUNCED_SIZE: i32 = 85;
     pub const FLOOD: i32 = 51;
     pub const ORDINARY_PACE: i32 = 52;
     pub const RETRY_COST: i32 = 53;

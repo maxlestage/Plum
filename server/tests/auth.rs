@@ -419,7 +419,7 @@ async fn deleting_an_account_takes_everything_that_depends_on_it() {
     // Deux comptes qui se voient l'un l'autre et personne d'autre : un âge à
     // eux et un même point sur la carte. Sans ça, la sélection du jour est
     // tirée dans toute la base et ne contient pas forcément la bonne personne
-    // — le tirage rend trois profils, pas une page qu'on parcourt.
+    // — le tirage rend une poignée de profils, pas une page qu'on parcourt.
     let ici = private_cluster();
     let (token, id) = candidate(&app, "effacement", ERASURE, "woman", Some(ici)).await;
     let (other, other_id) = candidate(&app, "effacement-autre", ERASURE, "man", Some(ici)).await;
