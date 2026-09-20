@@ -159,6 +159,24 @@ un écran qui plante à l'affichage ou un bouton branché sur rien.
   plutôt que sur un nom de modèle codé en dur qu'une nouvelle image de runner
   casserait, et liste les avertissements du compilateur à chaque build.
 
+## Le nom affiché
+
+L'application s'appelle **Plum ‣** sur l'écran d'accueil, dans la galerie
+de widgets, sur la montre et dans l'app Réglages. Le site, le serveur et le
+dépôt gardent « Plum » : c'est l'application seule qui porte la marque.
+
+Ce que le renommage ne touche pas : `PRODUCT_NAME` reste `Plum`, donc le
+paquet reste `Plum.app`, le module Swift reste `Plum`, l'identifiant reste
+`app.plum.ios` et l'hôte de tests continue de trouver son binaire. On renomme
+ce qui s'affiche, pas ce que le système manipule.
+
+Le nom vit dans deux mondes qui ne se lisent pas l'un l'autre —
+`PlumBrand.displayName` côté Swift, `INFOPLIST_KEY_CFBundleDisplayName` côté
+projet Xcode. Un renommage fait d'un seul côté compile, passe tous les tests,
+et produit une application dont l'icône et l'en-tête portent deux noms
+différents. `Scripts/check_app_name.py` tient les deux ensemble, refuse qu'on
+réécrive le nom en dur dans une vue, et tourne en CI.
+
 ## Le fichier de projet
 
 `Plum.xcodeproj/project.pbxproj` est **généré** par

@@ -25,7 +25,7 @@ struct ConversationsView: View {
                 liste(credentials)
             }
         }
-        .navigationTitle("Plum")
+        .navigationTitle(PlumBrand.displayName)
     }
 
     @ViewBuilder
