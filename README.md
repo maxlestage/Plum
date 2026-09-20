@@ -177,6 +177,23 @@ et produit une application dont l'icône et l'en-tête portent deux noms
 différents. `Scripts/check_app_name.py` tient les deux ensemble, refuse qu'on
 réécrive le nom en dur dans une vue, et tourne en CI.
 
+Ce contrôle-là compare des sources entre elles : il prouve que la recette est
+cohérente, pas que le plat lui ressemble. Entre les deux il y a Xcode, qui doit
+décoder `\U2023` en son caractère — s'il ne le faisait pas, l'écran d'accueil
+afficherait la séquence en clair et ni la compilation, ni les tests, ni les
+contrôles statiques ne s'en plaindraient. Le même script, avec `--paquet`, ouvre
+le `Info.plist` du `Plum.app` réellement construit (et ceux de la montre et du
+widget s'ils y sont) et lit ce qu'il dit :
+
+```bash
+python3 Scripts/check_app_name.py --paquet build/DerivedData/Build/Products/Debug-iphonesimulator/Plum.app
+```
+
+C'est ce que fait l'étape « Le paquet construit porte le bon nom » après le
+build iOS — et c'est pour ça que `Scripts/ci_test.sh` impose un
+`-derivedDataPath` : sans lui, le paquet atterrit dans un dossier au nom haché
+que rien ne peut retrouver.
+
 ## Le fichier de projet
 
 `Plum.xcodeproj/project.pbxproj` est **généré** par
