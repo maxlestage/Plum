@@ -172,7 +172,7 @@ extension SettingsView {
     fileprivate var locationRow: some View {
         if let locationSync {
             if locationSync.isBlocked {
-                Text("Localisation refusée : le filtre de distance ne s'applique pas. Réactivez-la dans Réglages ▸ Plum.")
+                Text("Localisation refusée : le filtre de distance ne s'applique pas. Réactivez-la dans Réglages ▸ \(PlumBrand.displayName).")
                     .font(.plumCaption)
                     .foregroundStyle(PlumTheme.Palette.pass)
                     .fixedSize(horizontal: false, vertical: true)
