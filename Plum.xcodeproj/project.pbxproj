@@ -1106,7 +1106,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Plum;
+				INFOPLIST_KEY_CFBundleDisplayName = "Plum \U2023";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Pour prendre une photo de profil.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pour vous montrer qui est dans le coin.";
@@ -1136,7 +1136,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Plum;
+				INFOPLIST_KEY_CFBundleDisplayName = "Plum \U2023";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Pour prendre une photo de profil.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pour vous montrer qui est dans le coin.";
@@ -1165,7 +1165,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PlumWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Plum;
+				INFOPLIST_KEY_CFBundleDisplayName = "Plum \U2023";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1190,7 +1190,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PlumWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Plum;
+				INFOPLIST_KEY_CFBundleDisplayName = "Plum \U2023";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1214,7 +1214,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Plum;
+				INFOPLIST_KEY_CFBundleDisplayName = "Plum \U2023";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = (
 					UIInterfaceOrientationPortrait,
 					UIInterfaceOrientationPortraitUpsideDown,
@@ -1240,7 +1240,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Plum;
+				INFOPLIST_KEY_CFBundleDisplayName = "Plum \U2023";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = (
 					UIInterfaceOrientationPortrait,
 					UIInterfaceOrientationPortraitUpsideDown,
