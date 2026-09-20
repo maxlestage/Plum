@@ -104,6 +104,25 @@ jobs:
       - name: Build et tests
         run: ./Scripts/ci_test.sh
 
+      # Les contrôles statiques comparent des sources entre elles : ils
+      # prouvent que la recette est cohérente, pas que le plat lui ressemble.
+      # Entre les deux il y a Xcode, qui doit décoder `\U2023` en son
+      # caractère — sinon l'écran d'accueil afficherait la séquence en clair,
+      # sans que rien ne s'en plaigne.
+      - name: Le paquet construit porte le bon nom
+        run: |
+          set -euo pipefail
+          paquets=(build/DerivedData/Build/Products/*-iphonesimulator/Plum.app)
+          if [ ! -d "${paquets[0]}" ]; then
+            echo "::error::Aucun Plum.app construit : il n'y a rien à vérifier."
+            exit 1
+          fi
+          if [ "${#paquets[@]}" -ne 1 ]; then
+            echo "::error::${#paquets[@]} paquets construits, un seul attendu : ${paquets[*]}"
+            exit 1
+          fi
+          python3 Scripts/check_app_name.py --paquet "${paquets[0]}"
+
       - name: Avertissements du compilateur
         # Toujours, pas seulement en cas d'échec : un build vert qui accumule
         # des avertissements finit par en cacher un vrai.
