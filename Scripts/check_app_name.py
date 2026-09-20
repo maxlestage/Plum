@@ -149,6 +149,19 @@ def verifier_les_sources() -> None:
             echec(f"{quoi} : le pbxproj dit {valeur!r}, on attendait {noms[clef]!r}")
         comptes[identifiant] = comptes.get(identifiant, 0) + 1
 
+    # Et le symbole est écrit tel quel, pas en `\U2023`. Les deux formes sont
+    # lues pareil par Xcode, mais l'une se lit aussi par un humain qui ouvre le
+    # fichier : c'est la raison d'être de ce contrôle, et sans lui on
+    # reviendrait à l'échappement sans que rien ne le dise.
+    projet = PBXPROJ.read_text(encoding="utf-8")
+    echappes = re.findall(r"INFOPLIST_KEY_CFBundleDisplayName = \"[^\"]*\\U[0-9A-Fa-f]{4}", projet)
+    if echappes:
+        echec(
+            f"{len(echappes)} nom(s) affiché(s) écrit(s) en `\\UXXXX` : le "
+            "caractère doit apparaître tel quel, pour qu'on lise le nom en "
+            "ouvrant le fichier"
+        )
+
     for identifiant, (quoi, _, attendu) in CIBLES.items():
         vu = comptes.get(identifiant, 0)
         if vu != attendu:
@@ -182,8 +195,9 @@ def verifier_les_sources() -> None:
 
     print(
         f"✓ noms affichés — application iPhone {noms['marque']!r}, "
-        f"montre et widgets {noms['produit']!r} ; d'accord dans PlumBrand, "
-        f"le générateur et les {len(declarees)} configurations du projet"
+        f"montre et widgets {noms['produit']!r} ; écrits tels quels, et "
+        f"d'accord dans PlumBrand, le générateur et les {len(declarees)} "
+        "configurations du projet"
     )
 
 
