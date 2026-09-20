@@ -181,12 +181,17 @@ deux noms différents. `Scripts/check_app_name.py` vérifie cible par cible que
 chacune porte celui des deux qui lui revient, refuse qu'un nom soit écrit en
 dur dans une vue, et tourne en CI.
 
+Le caractère est écrit tel quel dans le `pbxproj`, et pas en `\U2023` comme
+Xcode le ferait lui-même : les deux formes se lisent pareil pour lui, mais une
+seule se lit aussi en ouvrant le fichier. `check_app_name.py` refuse la forme
+échappée, sans quoi on y reviendrait sans que rien ne le dise.
+
 Ce contrôle-là compare des sources entre elles : il prouve que la recette est
 cohérente, pas que le plat lui ressemble. Entre les deux il y a Xcode, qui doit
-décoder `\U2023` en son caractère — s'il ne le faisait pas, l'écran d'accueil
-afficherait la séquence en clair et ni la compilation, ni les tests, ni les
-contrôles statiques ne s'en plaindraient. Le même script, avec `--paquet`, ouvre
-les `Info.plist` du `Plum.app` réellement construit — le sien, celui de la
+porter le caractère jusqu'au paquet — s'il le mangeait ou le réécrivait, ni la
+compilation, ni les tests, ni les contrôles statiques ne s'en plaindraient.
+
+Le même script, avec `--paquet`, ouvre les `Info.plist` du `Plum.app` réellement construit — le sien, celui de la
 montre et celui du widget — et lit ce que chacun dit :
 
 ```bash
