@@ -35,6 +35,9 @@ jobs:
       - name: Aucun nom de type en collision
         run: python3 Scripts/check_name_clashes.py
 
+      - name: L'application porte le même nom partout
+        run: python3 Scripts/check_app_name.py
+
       - name: Le thème clair/sombre est d'accord avec lui-même
         run: python3 Scripts/check_theme.py
 

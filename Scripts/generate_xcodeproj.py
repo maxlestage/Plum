@@ -69,6 +69,33 @@ SHARED_EXCLUSIONS = {
     "PlumWatch": {"Activity"},
 }
 BUNDLE_ID = "app.plum.ios"
+# Le nom affiché : écran d'accueil, galerie de widgets, montre, app Réglages.
+#
+# Doit rester égal à `PlumBrand.displayName`, et `Scripts/check_app_name.py`
+# le vérifie : le Swift ne peut pas lire cette valeur, ni ce fichier lire le
+# Swift, donc rien d'autre n'empêcherait l'icône et l'en-tête de porter deux
+# noms différents.
+#
+# `PRODUCT_NAME` ne bouge pas : le paquet reste `Plum.app`, le module reste
+# `Plum`, et l'hôte de tests continue de le trouver. Ce qu'on renomme, c'est
+# ce qui s'affiche, pas ce que le système manipule.
+DISPLAY_NAME = "Plum \u2023"
+
+
+def pbxproj_string(value: str) -> str:
+    """Une chaîne citée, telle qu'Xcode l'écrit lui-même.
+
+    Le format `pbxproj` descend des plists OpenStep : hors de l'ASCII, il
+    échappe en `\\UXXXX`. Écrire l'octet brut fonctionne à la lecture, mais
+    Xcode le réécrirait échappé à la première sauvegarde — et le contrôle
+    « le projet est à jour vis-à-vis des sources » verrait une divergence que
+    personne n'a provoquée. On écrit donc directement la forme qu'il produit.
+    """
+    echappe = "".join(
+        c if ord(c) < 128 else f"\\U{ord(c):04X}"
+        for c in value.replace("\\", "\\\\").replace('"', '\\"')
+    )
+    return f'"{echappe}"'
 DEPLOYMENT_TARGET = "17.0"
 # watchOS 10 : la version qui a apporté les piles de widgets et le nouveau
 # style de navigation dont l'application de montre se sert.
@@ -718,7 +745,7 @@ class ProjectWriter:
             "CURRENT_PROJECT_VERSION": "1",
             "ENABLE_PREVIEWS": "YES",
             "GENERATE_INFOPLIST_FILE": "YES",
-            "INFOPLIST_KEY_CFBundleDisplayName": "Plum",
+            "INFOPLIST_KEY_CFBundleDisplayName": pbxproj_string(DISPLAY_NAME),
             "INFOPLIST_KEY_LSApplicationCategoryType": '"public.app-category.social-networking"',
             "INFOPLIST_KEY_NSCameraUsageDescription": '"Pour prendre une photo de profil."',
             "INFOPLIST_KEY_NSLocationWhenInUseUsageDescription": '"Pour vous montrer qui est dans le coin."',
@@ -763,7 +790,7 @@ class ProjectWriter:
             "CURRENT_PROJECT_VERSION": "1",
             "ENABLE_PREVIEWS": "YES",
             "GENERATE_INFOPLIST_FILE": "YES",
-            "INFOPLIST_KEY_CFBundleDisplayName": "Plum",
+            "INFOPLIST_KEY_CFBundleDisplayName": pbxproj_string(DISPLAY_NAME),
             "INFOPLIST_KEY_UISupportedInterfaceOrientations": (
                 '(\n\t\t\t\t\tUIInterfaceOrientationPortrait,'
                 '\n\t\t\t\t\tUIInterfaceOrientationPortraitUpsideDown,\n\t\t\t\t)'
@@ -794,7 +821,7 @@ class ProjectWriter:
             "CODE_SIGN_STYLE": "Automatic",
             "CURRENT_PROJECT_VERSION": "1",
             "GENERATE_INFOPLIST_FILE": "YES",
-            "INFOPLIST_KEY_CFBundleDisplayName": "Plum",
+            "INFOPLIST_KEY_CFBundleDisplayName": pbxproj_string(DISPLAY_NAME),
             "INFOPLIST_KEY_NSHumanReadableCopyright": '""',
             # Le `NSExtension` de l'extension vient d'un fichier, pas d'un
             # réglage. `INFOPLIST_KEY_NSExtensionPointIdentifier` a été essayé

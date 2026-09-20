@@ -184,7 +184,7 @@ struct SelectionView: View {
         VStack(alignment: .leading, spacing: PlumTheme.Spacing.xs) {
             HStack {
                 PlumMark(size: 32)
-                Text("Plum")
+                Text(PlumBrand.displayName)
                     .font(.plumTitle)
                     .foregroundStyle(PlumTheme.Palette.plum)
                 Spacer()
