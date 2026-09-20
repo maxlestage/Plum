@@ -89,18 +89,23 @@ DISPLAY_NAME = "Plum \u2023"
 
 
 def pbxproj_string(value: str) -> str:
-    """Une chaîne citée, telle qu'Xcode l'écrit lui-même.
+    """Une chaîne citée, avec ses caractères tels quels.
 
-    Le format `pbxproj` descend des plists OpenStep : hors de l'ASCII, il
-    échappe en `\\UXXXX`. Écrire l'octet brut fonctionne à la lecture, mais
-    Xcode le réécrirait échappé à la première sauvegarde — et le contrôle
-    « le projet est à jour vis-à-vis des sources » verrait une divergence que
-    personne n'a provoquée. On écrit donc directement la forme qu'il produit.
+    Le format `pbxproj` descend des plists OpenStep, et Xcode, quand il écrit
+    lui-même, échappe hors de l'ASCII en `\\UXXXX`. On écrit ici le caractère
+    brut — le fichier est de l'UTF-8, Xcode le relit sans broncher, et surtout
+    **on voit le nom en ouvrant le fichier**. `"Plum \\U2023"` oblige à décoder
+    un point de code pour savoir ce qui s'affichera sous l'icône : c'est une
+    forme qui cache ce qu'elle dit.
+
+    Le risque connu, et pourquoi il est tenable : Xcode réécrirait la forme
+    échappée à sa première sauvegarde, ce qui ferait diverger le fichier de ce
+    que le générateur produit. Le dépôt n'ouvre pas Xcode — le `pbxproj` est
+    généré, et la CI vérifie qu'il correspond aux sources. Et si Xcode lisait
+    mal l'octet brut, l'étape « Le paquet construit porte le bon nom » le
+    dirait : elle ouvre le `Info.plist` réellement produit.
     """
-    echappe = "".join(
-        c if ord(c) < 128 else f"\\U{ord(c):04X}"
-        for c in value.replace("\\", "\\\\").replace('"', '\\"')
-    )
+    echappe = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{echappe}"'
 DEPLOYMENT_TARGET = "17.0"
 # watchOS 10 : la version qui a apporté les piles de widgets et le nouveau
