@@ -3,6 +3,11 @@
 # Builds and tests Plum on whatever iPhone simulator the runner happens to
 # have. Picking the device at run time rather than hard-coding "iPhone 16"
 # means a new Xcode image does not silently break the build.
+#
+# `-derivedDataPath` n'est pas de la propreté : sans lui, le paquet construit
+# atterrit dans un dossier au nom haché, que rien ne peut retrouver. C'est ce
+# qui permet à l'étape suivante de la CI d'ouvrir le `Info.plist` réel plutôt
+# que de croire les réglages sur parole.
 
 set -euo pipefail
 
@@ -50,6 +55,7 @@ xcodebuild test \
   -scheme "${SCHEME}" \
   -destination "id=${DEVICE_ID}" \
   -resultBundlePath "${RESULT_BUNDLE:-build/Plum.xcresult}" \
+  -derivedDataPath "${DERIVED_DATA:-build/DerivedData}" \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY="" \

@@ -18,6 +18,8 @@ faux : il cite littéralement la ligne que l'app Réglages affiche, c'est-à-dir
 
 from __future__ import annotations
 
+import argparse
+import plistlib
 import re
 import sys
 from pathlib import Path
@@ -47,17 +49,79 @@ def pbxproj_literal(source: str) -> str:
     return re.sub(r"\\U([0-9A-Fa-f]{4})", lambda m: chr(int(m.group(1), 16)), source)
 
 
+def noms_du_paquet(paquet: Path) -> list[tuple[str, Path]]:
+    """Les `Info.plist` que le paquet construit embarque, l'application en tête.
+
+    La montre et le widget ne sont pas toujours embarqués — une compilation
+    visant le simulateur iOS peut se passer de la cible watchOS. Ils sont donc
+    vérifiés s'ils sont là, et leur absence est dite plutôt que tue.
+    """
+    trouves = [("application", paquet / "Info.plist")]
+    for embarque in sorted((paquet / "Watch").glob("*.app/Info.plist")):
+        trouves.append((f"montre ({embarque.parent.name})", embarque))
+    for embarque in sorted((paquet / "PlugIns").glob("*.appex/Info.plist")):
+        trouves.append((f"extension ({embarque.parent.name})", embarque))
+    return trouves
+
+
+def verifier_paquet(paquet: Path, attendu: str) -> None:
+    """Ce que le paquet construit dit vraiment.
+
+    Le reste de ce script compare des sources entre elles : il prouve que la
+    recette est cohérente, pas que le plat lui ressemble. Entre les deux il y a
+    Xcode, qui doit décoder `\\U2023` en son caractère. S'il ne le faisait pas,
+    l'écran d'accueil afficherait la séquence en clair — et rien, ni la
+    compilation, ni les tests, ni les contrôles statiques, ne s'en plaindrait.
+    """
+    if not paquet.is_dir():
+        echec(f"{paquet} n'est pas un paquet construit")
+
+    lus = []
+    for quoi, plist in noms_du_paquet(paquet):
+        if not plist.is_file():
+            if quoi == "application":
+                echec(f"{plist} est absent : le paquet n'a pas été construit")
+            continue
+        with plist.open("rb") as flux:
+            contenu = plistlib.load(flux)
+        valeur = contenu.get("CFBundleDisplayName")
+        if valeur is None:
+            echec(f"{quoi} : le paquet construit ne porte aucun nom affiché")
+        if valeur != attendu:
+            echec(f"{quoi} : le paquet dit {valeur!r}, on attendait {attendu!r}")
+        lus.append(quoi)
+
+    print(f"✓ paquet construit — {attendu!r} sur : {', '.join(lus)}")
+
+
 def echec(message: str) -> None:
     print(f"✗ {message}", file=sys.stderr)
     sys.exit(1)
 
 
-def main() -> None:
+def attendu_du_swift() -> str:
     brand = BRAND.read_text(encoding="utf-8")
     trouve = re.search(r'static let displayName = "([^"]*)"', brand)
     if not trouve:
         echec(f"{BRAND.name} ne déclare plus `displayName`")
-    attendu = swift_literal(trouve.group(1))
+    return swift_literal(trouve.group(1))
+
+
+def main() -> None:
+    arguments = argparse.ArgumentParser(description=__doc__)
+    arguments.add_argument(
+        "--paquet",
+        type=Path,
+        help="Chemin d'un `Plum.app` construit : vérifie son Info.plist réel "
+        "plutôt que les seules sources.",
+    )
+    options = arguments.parse_args()
+
+    attendu = attendu_du_swift()
+
+    if options.paquet is not None:
+        verifier_paquet(options.paquet, attendu)
+        return
 
     generateur = GENERATOR.read_text(encoding="utf-8")
     trouve = re.search(r'^DISPLAY_NAME = "([^"]*)"', generateur, re.MULTILINE)
