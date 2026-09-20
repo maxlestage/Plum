@@ -12,14 +12,22 @@ import SwiftUI
 /// il le fait déjà pour le catalogue d'actifs, le générateur d'icône et le
 /// CSS du site.
 public enum PlumBrand {
-    /// Le nom tel qu'il s'affiche : sur l'écran d'accueil de l'iPhone, dans la
-    /// galerie de widgets, sur la montre, et en haut de la sélection.
+    /// Le produit, et le nom que portent l'application de montre et le widget.
+    ///
+    /// La marque est réservée à l'iPhone : c'est là qu'on la voit sous l'icône.
+    /// Ailleurs, le nom seul — une montre qui afficherait un glyphe sur un
+    /// cadran de quarante millimètres l'afficherait surtout tronqué.
+    public static let name = "Plum"
+
+    /// Le nom de l'application iPhone, tel qu'il s'affiche : sous l'icône, en
+    /// haut de la sélection, et dans la ligne que l'app Réglages lui donne.
     ///
     /// Une seule fois, parce qu'un nom qui vit en cinq endroits se renomme en
     /// quatre. Le cinquième est le réglage `CFBundleDisplayName` du projet
     /// Xcode, qui n'est pas du Swift et ne peut donc pas lire cette constante :
-    /// `Scripts/check_app_name.py` vérifie qu'il dit la même chose, sans quoi
-    /// l'icône et l'en-tête finiraient par ne plus porter le même nom.
+    /// `Scripts/check_app_name.py` vérifie que chaque cible porte celui des
+    /// deux noms qui lui revient, sans quoi l'icône et l'en-tête finiraient par
+    /// ne plus dire la même chose.
     ///
     /// Le nom du produit, lui, ne bouge pas : le paquet reste `Plum.app`, le
     /// module reste `Plum`, l'identifiant reste le même. Renommer l'affichage

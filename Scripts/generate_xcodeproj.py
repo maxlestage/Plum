@@ -69,12 +69,18 @@ SHARED_EXCLUSIONS = {
     "PlumWatch": {"Activity"},
 }
 BUNDLE_ID = "app.plum.ios"
-# Le nom affiché : écran d'accueil, galerie de widgets, montre, app Réglages.
+# Les deux noms affichés.
 #
-# Doit rester égal à `PlumBrand.displayName`, et `Scripts/check_app_name.py`
-# le vérifie : le Swift ne peut pas lire cette valeur, ni ce fichier lire le
-# Swift, donc rien d'autre n'empêcherait l'icône et l'en-tête de porter deux
-# noms différents.
+# `DISPLAY_NAME` est celui de l'application iPhone : l'écran d'accueil, et la
+# ligne que l'app Réglages lui donne. La marque s'arrête là. La montre et le
+# widget portent `PROJECT_NAME` — un glyphe sur un cadran de quarante
+# millimètres s'afficherait surtout tronqué, et la galerie de widgets range
+# ses vignettes sous un nom, pas sous un logo.
+#
+# Les deux doivent rester égaux à `PlumBrand.displayName` et `PlumBrand.name`,
+# et `Scripts/check_app_name.py` le vérifie cible par cible : le Swift ne peut
+# pas lire ces valeurs, ni ce fichier lire le Swift, donc rien d'autre
+# n'empêcherait l'icône et l'en-tête de porter deux noms différents.
 #
 # `PRODUCT_NAME` ne bouge pas : le paquet reste `Plum.app`, le module reste
 # `Plum`, et l'hôte de tests continue de le trouver. Ce qu'on renomme, c'est
@@ -790,7 +796,7 @@ class ProjectWriter:
             "CURRENT_PROJECT_VERSION": "1",
             "ENABLE_PREVIEWS": "YES",
             "GENERATE_INFOPLIST_FILE": "YES",
-            "INFOPLIST_KEY_CFBundleDisplayName": pbxproj_string(DISPLAY_NAME),
+            "INFOPLIST_KEY_CFBundleDisplayName": pbxproj_string(PROJECT_NAME),
             "INFOPLIST_KEY_UISupportedInterfaceOrientations": (
                 '(\n\t\t\t\t\tUIInterfaceOrientationPortrait,'
                 '\n\t\t\t\t\tUIInterfaceOrientationPortraitUpsideDown,\n\t\t\t\t)'
@@ -821,7 +827,7 @@ class ProjectWriter:
             "CODE_SIGN_STYLE": "Automatic",
             "CURRENT_PROJECT_VERSION": "1",
             "GENERATE_INFOPLIST_FILE": "YES",
-            "INFOPLIST_KEY_CFBundleDisplayName": pbxproj_string(DISPLAY_NAME),
+            "INFOPLIST_KEY_CFBundleDisplayName": pbxproj_string(PROJECT_NAME),
             "INFOPLIST_KEY_NSHumanReadableCopyright": '""',
             # Le `NSExtension` de l'extension vient d'un fichier, pas d'un
             # réglage. `INFOPLIST_KEY_NSExtensionPointIdentifier` a été essayé

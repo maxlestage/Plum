@@ -159,31 +159,35 @@ un écran qui plante à l'affichage ou un bouton branché sur rien.
   plutôt que sur un nom de modèle codé en dur qu'une nouvelle image de runner
   casserait, et liste les avertissements du compilateur à chaque build.
 
-## Le nom affiché
+## Les noms affichés
 
-L'application s'appelle **Plum ‣** sur l'écran d'accueil, dans la galerie
-de widgets, sur la montre et dans l'app Réglages. Le site, le serveur et le
-dépôt gardent « Plum » : c'est l'application seule qui porte la marque.
+L'**application iPhone** s'appelle **Plum ‣** : sous l'icône, en haut de la
+sélection, et dans la ligne que l'app Réglages lui donne. La marque s'arrête
+là. La montre et le widget s'appellent **Plum**, comme le site, le serveur et
+le dépôt — un glyphe sur un cadran de quarante millimètres s'afficherait
+surtout tronqué, et la galerie de widgets range ses vignettes sous un nom.
 
 Ce que le renommage ne touche pas : `PRODUCT_NAME` reste `Plum`, donc le
 paquet reste `Plum.app`, le module Swift reste `Plum`, l'identifiant reste
 `app.plum.ios` et l'hôte de tests continue de trouver son binaire. On renomme
 ce qui s'affiche, pas ce que le système manipule.
 
-Le nom vit dans deux mondes qui ne se lisent pas l'un l'autre —
-`PlumBrand.displayName` côté Swift, `INFOPLIST_KEY_CFBundleDisplayName` côté
-projet Xcode. Un renommage fait d'un seul côté compile, passe tous les tests,
-et produit une application dont l'icône et l'en-tête portent deux noms
-différents. `Scripts/check_app_name.py` tient les deux ensemble, refuse qu'on
-réécrive le nom en dur dans une vue, et tourne en CI.
+Chaque nom vit dans deux mondes qui ne se lisent pas l'un l'autre —
+`PlumBrand.name` et `PlumBrand.displayName` côté Swift,
+`INFOPLIST_KEY_CFBundleDisplayName` côté projet Xcode, une déclaration par
+cible et par configuration. Un renommage fait d'un seul côté compile, passe
+tous les tests, et produit une application dont l'icône et l'en-tête portent
+deux noms différents. `Scripts/check_app_name.py` vérifie cible par cible que
+chacune porte celui des deux qui lui revient, refuse qu'un nom soit écrit en
+dur dans une vue, et tourne en CI.
 
 Ce contrôle-là compare des sources entre elles : il prouve que la recette est
 cohérente, pas que le plat lui ressemble. Entre les deux il y a Xcode, qui doit
 décoder `\U2023` en son caractère — s'il ne le faisait pas, l'écran d'accueil
 afficherait la séquence en clair et ni la compilation, ni les tests, ni les
 contrôles statiques ne s'en plaindraient. Le même script, avec `--paquet`, ouvre
-le `Info.plist` du `Plum.app` réellement construit (et ceux de la montre et du
-widget s'ils y sont) et lit ce qu'il dit :
+les `Info.plist` du `Plum.app` réellement construit — le sien, celui de la
+montre et celui du widget — et lit ce que chacun dit :
 
 ```bash
 python3 Scripts/check_app_name.py --paquet build/DerivedData/Build/Products/Debug-iphonesimulator/Plum.app
