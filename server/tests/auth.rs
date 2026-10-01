@@ -324,6 +324,82 @@ async fn throttling_is_per_account() {
 /// neither shadows the other: an unknown path must reach the single-page site
 /// rather than 404, and `/health` must keep answering JSON rather than being
 /// swallowed by the static handler.
+/// Ce que le serveur dit sur la durée de vie de ce qu'il envoie.
+///
+/// Il n'en disait rien, et « rien » n'est pas « ne garde pas » : sans
+/// `Cache-Control`, un navigateur applique une heuristique et peut continuer à
+/// servir une page qu'on vient de remplacer. C'est ce qui pouvait laisser
+/// quelqu'un devant la page blanche d'avant un correctif.
+///
+/// Les unités éprouvent le classement ; celui-ci éprouve le branchement — que
+/// l'en-tête arrive vraiment sur une réponse, et qu'il ne déborde pas sur
+/// l'API, dont aucune réponse n'est rejouable.
+#[tokio::test]
+async fn ce_qui_est_servi_dit_combien_de_temps_le_garder() {
+    let Some(db) = database().await else { return };
+
+    let directory = std::env::temp_dir().join(format!("plum-cache-{}", uuid_like()));
+    std::fs::create_dir_all(&directory).unwrap();
+    std::fs::write(
+        directory.join("index.html"),
+        "<!doctype html><title>Plum</title>",
+    )
+    .unwrap();
+    // Un nom empreinté par Trunk, et un nom à tiret qui n'en est pas un.
+    std::fs::write(directory.join("plum-site-4cf83b582da4d8dd.js"), "export {}").unwrap();
+    std::fs::write(directory.join("apple-touch-icon.png"), [0u8; 4]).unwrap();
+
+    let app = plum_server::app_with_site(state(db), Some(&directory));
+
+    async fn entete(app: &axum::Router, adresse: &str) -> (StatusCode, String) {
+        let reponse = app
+            .clone()
+            .oneshot(Request::builder().uri(adresse).body(Body::empty()).unwrap())
+            .await
+            .expect("réponse");
+        let statut = reponse.status();
+        let valeur = reponse
+            .headers()
+            .get(axum::http::header::CACHE_CONTROL)
+            .map(|v| v.to_str().unwrap_or_default().to_string())
+            .unwrap_or_default();
+        (statut, valeur)
+    }
+
+    let (statut, cache) = entete(&app, "/").await;
+    assert_eq!(statut, StatusCode::OK);
+    assert_eq!(cache, "no-cache", "la racine doit se revalider");
+
+    // Une adresse que seul le repli sert : c'est une page, donc même régime.
+    let (statut, cache) = entete(&app, "/fr/conditions/").await;
+    assert_eq!(statut, StatusCode::OK);
+    assert_eq!(cache, "no-cache", "une route du site doit se revalider");
+
+    let (statut, cache) = entete(&app, "/plum-site-4cf83b582da4d8dd.js").await;
+    assert_eq!(statut, StatusCode::OK);
+    assert_eq!(
+        cache, "public, max-age=31536000, immutable",
+        "un fichier empreinté se garde : son nom est sa version"
+    );
+
+    let (statut, cache) = entete(&app, "/apple-touch-icon.png").await;
+    assert_eq!(statut, StatusCode::OK);
+    assert_eq!(
+        cache, "public, max-age=3600",
+        "une icône n'est pas empreintée : la figer la rendrait irremplaçable"
+    );
+
+    // Et la couche ne doit pas déborder sur l'API.
+    let (statut, cache) = entete(&app, "/health").await;
+    assert_eq!(statut, StatusCode::OK);
+    assert!(
+        cache.is_empty(),
+        "l'API ne doit pas hériter des durées du site, reçu : {cache}"
+    );
+
+    std::fs::remove_dir_all(&directory).ok();
+}
+
 #[tokio::test]
 async fn the_site_and_the_api_share_one_host_without_shadowing_each_other() {
     let Some(db) = database().await else { return };
