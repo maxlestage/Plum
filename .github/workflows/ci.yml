@@ -102,8 +102,11 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # Ce qu'aucun contrôle statique ne voit : une page qui glisse
-      # latéralement, et une bascule de thème qui a l'air de marcher.
-      - name: Aucune page ne glisse, la bascule de thème tient
+      # latéralement, une bascule de thème qui a l'air de marcher, et une
+      # application qui ne démarre pas du tout — la racine `/` a rendu une
+      # page blanche en production sans qu'aucun des deux premiers gardes ne
+      # s'en aperçoive.
+      - name: La page tient, le thème bascule, l'application démarre
         working-directory: web
         run: npm run verifier
 
