@@ -597,6 +597,80 @@ async fn a_forged_forwarded_header_does_not_open_a_fresh_bucket() {
 /// Sur une application de rencontres, ce n'est pas un compte qu'on divulgue,
 /// c'est la présence de quelqu'un — un conjoint, un collègue.
 ///
+/// La même question posée à l'inscription.
+///
+/// `sign_in` a été durci : le message *et* le temps sont identiques que
+/// l'adresse existe ou non. `sign_up` ne l'était pas. Il refusait une adresse
+/// déjà prise **avant** de hacher le mot de passe, là où une adresse libre
+/// payait Argon2 — le même facteur 250, dans l'autre sens, sur l'endroit où
+/// l'on tape justement une adresse qui n'est pas la sienne pour voir.
+///
+/// Le code de réponse distingue encore les deux cas, et rien ici ne le
+/// corrige : fermer ce canal-là demande un service d'envoi d'email, pour
+/// répondre « regardez votre boîte » dans les deux cas. Mais le jour où ce
+/// service existera, la réponse générique ne servirait à rien si le
+/// chronomètre continuait de répondre à sa place. C'est ce que ce test tient.
+///
+/// Seuil et méthode recopiés du test de connexion ci-dessus, à dessein : même
+/// bruit de CI, même tolérance.
+#[tokio::test]
+async fn a_taken_address_takes_as_long_to_refuse_as_a_free_one() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+
+    let inscription = |email: String| {
+        json!({
+            "email": email,
+            "password": "motdepasse",
+            "display_name": "Chrono",
+            "birth_date": "1996-04-12T00:00:00Z",
+            "gender": "woman",
+        })
+    };
+
+    let prise = unique_email("deja-prise");
+    let (status, _) = call(
+        &app,
+        post("/api/v1/auth/sign-up", inscription(prise.clone())),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "la première inscription doit réussir"
+    );
+
+    async fn chronometre(
+        app: &axum::Router,
+        corps: serde_json::Value,
+        attendu: StatusCode,
+    ) -> std::time::Duration {
+        let debut = std::time::Instant::now();
+        let (status, _) = call(app, post("/api/v1/auth/sign-up", corps)).await;
+        // Le même contrôle que pour la connexion : un 429 se chronomètre très
+        // vite et ferait passer ce test pour la mauvaise raison.
+        assert_eq!(status, attendu, "attendu {attendu}, reçu {status}");
+        debut.elapsed()
+    }
+
+    let mut deja_prise = std::time::Duration::ZERO;
+    let mut libre = std::time::Duration::ZERO;
+    // Trois tours : le quota d'inscription est de cinq par heure et par
+    // adresse, et la création ci-dessus en a déjà consommé un.
+    for _ in 0..3 {
+        deja_prise += chronometre(&app, inscription(prise.clone()), StatusCode::CONFLICT).await;
+        libre += chronometre(&app, inscription(unique_email("libre")), StatusCode::OK).await;
+    }
+
+    let rapport = deja_prise.as_secs_f64() / libre.as_secs_f64().max(f64::EPSILON);
+    assert!(
+        (0.33..3.0).contains(&rapport),
+        "le temps trahit qu'une adresse est déjà inscrite : prise {deja_prise:?}, \
+         libre {libre:?} (rapport {rapport:.3}). Les deux doivent coûter le même \
+         hachage."
+    );
+}
+
 /// Le seuil est large à dessein. Une machine de CI est bruyante, et un test
 /// de temps réglé au plus juste finit par échouer pour rien puis par être
 /// ignoré. Trois fois laisse passer tout le bruit ordinaire et refuse le
