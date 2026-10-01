@@ -140,8 +140,32 @@ connexion — dix tentatives par quart d'heure et par adresse, comptées avant l
 vérification du mot de passe pour qu'un limiteur ne révèle pas quelles
 suppositions approchaient. Mots de passe en Argon2id, jetons de
 rafraîchissement stockés en empreinte seulement, barrière 18+ vérifiée côté
-serveur, et énumération des comptes fermée — une adresse inconnue et un
-mauvais mot de passe répondent exactement la même chose.
+serveur.
+
+**L'énumération des comptes, à la connexion : fermée.** Une adresse inconnue
+et un mauvais mot de passe répondent exactement la même chose, et prennent
+exactement le même temps — la seconde moitié compte autant que la première,
+parce que sans elle une adresse inconnue revenait en 1,5 ms contre 455 ms,
+Argon2 ne tournant que sur un compte réel. Un test chronomètre les deux.
+
+**À l'inscription : à moitié.** Le mot de passe est haché *avant* qu'on
+regarde si l'adresse existe, pour que les deux issues paient le même Argon2 ;
+dans l'autre sens, mesuré ici, une adresse déjà prise répondait en 1,5 ms
+contre 648 ms — un facteur 440, le même défaut qu'à la connexion mais en
+miroir, et à l'endroit où l'on tape justement l'adresse de quelqu'un d'autre
+pour voir. Un second test chronomètre celui-là.
+
+Ce qui reste ouvert, et qu'aucun ordre d'opérations ne fermera : **le code de
+réponse**. Un `409 email_taken` dit « cette adresse a un compte ». La seule
+façon de s'en taire est de répondre « regardez votre boîte » dans les deux
+cas, donc de **créer le compte après confirmation de l'adresse** — ce qui
+demande un service d'envoi d'email, qui n'existe pas encore ici. Le jour où il
+existera, la réponse générique ne servirait à rien si le chronomètre
+continuait de répondre à sa place : c'est pour ça que l'horloge a été fermée
+d'abord.
+
+Sur une application de rencontres, ce n'est pas un compte qu'on divulgue,
+c'est la présence de quelqu'un quelque part.
 
 **Trois quotas, et deux d'entre eux comptent l'adresse IP plutôt que l'email.**
 Compter par adresse email n'arrête rien : un script qui en change à chaque
