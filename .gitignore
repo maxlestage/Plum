@@ -34,8 +34,9 @@ fastlane/test_output
 server/target/
 
 ## Site
-web/dist-server/
 web/node_modules/
+# Le site est en Rust : son `target` pèse autant que celui du serveur.
+web/target/
 Scripts/node_modules/
 web/dist/
 web/.vite/

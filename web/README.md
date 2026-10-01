@@ -1,7 +1,40 @@
 # Site de présentation
 
-React + TypeScript + Vite. Servi par le même dyno Heroku que l'API : à la
-racine pour le site, `/api/v1` pour l'API.
+**Rust + Yew, compilé en WebAssembly par Trunk.** Servi par le même dyno
+Heroku que l'API : à la racine pour le site, `/api/v1` pour l'API.
+
+```bash
+rustup target add wasm32-unknown-unknown
+trunk build --release --features hydration      # le wasm et la coquille
+cargo run --release --features ssr --bin prerender   # les treize pages
+npm run verifier                                # les deux gardes du navigateur
+```
+
+## Ce que le passage de React à Yew a coûté, et ce qu'il n'a pas changé
+
+Il a remplacé 1600 lignes de TypeScript par un crate Rust de forme identique.
+Ce qui n'a pas bougé : les treize pages sont toujours **pré-rendues en HTML**
+au moment de la construction, donc lisibles sans que rien ne s'exécute — c'est
+ce que lit un robot, et ce que lit la revue de l'App Store sur les pages
+légales. Le même arbre de composants sert au pré-rendu et à l'hydratation,
+puisque c'est le même crate ; les deux implémentations séparées qu'il y avait
+avant, une pour le serveur et une pour le client, ne garantissaient pas ça.
+
+Ce qu'il a coûté, mesuré : **le transfert passe de 67 à 196 Ko gzippés**, soit
+près de trois fois. Le wasm pèse 181 Ko gzippés à lui seul, là où tout le
+bundle React tenait en 66. Sur un téléphone en données mobiles, ça se sent. Le
+texte, lui, arrive avant le wasm — c'est l'intérêt du pré-rendu — donc la page
+se lit tout de suite et devient interactive plus tard qu'avant.
+
+Les traductions ont été extraites des modules TypeScript **en les évaluant**,
+pas en les recopiant : les trois fichiers JSON de `src/i18n/` sont le texte
+d'origine au mot près. Et les deux gardes du navigateur — 177 mesures de mise
+en page, 16 contrôles de thème — lisent le `dist` construit sans savoir ce qui
+l'a produit. C'est ce qui a permis de prouver que le remplacement n'avait rien
+changé au comportement, et c'est ce qui a attrapé le seul vrai défaut du
+portage : `Renderer::new()` hydrate `<body>` alors que le corps pré-rendu vit
+dans `#root`, ce qui donnait une page qui s'affichait bien et ne répondait à
+rien.
 
 ## Pourquoi le même dyno
 
