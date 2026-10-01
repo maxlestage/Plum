@@ -5,7 +5,7 @@
   "type": "module",
   "_": "Le site est en Rust : voir Cargo.toml. Node ne reste ici que pour les deux gardes du navigateur, qui pilotent Chromium par Playwright et lisent le `dist` construit sans savoir ce qui l'a produit. C'est cette indépendance qui a permis de prouver que le passage de React à Yew n'avait rien changé au comportement.",
   "scripts": {
-    "verifier": "node scripts/verifier-mise-en-page.mjs && node scripts/verifier-theme.mjs"
+    "verifier": "node scripts/verifier-mise-en-page.mjs && node scripts/verifier-theme.mjs && node scripts/verifier-demarrage.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.1"
