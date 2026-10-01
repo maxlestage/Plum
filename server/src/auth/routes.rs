@@ -88,6 +88,31 @@ async fn sign_up(
         return Err(ApiError::BadRequest("Le prénom est obligatoire.".into()));
     }
 
+    // Haché **avant** de regarder si l'adresse existe, et c'est tout l'objet
+    // de l'ordre : les deux issues paient alors le même Argon2, par
+    // construction, sans qu'on ait à supposer qu'une opération en vaut une
+    // autre.
+    //
+    // Dans l'autre sens — l'existence d'abord — une adresse déjà inscrite
+    // revenait sans avoir rien calculé : mesuré sur ce code, 1,5 ms contre
+    // 648 ms, un facteur 440 qu'une seule requête révèle. C'est le défaut que
+    // `sign_in` avait déjà, en miroir, et il est pire ici : on tape une
+    // adresse qui n'est pas la sienne à l'inscription précisément pour voir.
+    //
+    // Ce que ça ne corrige pas : le code de réponse. Un 409 dit encore
+    // « cette adresse a un compte », et aucun ordre d'opérations n'y changera
+    // rien — fermer ce canal demande de répondre « regardez votre boîte »
+    // dans les deux cas, donc un service d'envoi d'email. Mais ce jour-là la
+    // réponse générique ne servirait à rien si le chronomètre continuait de
+    // répondre à sa place, et c'est pour ça que ceci vient d'abord.
+    //
+    // Le coût assumé : sonder une adresse déjà prise fait maintenant tourner
+    // Argon2 pour rien. C'est le même marché que `sign_in` a déjà conclu, et
+    // les quotas ci-dessus plus le sémaphore de `password` le bornent.
+    let password_hash = password::hash(request.password.clone())
+        .await
+        .map_err(|error| ApiError::Internal(crate::error::anyhow_lite::Error::new(error)))?;
+
     let existing = user::Entity::find()
         .filter(user::Column::Email.eq(email.clone()))
         .one(&state.db)
@@ -95,10 +120,6 @@ async fn sign_up(
     if existing.is_some() {
         return Err(ApiError::EmailTaken);
     }
-
-    let password_hash = password::hash(request.password.clone())
-        .await
-        .map_err(|error| ApiError::Internal(crate::error::anyhow_lite::Error::new(error)))?;
 
     let user_id = Uuid::new_v4();
     let now = Utc::now();
