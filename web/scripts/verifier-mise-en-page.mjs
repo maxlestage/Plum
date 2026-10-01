@@ -21,43 +21,9 @@
  * refaire la mesure à la main.
  */
 
-import http from "node:http";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { chromium } from "playwright";
 
-const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "dist");
-
-const types = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css",
-  ".js": "text/javascript",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".webmanifest": "application/manifest+json",
-  // Le site est compilé en WebAssembly : sans ce type, le navigateur refuse
-  // `instantiateStreaming`, se rabat sur un chargement plus lent, et le dit
-  // dans la console — ce que la dernière vérification de cette suite relève,
-  // à juste titre.
-  ".wasm": "application/wasm",
-};
-
-const serveur = http.createServer((requete, reponse) => {
-  let cible = path.join(dist, decodeURIComponent(requete.url.split("?")[0]));
-  if (fs.existsSync(cible) && fs.statSync(cible).isDirectory()) {
-    cible = path.join(cible, "index.html");
-  }
-  if (!fs.existsSync(cible)) {
-    reponse.writeHead(404).end("introuvable");
-    return;
-  }
-  reponse.writeHead(200, {
-    "Content-Type": types[path.extname(cible)] ?? "application/octet-stream",
-  });
-  reponse.end(fs.readFileSync(cible));
-});
+import { attendreHydratation, optionsChromium, origine } from "./origine.mjs";
 
 /** Les douze pages traduites, plus la racine. */
 const chemins = [
@@ -159,12 +125,10 @@ async function mesurer(page, vue) {
   }, vue);
 }
 
-await new Promise((resolu) => serveur.listen(0, resolu));
-const base = `http://127.0.0.1:${serveur.address().port}`;
+const { base, distante, fermer } = await origine();
+console.log(`  (${distante ? "origine déployée" : "dist local"} : ${base})`);
 
-const navigateur = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navigateur = await chromium.launch(optionsChromium());
 
 const echecs = [];
 let mesures = 0;
@@ -193,7 +157,7 @@ try {
   }
 } finally {
   await navigateur.close();
-  serveur.close();
+  fermer();
 }
 
 // ---------------------------------------------------------------------------
@@ -207,12 +171,8 @@ try {
 // genre de « en principe » qui se vérifie en trois secondes.
 // ---------------------------------------------------------------------------
 
-const navigateur2 = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
-const serveur2 = http.createServer(serveur.listeners("request")[0]);
-await new Promise((ok) => serveur2.listen(0, ok));
-const base2 = `http://127.0.0.1:${serveur2.address().port}`;
+const navigateur2 = await chromium.launch(optionsChromium());
+const { base: base2, fermer: fermer2 } = await origine();
 
 try {
   for (const [largeur, hauteur] of [
@@ -272,6 +232,10 @@ try {
       // défaut ne servent qu'à rallonger l'attente quand c'est déjà cassé.
       page.setDefaultTimeout(5000);
       await page.goto(`${base2}/fr/`, { waitUntil: "networkidle" });
+      // Les pastilles de thème sont dans la coquille pré-rendue : sans
+      // cette attente, le clic ne fait rien et « rien ne déborde » est
+      // vrai pour la mauvaise raison.
+      await attendreHydratation(page);
 
       try {
         await geste(page);
@@ -306,7 +270,7 @@ try {
   }
 } finally {
   await navigateur2.close();
-  serveur2.close();
+  fermer2();
 }
 
 if (echecs.length) {

@@ -14,41 +14,9 @@
  * la mesure soit reproductible plutôt que racontée.
  */
 
-import http from "node:http";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { chromium } from "playwright";
 
-const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "dist");
-
-const types = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css",
-  ".js": "text/javascript",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".webmanifest": "application/manifest+json",
-  // Le site est compilé en WebAssembly : sans ce type, le navigateur refuse
-  // `instantiateStreaming`, se rabat sur un chargement plus lent, et le dit
-  // dans la console — ce que la dernière vérification de cette suite relève,
-  // à juste titre.
-  ".wasm": "application/wasm",
-};
-
-const serveur = http.createServer((requete, reponse) => {
-  let cible = path.join(dist, decodeURIComponent(requete.url.split("?")[0]));
-  if (fs.existsSync(cible) && fs.statSync(cible).isDirectory()) {
-    cible = path.join(cible, "index.html");
-  }
-  if (!fs.existsSync(cible)) {
-    reponse.writeHead(404).end("introuvable");
-    return;
-  }
-  reponse.writeHead(200, { "Content-Type": types[path.extname(cible)] ?? "application/octet-stream" });
-  reponse.end(fs.readFileSync(cible));
-});
+import { attendreHydratation, optionsChromium, origine } from "./origine.mjs";
 
 const echecs = [];
 function verifier(libelle, condition, detail = "") {
@@ -70,15 +38,10 @@ const ouvrirMenu = (page) => page.click(".menu__bouton");
 const fond = (page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
-await new Promise((resolu) => serveur.listen(0, resolu));
-const base = `http://127.0.0.1:${serveur.address().port}`;
+const { base, distante, fermer } = await origine();
+console.log(`  (${distante ? "origine déployée" : "dist local"} : ${base})`);
 
-// Le Chromium de l'environnement peut être d'une autre version que le
-// paquet `playwright` installé, qui refuse alors de démarrer. `PW_CHROMIUM`
-// désigne le binaire à employer ; sans lui, le comportement par défaut.
-const navigateur = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navigateur = await chromium.launch(optionsChromium());
 
 try {
   // ---- 1. Sans choix : la page suit le système, dans les deux sens --------
@@ -86,6 +49,7 @@ try {
     const contexte = await navigateur.newContext({ colorScheme: systeme, viewport: { width: 400, height: 800 } });
     const page = await contexte.newPage();
     await page.goto(`${base}/fr/`);
+    await attendreHydratation(page);
     const couleur = await fond(page);
     verifier(
       `système ${systeme} sans choix`,
@@ -107,6 +71,7 @@ try {
     const contexte = await navigateur.newContext({ colorScheme: systeme, viewport: { width: 400, height: 800 } });
     const page = await contexte.newPage();
     await page.goto(`${base}/fr/`);
+    await attendreHydratation(page);
     await ouvrirMenu(page);
     await page.click(`[aria-label="${choix}"]`);
     const couleur = await fond(page);
@@ -131,6 +96,7 @@ try {
       );
     });
     await page2.goto(`${base}/fr/`);
+    await attendreHydratation(page2);
     const premier = await page2.evaluate(() => window.__premierEtat);
     verifier(
       `« ${choix} » posé avant le premier rendu`,
@@ -161,6 +127,7 @@ try {
     const contexte = await navigateur.newContext({ colorScheme: "light", viewport: { width: 400, height: 800 } });
     const page = await contexte.newPage();
     await page.goto(`${base}/fr/`);
+    await attendreHydratation(page);
     await ouvrirMenu(page);
     await page.click('[aria-label="Thème sombre"]');
     const teintes = await page.evaluate(() =>
@@ -187,6 +154,7 @@ try {
     });
     page.on("pageerror", (erreur) => plaintes.push(String(erreur)));
     await page.goto(`${base}/fr/`);
+    await attendreHydratation(page);
     await page.waitForTimeout(400);
     verifier("la console reste muette", plaintes.length === 0, plaintes.join(" | ").slice(0, 300));
 
@@ -201,7 +169,7 @@ try {
   }
 } finally {
   await navigateur.close();
-  serveur.close();
+  fermer();
 }
 
 console.log(echecs.length ? `\n✗ ${echecs.length} vérification(s) en échec` : "\n✓ la bascule de thème tient");
