@@ -11,12 +11,46 @@
 #
 # Le site de présentation est construit ici et copié dans l'image finale : un
 # seul dyno sert le site et l'API, sur un seul domaine, pour un seul prix.
-FROM node:22-slim AS site
+#
+# Deux étages Rust, et non un seul : le site vise `wasm32-unknown-unknown` et
+# le serveur vise la machine. Les mêler ferait recompiler l'un à chaque
+# changement de l'autre.
+# Le site est en Rust, compilé en WebAssembly par Trunk, et pré-rendu en
+# treize pages par un second binaire du même crate.
+#
+# Trunk, wasm-bindgen et wasm-opt viennent en binaires déjà construits plutôt
+# que par `cargo install` : les compiler ici coûterait plusieurs minutes, et
+# Heroku plafonne un build à quinze. Le déploiement mesuré tenait en trois
+# minutes avant ce changement ; c'est le budget qu'on dépense.
+FROM rust:1-slim-bookworm AS site
+
 WORKDIR /site
-COPY web/package.json web/package-lock.json ./
-RUN npm ci
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && rustup target add wasm32-unknown-unknown \
+    && curl -sSL https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz \
+       | tar -xzf - -C /usr/local/bin trunk
+
+# Les dépendances d'abord, contre des sources squelettes : cette couche ne
+# change que quand `Cargo.toml` change, donc les constructions ordinaires la
+# réutilisent. Les deux cibles sont chauffées — le wasm et l'hôte — parce que
+# ce sont deux arbres de dépendances distincts.
+COPY web/Cargo.toml web/Cargo.lock ./
+RUN mkdir -p src/bin \
+    && echo 'fn main() {}' > src/main.rs \
+    && echo 'fn main() {}' > src/bin/prerender.rs \
+    && touch src/lib.rs \
+    && cargo build --release --target wasm32-unknown-unknown --features hydration --bin plum-site \
+    && cargo build --release --features ssr --bin prerender \
+    && rm -rf src
+
 COPY web/ ./
-RUN npm run build
+# Cargo se fie aux dates : sans ça, il croit les squelettes qu'il vient de
+# construire.
+RUN touch src/main.rs src/lib.rs src/bin/prerender.rs \
+    && trunk build --release --features hydration \
+    && cargo run --release --features ssr --bin prerender
 
 FROM rust:1-slim-bookworm AS builder
 
