@@ -26,6 +26,20 @@ bundle React tenait en 66. Sur un téléphone en données mobiles, ça se sent. 
 texte, lui, arrive avant le wasm — c'est l'intérêt du pré-rendu — donc la page
 se lit tout de suite et devient interactive plus tard qu'avant.
 
+Combien plus tard : `scripts/mesurer-hydratation.mjs` chronomètre l'écart entre
+les deux. Contre la production, sur une première visite, **la page se lit à
+350 ms et ne répond qu'à 1 150 ms** — huit cents millisecondes pendant
+lesquelles le texte est là, les liens fonctionnent, et une pastille de thème ne
+fait rien. Les visites suivantes trouvent le wasm en cache et ramènent l'écart
+à une vingtaine de millisecondes. Ces chiffres viennent d'un centre de données ;
+sur un téléphone en données mobiles la première visite est pire, pas meilleure.
+
+Contre le `dist` local, l'écart est de vingt millisecondes **dès la première
+visite** — le wasm vient de `127.0.0.1`. C'est pour ça que les gardes du
+navigateur ne voyaient pas ce délai, et qu'ils cliquaient une pastille que
+personne n'écoutait encore sans jamais échouer : il a fallu les pointer sur
+l'origine déployée pour que le défaut sorte.
+
 Les traductions ont été extraites des modules TypeScript **en les évaluant**,
 pas en les recopiant : les trois fichiers JSON de `src/i18n/` sont le texte
 d'origine au mot près. Et les deux gardes du navigateur — 177 mesures de mise
