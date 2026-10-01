@@ -37,6 +37,11 @@ const types = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".webmanifest": "application/manifest+json",
+  // Le site est compilé en WebAssembly : sans ce type, le navigateur refuse
+  // `instantiateStreaming`, se rabat sur un chargement plus lent, et le dit
+  // dans la console — ce que la dernière vérification de cette suite relève,
+  // à juste titre.
+  ".wasm": "application/wasm",
 };
 
 const serveur = http.createServer((requete, reponse) => {

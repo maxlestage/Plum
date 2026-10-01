@@ -1,0 +1,79 @@
+[package]
+name = "plum-site"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Un crate indépendant, et non un membre d'un espace de travail avec le
+# serveur : les deux ne partagent aucun code, et ils ne compilent pas pour la
+# même cible. Mêlés, un `cargo build` à la racine de `server/` voudrait
+# construire le site pour Linux, où `wasm-bindgen` n'a rien à faire.
+[workspace]
+
+# Le wasm que le navigateur charge. Trunk construit cette cible-là, désignée
+# par `data-bin` dans `index.html`.
+[[bin]]
+name = "plum-site"
+path = "src/main.rs"
+required-features = ["hydration"]
+
+# Le même arbre de composants, rendu en HTML au moment de la construction.
+# C'est ce qui remplace `scripts/prerender.mjs` : treize pages lisibles sans
+# JavaScript, pour les robots et pour qui charge mal.
+[[bin]]
+name = "prerender"
+path = "src/bin/prerender.rs"
+required-features = ["ssr"]
+
+[dependencies]
+yew = "0.23"
+yew-router = "0.20"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Le thème touche au document : `localStorage`, `matchMedia`, les balises
+# `theme-color`. Rien de tout ça n'existe côté serveur, d'où les deux cibles.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "DomStringMap",
+    "Element",
+    "HtmlElement",
+    "HtmlDetailsElement",
+    "HtmlHeadElement",
+    "HtmlLinkElement",
+    "HtmlMetaElement",
+    "Location",
+    "MediaQueryList",
+    "MediaQueryListEvent",
+    "Navigator",
+    "Node",
+    "NodeList",
+    "Storage",
+    "StorageEvent",
+    "Window",
+] }
+gloo-events = "0.2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1", features = ["rt"], optional = true }
+
+[features]
+default = []
+# `hydration` tire `csr` avec elle : `Renderer` vit derrière `csr`, et
+# `hydrate()` derrière `hydration`. Les deux ensemble, ou rien.
+hydration = ["yew/csr", "yew/hydration"]
+ssr = ["yew/ssr", "dep:tokio"]
+
+# Le wasm part sur le réseau de quelqu'un : chaque kilo-octet se paie en
+# temps de chargement sur un téléphone. `opt-level = "z"` et `lto` sont ce qui
+# compte le plus ici, et `panic = "abort"` retire les tables de déroulement
+# dont une page n'a aucun usage.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
