@@ -55,36 +55,54 @@ jobs:
   site:
     name: Mise en page du site
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
+      # Le site est en Rust, compilé en WebAssembly. Trunk vient en binaire
+      # déjà construit : le compiler coûterait plusieurs minutes à chaque
+      # exécution pour un outil qui ne change pas.
+      - name: Cible wasm et Trunk
+        run: |
+          rustup target add wasm32-unknown-unknown
+          curl -sSL https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz \
+            | sudo tar -xzf - -C /usr/local/bin trunk
+          trunk --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: web
+
+      - name: Les trois langues ont la forme attendue
+        working-directory: web
+        run: cargo test --quiet
+
+      - name: Construire
+        working-directory: web
+        run: |
+          trunk build --release --features hydration
+          cargo run --release --features ssr --bin prerender
+
+      # Playwright reste en Node : c'est là que vit le navigateur piloté. Les
+      # deux gardes lisent le `dist` construit et ne savent pas ce qui l'a
+      # produit — c'est précisément ce qui a permis de prouver que le portage
+      # de React vers Yew n'avait rien changé au comportement.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - name: Dépendances
+      - name: Dépendances du navigateur
         working-directory: web
         run: npm ci
 
-      - name: Construire
-        working-directory: web
-        run: npm run build
-
-      # Le seul navigateur du dépôt. `--with-deps` installe aussi les
-      # bibliothèques système que Chromium réclame sur une image nue.
       - name: Chromium
         working-directory: web
         run: npx playwright install --with-deps chromium
 
       # Ce qu'aucun contrôle statique ne voit : une page qui glisse
       # latéralement, et une bascule de thème qui a l'air de marcher.
-      #
-      # Ajouté après coup : j'avais vérifié l'en-tête à 400 px, où il tient, et
-      # il débordait de vingt-quatre pixels à 320 px — la largeur que rapporte
-      # un iPhone en affichage « Agrandi ». Personne ne relit une largeur.
       - name: Aucune page ne glisse, la bascule de thème tient
         working-directory: web
         run: npm run verifier

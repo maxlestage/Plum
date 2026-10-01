@@ -8,7 +8,7 @@ trois pièces qui ne se parlent pas :
    requête média, une pour `[data-theme="dark"]`. Deux copies dérivent, et la
    dérive ne se voit que dans celui des deux cas qu'on ne teste pas.
 2. `web/index.html` porte un script qui relit le choix avant le premier rendu,
-   avec la clé de stockage recopiée à la main depuis `web/src/theme.ts`.
+   avec la clé de stockage recopiée à la main depuis `web/src/theme.rs`.
 3. Les balises `theme-color`, qui teintent la barre du navigateur.
 
 Une pièce qui décroche donne une bascule qui a l'air de marcher. C'est le mode
@@ -27,7 +27,7 @@ from pathlib import Path
 RACINE = Path(__file__).resolve().parent.parent
 CSS = RACINE / "web" / "src" / "theme.css"
 HTML = RACINE / "web" / "index.html"
-TS = RACINE / "web" / "src" / "theme.ts"
+RUST = RACINE / "web" / "src" / "theme.rs"
 
 SELECTEUR_AUTO = ':root:not([data-theme="light"])'
 SELECTEUR_CHOISI = ':root[data-theme="dark"]'
@@ -97,7 +97,7 @@ def main() -> int:
     soucis: list[str] = []
     css = sans_commentaires(CSS.read_text(encoding="utf-8"))
     html = HTML.read_text(encoding="utf-8")
-    ts = TS.read_text(encoding="utf-8")
+    rust = RUST.read_text(encoding="utf-8")
 
     # ---- 1. Les deux jeux sombres, déclaration par déclaration -------------
     auto = declarations(css, SELECTEUR_AUTO)
@@ -140,21 +140,22 @@ def main() -> int:
             )
 
     # ---- 4. Le script d'avant-rendu, et sa clé ----------------------------
-    cle = re.search(r'themeStorageKey\s*=\s*"([^"]+)"', ts)
+    cle = re.search(r'STORAGE_KEY:\s*&str\s*=\s*"([^"]+)"', rust)
     if cle is None:
-        soucis.append("`themeStorageKey` est introuvable dans web/src/theme.ts")
+        soucis.append("`STORAGE_KEY` est introuvable dans web/src/theme.rs")
     else:
         avant_tete = html.split("</head>", 1)[0]
         script = re.search(r"<script>(.*?)</script>", avant_tete, re.S)
         if script is None:
             soucis.append(
                 "web/index.html n'a plus de script en ligne dans <head> : une page "
-                "choisie en sombre s'afficherait en clair le temps que React démarre"
+                "choisie en sombre s'afficherait en clair le temps que le wasm charge — "
+                "et le wasm pèse plus lourd que le bundle qu'il a remplacé"
             )
         elif cle.group(1) not in script.group(1):
             soucis.append(
                 f'le script de web/index.html ne lit pas la clé « {cle.group(1)}» '
-                "de theme.ts — le choix mémorisé ne serait jamais relu"
+                "de theme.rs — le choix mémorisé ne serait jamais relu"
             )
         elif "dataset.theme" not in script.group(1):
             soucis.append("le script d'avant-rendu ne pose plus `dataset.theme`")

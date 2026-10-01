@@ -61,7 +61,7 @@ Scheme… ▸ Run ▸ Arguments`) :
 
 ## Le site
 
-[`web/`](web/README.md) — React + TypeScript + Vite. Servi par le même dyno que
+[`web/`](web/README.md) — Rust + Yew, compilé en WebAssembly. Servi par le même dyno que
 l'API, à la racine, avec les pages légales que l'App Store réclame. Un second
 dyno coûterait plus cher que le premier pour quelques fichiers statiques.
 

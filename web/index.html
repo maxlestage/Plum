@@ -42,12 +42,15 @@
     <!--
       Le choix de thème, relu avant le premier pixel.
 
-      Il est en clair dans la page, et pas dans le bundle, parce que le bundle
-      est chargé en `module` — donc différé. Une page pré-rendue en clair
-      s'afficherait le temps d'un éclair avant que React ne la repeigne : en
-      pleine nuit, c'est précisément ce qu'un thème sombre sert à éviter.
+      Il est en clair dans la page, et pas dans le wasm, parce que le wasm est
+      chargé en `module` — donc différé — et qu'il pèse plus lourd que le
+      bundle qu'il remplace. Une page pré-rendue en clair s'afficherait le
+      temps d'un éclair avant que l'application ne la repeigne : en pleine
+      nuit, c'est précisément ce qu'un thème sombre sert à éviter. Le
+      remplacement de React par Yew rend donc ce script *plus* nécessaire, pas
+      moins.
 
-      La clé « plum.theme » est recopiée de `src/theme.ts` ;
+      La clé « plum.theme » est recopiée de `src/theme.rs` ;
       `Scripts/check_theme.py` vérifie qu'elles ne se sont pas séparées.
     -->
     <script>
@@ -60,9 +63,36 @@
         /* Navigation privée : le thème automatique reste juste. */
       }
     </script>
+    <!--
+      Les fonctionnalités wasm que l'artefact exige, nommées une par une.
+
+      Le compilateur Rust émet des instructions que le `wasm-opt` épinglé par
+      Trunk refuse de valider par défaut — la construction échoue sur
+      « memory.copy operations require bulk memory operations », ce qui ne dit
+      pas d'où ça vient. `--all-features` règle le problème et rend seize
+      kilo-octets de moins, mais il autorise tout : on ne saurait plus ce que
+      le fichier demande au navigateur. Cette liste-là, si. Toutes sont
+      portées par Safari 15 et au-delà, donc par les iPhone que
+      l'application vise.
+
+      `data-integrity="none"` : Trunk pose un `integrity` sur le `preload` du
+      wasm, et Chromium avertit qu'il l'ignore — un `preload` dont la
+      destination ne gère pas l'intégrité de sous-ressource. Le garde-fou du
+      thème relève tout ce qui parle dans la console, et il a raison : une
+      console qui bavarde est une console qu'on cesse de lire. L'attribut ne
+      protégeait rien puisqu'il était ignoré.
+    -->
+    <link
+      data-trunk
+      rel="rust"
+      data-bin="plum-site"
+      data-wasm-opt="z"
+      data-integrity="none"
+      data-wasm-opt-params="--enable-bulk-memory --enable-bulk-memory-opt --enable-sign-ext --enable-mutable-globals --enable-nontrapping-float-to-int --enable-reference-types --enable-multivalue"
+    />
+    <link data-trunk rel="css" href="src/theme.css" />
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
