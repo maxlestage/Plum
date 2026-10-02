@@ -3,13 +3,15 @@ use axum::http::HeaderMap;
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use chrono::Utc;
-use sea_orm::{ActiveModelTrait, EntityTrait, Set, Unchanged};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set, Unchanged,
+};
 use uuid::Uuid;
 
 use super::types::*;
 use crate::auth::routes::authenticate;
 use crate::auth::types::UserResponse;
-use crate::entities::{preferences, profile, user};
+use crate::entities::{photo, preferences, profile, user};
 use crate::error::{ApiError, ApiResult};
 use crate::state::AppState;
 
@@ -143,6 +145,21 @@ async fn complete_profile(
     // The profile must exist before onboarding can be called finished —
     // otherwise the app leaves onboarding for a screen with nothing on it.
     load_profile(&state, claims.sub).await?;
+
+    // « Une photo est obligatoire », dit le site. L'application le vérifiait
+    // avant d'appeler cette route, et c'était tout : un appel direct terminait
+    // un profil sans visage, qui entrait ensuite dans les sélections des
+    // autres. Une vérification côté client est une politesse ; celle-ci est
+    // le contrôle.
+    let photos = photo::Entity::find()
+        .filter(photo::Column::ProfileId.eq(claims.sub))
+        .count(&state.db)
+        .await?;
+    if photos == 0 {
+        return Err(ApiError::BadRequest(
+            "Ajoutez au moins une photo pour terminer votre profil.".into(),
+        ));
+    }
 
     let account = user::Entity::find_by_id(claims.sub)
         .one(&state.db)

@@ -45,6 +45,9 @@ SITE_EXPECTATIONS = {
     "--blush": "blush",
     "--apricot": "apricot",
     "--mint": "mint",
+    # L'encre de la marque, qui ne suit pas le thème : le site et l'iPhone
+    # la posent tous deux sur le prune profond.
+    "--on-plum": "onPlum",
 }
 
 SWIFT_COLOUR = re.compile(r"static let (\w+)\s*=\s*Color\(hex:\s*0x([0-9A-Fa-f]{6})\)")
@@ -71,7 +74,14 @@ def site_colours() -> dict[str, int]:
         return {}
     # Only the light palette, declared on bare `:root`: the dark block
     # redefines the neutrals, not the brand colours.
-    text = SITE_CSS.read_text(encoding="utf-8").split("@media", 1)[0]
+    #
+    # Les commentaires d'abord. L'en-tête de `theme.css` *explique* le bloc
+    # `@media (prefers-color-scheme: dark)`, et couper au premier « @media »
+    # coupait dans ce commentaire, avant même `:root` : aucune couleur
+    # trouvée, et `if site:` sautait tout le contrôle du site en silence.
+    # Il n'a pas tourné depuis que ce commentaire a été écrit.
+    text = re.sub(r"/\*.*?\*/", " ", SITE_CSS.read_text(encoding="utf-8"), flags=re.S)
+    text = text.split("@media", 1)[0]
     return {name: int(value, 16) for name, value in CSS_COLOUR.findall(text)}
 
 
@@ -161,6 +171,11 @@ def main() -> int:
                 f"{asset} (#{expected:06X})"
             )
 
+    if SITE_CSS.exists() and not site:
+        problems.append(
+            f"{SITE_CSS.relative_to(ROOT)} existe mais aucune couleur n'y a été lue — "
+            "un contrôle qui ne trouve rien ne doit pas passer pour vert"
+        )
     if site:
         for variable, member in SITE_EXPECTATIONS.items():
             expected = theme.get(member)

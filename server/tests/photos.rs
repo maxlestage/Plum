@@ -7,49 +7,8 @@ use axum::http::{Request, StatusCode};
 use common::deck_ages::*;
 use common::*;
 use http_body_util::BodyExt;
-use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
 use serde_json::json;
 use tower::ServiceExt;
-
-/// Un JPEG de la taille demandée, avec assez de détail pour ne pas se
-/// comprimer à rien.
-fn jpeg(width: u32, height: u32) -> Vec<u8> {
-    let mut canvas = RgbImage::new(width, height);
-    for (x, y, pixel) in canvas.enumerate_pixels_mut() {
-        *pixel = Rgb([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8]);
-    }
-    let mut bytes = Vec::new();
-    DynamicImage::ImageRgb8(canvas)
-        .write_to(&mut std::io::Cursor::new(&mut bytes), ImageFormat::Jpeg)
-        .unwrap();
-    bytes
-}
-
-/// Un envoi multipart, comme `URLSession` le compose.
-fn upload_request(token: &str, bytes: Vec<u8>) -> Request<Body> {
-    let boundary = "plum.test.boundary";
-    let mut body = Vec::new();
-    body.extend_from_slice(
-        format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; \
-             filename=\"photo.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n"
-        )
-        .as_bytes(),
-    );
-    body.extend_from_slice(&bytes);
-    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-
-    Request::builder()
-        .method("POST")
-        .uri("/api/v1/me/photos")
-        .header("authorization", format!("Bearer {token}"))
-        .header(
-            "content-type",
-            format!("multipart/form-data; boundary={boundary}"),
-        )
-        .body(Body::from(body))
-        .unwrap()
-}
 
 /// La carte d'un candidat, en parcourant le deck page par page.
 ///
@@ -357,8 +316,15 @@ async fn the_selection_carries_the_photos_of_its_profiles() {
 
     let card = selection_card(&app, &me, them_id).await.expect("la carte");
     let photos = card["photos"].as_array().expect("des photos");
-    assert_eq!(photos.len(), 1);
-    assert!(photos[0]["url"].as_str().unwrap().starts_with("https://"));
+    // Deux : celle de l'accueil, sans laquelle la carte ne serait pas là, et
+    // celle ajoutée ensuite. La sélection les porte toutes.
+    assert_eq!(photos.len(), 2, "{photos:?}");
+    for photo in photos {
+        assert!(
+            photo["url"].as_str().unwrap().starts_with("https://"),
+            "{photo}"
+        );
+    }
 }
 
 /// Supprimer son compte doit emporter ses photos : la page de confidentialité
@@ -459,4 +425,78 @@ async fn the_storage_budget_is_what_holds_when_identities_are_free() {
             .expect("la taille se lit"),
         "un budget nul devrait être dépassé dès la première photo"
     );
+}
+
+async fn retirer(app: &axum::Router, token: &str, photo: &serde_json::Value) -> StatusCode {
+    call(
+        app,
+        request(
+            "DELETE",
+            &format!("/api/v1/me/photos/{}", photo["id"].as_str().unwrap()),
+            Some(token),
+            None,
+        ),
+    )
+    .await
+    .0
+}
+
+async fn mes_photos(app: &axum::Router, token: &str) -> Vec<serde_json::Value> {
+    let (status, body) = call(app, request("GET", "/api/v1/me/profile", Some(token), None)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    body["photos"].as_array().cloned().unwrap_or_default()
+}
+
+/// Un profil terminé garde toujours un visage.
+///
+/// Retirer la dernière photo faisait sortir quelqu'un des sélections sans
+/// qu'il l'ait demandé ni compris pourquoi. Le refus lui dit de la remplacer ;
+/// et pendant l'accueil, avant que rien ne soit promis à personne, tout se
+/// retire encore.
+#[tokio::test]
+async fn the_last_photo_of_a_finished_profile_stays() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+
+    // Pendant l'accueil : la seule photo se retire.
+    let (token, _) = sign_up_and_token(&app, "derniere-photo-accueil").await;
+    let seule = upload(&app, &token, (400, 400)).await;
+    assert_eq!(retirer(&app, &token, &seule).await, StatusCode::NO_CONTENT);
+
+    // Profil terminé : la dernière reste.
+    let (token, _) = sign_up_and_token(&app, "derniere-photo-termine").await;
+    finish_onboarding(&app, &token).await;
+    let photos = mes_photos(&app, &token).await;
+    assert_eq!(photos.len(), 1);
+    let (status, body) = call(
+        &app,
+        request(
+            "DELETE",
+            &format!("/api/v1/me/photos/{}", photos[0]["id"].as_str().unwrap()),
+            Some(&token),
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("dernière photo"),
+        "le refus doit dire pourquoi : {body}"
+    );
+    assert_eq!(
+        mes_photos(&app, &token).await.len(),
+        1,
+        "elle doit être toujours là"
+    );
+
+    // Avec une seconde, la première se retire.
+    upload(&app, &token, (400, 400)).await;
+    assert_eq!(
+        retirer(&app, &token, &photos[0]).await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(mes_photos(&app, &token).await.len(), 1);
 }

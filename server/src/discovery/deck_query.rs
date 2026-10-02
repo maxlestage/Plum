@@ -169,6 +169,21 @@ async fn eligible(
               AND NOT EXISTS (
                     SELECT 1 FROM users u
                     WHERE u.id = c.id AND u.suspended_at IS NOT NULL)
+              -- Seuls les profils terminés, et avec un visage. « Une photo
+              -- est obligatoire », dit le site ; la sélection ne le vérifiait
+              -- pas. Une inscription laissée à mi-chemin — prénom, date de
+              -- naissance, rien d'autre — y entrait, et quelqu'un sans
+              -- position, qui voit tout le monde, la recevait en premier.
+              --
+              -- Les deux conditions et pas une : « terminé » écarte l'accueil
+              -- abandonné, la photo écarte tout ce qu'un chemin oublié
+              -- laisserait passer. Un profil terminé ne peut plus perdre sa
+              -- dernière photo, mais la sélection ne compte pas là-dessus.
+              AND EXISTS (
+                    SELECT 1 FROM users u
+                    WHERE u.id = c.id AND u.profile_completed)
+              AND EXISTS (
+                    SELECT 1 FROM photos ph WHERE ph.profile_id = c.id)
               -- Blocking cuts both ways, so the deck asks about both.
               AND NOT EXISTS (
                     SELECT 1 FROM blocks b

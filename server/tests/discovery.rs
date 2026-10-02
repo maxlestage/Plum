@@ -818,3 +818,38 @@ async fn the_announced_size_is_what_was_actually_served() {
     assert_eq!(body["items"].as_array().unwrap().len(), 1);
     assert_eq!(body["size"], 2, "« il en reste un sur un » : {body}");
 }
+
+/// « Une photo est obligatoire », dit le site.
+///
+/// La sélection ne le vérifiait pas : une inscription laissée à mi-chemin y
+/// entrait dès qu'elle avait une position. Ici elle est posée au même endroit
+/// que le spectateur, à distance nulle — donc en tête d'une sélection triée par
+/// distance, si rien ne l'en écartait.
+///
+/// Le spectateur a une position, et c'est voulu : sans elle il verrait tout le
+/// monde, y compris les profils laissés par les passes précédentes de la
+/// suite, et le témoin ci-dessous tirerait au hasard parmi eux. Le lieu privé
+/// de ce test l'isole.
+#[tokio::test]
+async fn a_signup_left_halfway_never_reaches_a_selection() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let age = deck_ages::FACELESS;
+    let lieu = private_cluster();
+
+    let sans_visage = half_signed_up(&app, "sansvisage", age, "woman", lieu).await;
+    let (_, avec_visage) = candidate(&app, "avecvisage", age, "woman", Some(lieu)).await;
+
+    let (spectateur, _) = candidate(&app, "spectateur-visage", age, "man", Some(lieu)).await;
+    only_see_age(&app, &spectateur, age, "women").await;
+
+    let ids = selection_ids(&app, &spectateur).await;
+    assert!(
+        ids.contains(&avec_visage),
+        "un profil terminé, avec sa photo, doit pouvoir être proposé : {ids:?}"
+    );
+    assert!(
+        !ids.contains(&sans_visage),
+        "une inscription sans photo ni accueil terminé est entrée dans la sélection"
+    );
+}

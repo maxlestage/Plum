@@ -13,6 +13,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use chrono::Datelike;
 use http_body_util::BodyExt;
+use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
 use plum_server::config::Config;
 use plum_server::rate_limit::{InProcessLimiter, RateLimiter};
 use plum_server::state::AppState;
@@ -358,6 +359,8 @@ pub mod deck_ages {
     pub const UNBLOCK_ONE_SIDED: i32 = 80;
     pub const UNBLOCK_TWICE: i32 = 81;
     pub const UNBLOCK_THREAD: i32 = 82;
+    /// Une inscription abandonnée avant la photo, à côté d'un profil terminé.
+    pub const FACELESS: i32 = 86;
     pub const VARYING_COUNT: i32 = 83;
     pub const VARYING_STABLE: i32 = 84;
     pub const ANNOUNCED_SIZE: i32 = 85;
@@ -405,7 +408,68 @@ pub fn birth_date_for(age: i32) -> String {
     format!("{born}T00:00:00Z")
 }
 
-/// Signs up one candidate with a chosen age, gender and optional position.
+/// Un JPEG de la taille demandée, avec assez de détail pour ne pas se
+/// comprimer à rien.
+pub fn jpeg(width: u32, height: u32) -> Vec<u8> {
+    let mut canvas = RgbImage::new(width, height);
+    for (x, y, pixel) in canvas.enumerate_pixels_mut() {
+        *pixel = Rgb([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8]);
+    }
+    let mut bytes = Vec::new();
+    DynamicImage::ImageRgb8(canvas)
+        .write_to(&mut std::io::Cursor::new(&mut bytes), ImageFormat::Jpeg)
+        .unwrap();
+    bytes
+}
+
+/// Un envoi multipart, comme `URLSession` le compose.
+pub fn upload_request(token: &str, bytes: Vec<u8>) -> Request<Body> {
+    let boundary = "plum.test.boundary";
+    let mut body = Vec::new();
+    body.extend_from_slice(
+        format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; \
+             filename=\"photo.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(&bytes);
+    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+
+    Request::builder()
+        .method("POST")
+        .uri("/api/v1/me/photos")
+        .header("authorization", format!("Bearer {token}"))
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .body(Body::from(body))
+        .unwrap()
+}
+
+/// Termine l'accueil comme l'application le fait : une photo, puis la
+/// complétion.
+///
+/// La sélection ne montre que des profils terminés et avec un visage. Un
+/// candidat de test qui s'arrêterait à l'inscription n'y entrerait plus — et
+/// c'est juste : c'était précisément le défaut, que les tests reproduisaient
+/// sans le voir parce que leurs candidats n'avaient jamais de photo non plus.
+pub async fn finish_onboarding(app: &axum::Router, token: &str) {
+    // 200 pixels, le minimum : la plus petite image que la chaîne accepte,
+    // donc la plus rapide à décoder pour une suite qui en crée des centaines.
+    let (status, body) = call(app, upload_request(token, jpeg(200, 200))).await;
+    assert_eq!(status, StatusCode::OK, "photo d'accueil : {body}");
+    let (status, body) = call(
+        app,
+        request("POST", "/api/v1/me/profile/complete", Some(token), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "fin de l'accueil : {body}");
+}
+
+/// Signs up one candidate with a chosen age, gender and optional position,
+/// and finishes onboarding — photo included — so the selection can show them.
 pub async fn candidate(
     app: &axum::Router,
     tag: &str,
@@ -433,6 +497,10 @@ pub async fn candidate(
     let token = body["tokens"]["access_token"].as_str().unwrap().to_owned();
     let id: Uuid = body["user"]["id"].as_str().unwrap().parse().unwrap();
 
+    // Un candidat est quelqu'un qu'on peut croiser : accueil terminé, photo
+    // comprise. `half_signed_up` existe pour l'autre cas.
+    finish_onboarding(app, &token).await;
+
     if let Some((latitude, longitude)) = position {
         let (status, _) = call(
             app,
@@ -448,6 +516,46 @@ pub async fn candidate(
     }
 
     (token, id)
+}
+
+/// Quelqu'un qui s'est inscrit et s'est arrêté là : pas de photo, accueil pas
+/// terminé, mais une position — donc tout ce qu'il faut pour être tiré au
+/// sort, si la sélection ne regardait que la distance.
+pub async fn half_signed_up(
+    app: &axum::Router,
+    tag: &str,
+    age: i32,
+    gender: &str,
+    position: (f64, f64),
+) -> Uuid {
+    let (status, body) = call(
+        app,
+        post(
+            "/api/v1/auth/sign-up",
+            json!({
+                "email": unique_email(tag),
+                "password": "motdepasse",
+                "display_name": tag,
+                "birth_date": birth_date_for(age),
+                "gender": gender,
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "inscription de {tag} : {body}");
+    let token = body["tokens"]["access_token"].as_str().unwrap().to_owned();
+    let (status, _) = call(
+        app,
+        request(
+            "PATCH",
+            "/api/v1/me/location",
+            Some(&token),
+            Some(json!({ "latitude": position.0, "longitude": position.1 })),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "position de {tag}");
+    body["user"]["id"].as_str().unwrap().parse().unwrap()
 }
 
 /// Pins a viewer's filters to exactly one age, so only the candidates this

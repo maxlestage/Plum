@@ -146,25 +146,29 @@ struct ProfileView: View {
                                     Label("Mettre en couverture", systemImage: "star")
                                 }
                             }
-                            Button(role: .destructive) {
-                                Task { await viewModel.deletePhoto(photo) }
-                            } label: {
-                                Label("Supprimer", systemImage: "trash")
+                            if viewModel.canDeletePhotos {
+                                Button(role: .destructive) {
+                                    Task { await viewModel.deletePhoto(photo) }
+                                } label: {
+                                    Label("Supprimer", systemImage: "trash")
+                                }
                             }
                         }
                         .overlay(alignment: .topTrailing) {
-                            Button {
-                                Task { await viewModel.deletePhoto(photo) }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.title3)
-                                    .foregroundStyle(.white, .black.opacity(0.45))
+                            if viewModel.canDeletePhotos {
+                                Button {
+                                    Task { await viewModel.deletePhoto(photo) }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(.white, .black.opacity(0.45))
+                                }
+                                // Sans rang, VoiceOver annonçait « bouton » six fois
+                                // de suite : rien ne disait laquelle des six photos
+                                // ce bouton allait détruire.
+                                .accessibilityLabel(Text("Supprimer la photo \(rang + 1)"))
+                                .padding(PlumTheme.Spacing.s)
                             }
-                            // Sans rang, VoiceOver annonçait « bouton » six fois
-                            // de suite : rien ne disait laquelle des six photos
-                            // ce bouton allait détruire.
-                            .accessibilityLabel(Text("Supprimer la photo \(rang + 1)"))
-                            .padding(PlumTheme.Spacing.s)
                         }
                 }
 
