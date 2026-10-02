@@ -469,6 +469,7 @@ private actor RefusingProfileService: ProfileServicing {
 
 /// « Une photo est obligatoire », dit le site — et un profil terminé ne perd
 /// pas la dernière.
+@MainActor
 final class ProfilePhotoDeletionTests: XCTestCase {
     private func makeViewModel(_ profiles: any ProfileServicing) -> ProfileViewModel {
         ProfileViewModel(profiles: profiles, session: SessionStore(auth: DemoAuthService()))
