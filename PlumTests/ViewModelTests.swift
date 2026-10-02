@@ -447,3 +447,73 @@ final class ProfilePhotoOrderTests: XCTestCase {
         XCTAssertEqual(viewModel.profile?.coverPhoto?.id, cover.id)
     }
 }
+
+/// Un service qui refuse toute suppression, comme le ferait un réseau coupé.
+private actor RefusingProfileService: ProfileServicing {
+    private let inner = DemoProfileService()
+
+    func myProfile() async throws -> Profile { try await inner.myProfile() }
+    func update(_ update: ProfileUpdate) async throws -> Profile { try await inner.update(update) }
+    func uploadPhoto(_ jpegData: Data) async throws -> Photo { try await inner.uploadPhoto(jpegData) }
+    func deletePhoto(id: UUID) async throws { throw APIError.offline }
+    func reorderPhotos(_ orderedIds: [UUID]) async throws -> [Photo] {
+        try await inner.reorderPhotos(orderedIds)
+    }
+    func preferences() async throws -> DiscoveryPreferences { try await inner.preferences() }
+    func updatePreferences(_ preferences: DiscoveryPreferences) async throws -> DiscoveryPreferences {
+        try await inner.updatePreferences(preferences)
+    }
+    func completeProfile() async throws -> User { try await inner.completeProfile() }
+    func updateLocation(_ coordinate: Coordinate) async throws { try await inner.updateLocation(coordinate) }
+}
+
+/// « Une photo est obligatoire », dit le site — et un profil terminé ne perd
+/// pas la dernière.
+@MainActor
+final class ProfilePhotoDeletionTests: XCTestCase {
+    private func makeViewModel(_ profiles: any ProfileServicing) -> ProfileViewModel {
+        ProfileViewModel(profiles: profiles, session: SessionStore(auth: DemoAuthService()))
+    }
+
+    func testTheLastPhotoIsNotOfferedForDeletion() async {
+        let viewModel = makeViewModel(DemoProfileService())
+        await viewModel.load()
+
+        // Borné : une boucle qui ne finit pas serait pire qu'un échec.
+        for _ in 0..<10 {
+            guard viewModel.canDeletePhotos, let first = viewModel.profile?.orderedPhotos.first else { break }
+            await viewModel.deletePhoto(first)
+        }
+
+        XCTAssertEqual(viewModel.profile?.photos.count, 1)
+        XCTAssertFalse(viewModel.canDeletePhotos, "la dernière photo ne doit pas être proposée")
+
+        // Demander quand même ne change rien.
+        if let last = viewModel.profile?.photos.first {
+            await viewModel.deletePhoto(last)
+        }
+        XCTAssertEqual(viewModel.profile?.photos.count, 1)
+    }
+
+    /// La version d'avant avalait le refus avec `try?` : la photo disparaissait
+    /// de l'écran et restait en ligne, donc vue par les autres.
+    func testARefusedDeletionPutsThePhotoBack() async {
+        let viewModel = makeViewModel(RefusingProfileService())
+        await viewModel.load()
+
+        guard let before = viewModel.profile?.photos, before.count > 1,
+              let first = viewModel.profile?.orderedPhotos.first
+        else {
+            return XCTFail("Le profil de démonstration doit avoir plusieurs photos")
+        }
+
+        await viewModel.deletePhoto(first)
+
+        XCTAssertEqual(
+            Set(viewModel.profile?.photos.map(\.id) ?? []),
+            Set(before.map(\.id)),
+            "la photo refusée doit revenir"
+        )
+        XCTAssertNotNil(viewModel.state.error, "le refus doit être dit")
+    }
+}

@@ -324,6 +324,10 @@ async fn completing_the_profile_is_idempotent() {
         "un compte neuf n'a pas fini l'accueil"
     );
 
+    // L'accueil exige une photo ; c'est la répétition qu'on éprouve ici.
+    let (status, body) = call(&app, upload_request(&token, jpeg(200, 200))).await;
+    assert_eq!(status, StatusCode::OK, "photo : {body}");
+
     for attempt in 0..2 {
         let (status, body) = call(
             &app,
@@ -500,4 +504,30 @@ async fn the_database_refuses_an_illegal_age_range_of_its_own_accord() {
             "refusé, mais pas par « {constraint} » : {message}"
         );
     }
+}
+
+/// L'application refusait déjà de terminer l'accueil sans photo. Le serveur,
+/// non : un appel direct terminait un profil sans visage.
+#[tokio::test]
+async fn onboarding_cannot_finish_without_a_photo() {
+    let Some(db) = database().await else { return };
+    let app = plum_server::app(state(db));
+    let (token, _) = sign_up_and_token(&app, "accueil-sans-photo").await;
+
+    let (status, body) = call(
+        &app,
+        request("POST", "/api/v1/me/profile/complete", Some(&token), None),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("photo"),
+        "le refus doit dire quoi faire : {body}"
+    );
+
+    // Avec une photo, la même demande passe.
+    finish_onboarding(&app, &token).await;
 }

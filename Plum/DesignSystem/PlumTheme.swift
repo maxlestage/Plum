@@ -6,13 +6,17 @@ enum PlumTheme {
     enum Palette {
         /// Deep plum — the brand anchor.
         static let plum = Color(hex: 0x6B2D5C)
-        /// Le bas du dégradé de l'icône d'application, repris par
-        /// `Scripts/generate_appicon.py` — d'où l'absence d'usage en Swift.
+        /// Le fond de la marque, sur l'icône d'application comme dans
+        /// `PlumMark` — repris par `Scripts/generate_appicon.py`.
         static let plumDeep = Color(hex: 0x40183A)
         static let blush = Color(hex: 0xE8608C)
         static let apricot = Color(hex: 0xF6A56B)
         static let mint = Color(hex: 0x4FC3A1)
         static let ink = Color(hex: 0x1F1320)
+        /// L'encre posée *sur* le prune, et qui ne suit pas le thème — le
+        /// `--on-plum` du site. `canvas` bascule vers le quasi-noir en thème
+        /// sombre : posé sur le prune profond, il ne se lirait plus.
+        static let onPlum = Color(hex: 0xFFF7F4)
 
         static let canvas = Color("Canvas", bundle: .main)
         static let surface = Color("Surface", bundle: .main)
