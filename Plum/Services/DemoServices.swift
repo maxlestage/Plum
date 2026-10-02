@@ -118,7 +118,14 @@ actor DemoProfileService: ProfileServicing {
         return photo
     }
 
+    /// Comme le serveur : un profil terminé ne perd pas sa dernière photo.
     func deletePhoto(id: UUID) async throws {
+        guard profile.photos.count > 1 else {
+            throw APIError.server(
+                status: 409,
+                message: "C'est votre dernière photo. Ajoutez-en une autre avant de retirer celle-ci."
+            )
+        }
         profile.photos.removeAll { $0.id == id }
     }
 

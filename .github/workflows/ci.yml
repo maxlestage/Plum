@@ -41,6 +41,9 @@ jobs:
       - name: Le thème clair/sombre est d'accord avec lui-même
         run: python3 Scripts/check_theme.py
 
+      - name: La marque est la même partout où elle est dessinée
+        run: python3 Scripts/check_mark.py
+
       - name: Le projet est à jour vis-à-vis des sources
         # Le pbxproj est généré : s'il diverge de l'arborescence, c'est qu'un
         # fichier a été ajouté ou supprimé sans régénérer.

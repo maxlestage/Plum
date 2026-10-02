@@ -143,9 +143,27 @@ final class ProfileViewModel {
         }
     }
 
+    /// Un profil terminé garde toujours au moins une photo — « une photo est
+    /// obligatoire », dit le site, et la sélection ne montre personne sans
+    /// visage. Le serveur refuse de retirer la dernière ; l'écran ne la
+    /// propose pas, plutôt que de proposer un geste voué au refus.
+    var canDeletePhotos: Bool { (profile?.photos.count ?? 0) > 1 }
+
+    /// Retire la photo tout de suite, et la remet si le serveur refuse.
+    ///
+    /// La version d'avant appelait le serveur avec `try?` : un refus était
+    /// avalé, et l'écran montrait la photo disparue alors qu'elle était
+    /// toujours en ligne — donc toujours vue par les autres.
     func deletePhoto(_ photo: Photo) async {
+        guard canDeletePhotos, let avant = profile?.photos else { return }
         profile?.photos.removeAll { $0.id == photo.id }
-        try? await profiles.deletePhoto(id: photo.id)
+        do {
+            try await profiles.deletePhoto(id: photo.id)
+            if let updated = profile { session.currentProfile = updated }
+        } catch {
+            profile?.photos = avant
+            state = .failed(error.asAPIError)
+        }
     }
 
     func updatePreferences(_ new: DiscoveryPreferences) async {

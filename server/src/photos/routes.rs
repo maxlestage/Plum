@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use super::encode::{self, PhotoError, MAX_UPLOAD};
 use crate::auth::routes::{authenticate, enforce};
-use crate::entities::photo;
+use crate::entities::{photo, user};
 use crate::error::{ApiError, ApiResult};
 use crate::profile::types::{PhotoResponse, ProfileResponse};
 use crate::rate_limit::Quota;
@@ -261,10 +261,34 @@ async fn remove(
         return Err(ApiError::NotFound);
     }
 
-    state
+    // Un profil terminé garde toujours au moins une photo — « une photo est
+    // obligatoire », dit le site, et la sélection ne montre personne sans
+    // visage. Retirer la dernière ferait sortir quelqu'un des sélections sans
+    // qu'il l'ait demandé ni compris pourquoi : on lui dit plutôt de la
+    // remplacer. Pendant l'accueil, avant que le profil ne soit terminé, rien
+    // n'est encore promis à personne, donc tout se retire.
+    //
+    // Compté *dans* la transaction, lignes verrouillées : deux suppressions
+    // simultanées sur un profil à deux photos verraient sinon chacune « il en
+    // reste une autre », et passeraient toutes les deux.
+    let supprimee = state
         .db
-        .transaction::<_, (), sea_orm::DbErr>(move |txn| {
+        .transaction::<_, bool, sea_orm::DbErr>(move |txn| {
             Box::pin(async move {
+                let restantes = photo::Entity::find()
+                    .filter(photo::Column::ProfileId.eq(viewer))
+                    .lock_exclusive()
+                    .all(txn)
+                    .await?
+                    .len();
+                let termine = user::Entity::find_by_id(viewer)
+                    .one(txn)
+                    .await?
+                    .is_some_and(|compte| compte.profile_completed);
+                if termine && restantes <= 1 {
+                    return Ok(false);
+                }
+
                 photo::Entity::delete_by_id(id).exec(txn).await?;
 
                 let remaining: Vec<(Uuid, i32)> = photo::Entity::find()
@@ -289,7 +313,7 @@ async fn remove(
                     .update(txn)
                     .await?;
                 }
-                Ok(())
+                Ok(true)
             })
         })
         .await
@@ -298,6 +322,11 @@ async fn remove(
             sea_orm::TransactionError::Connection(inner) => ApiError::from(inner),
         })?;
 
+    if !supprimee {
+        return Err(ApiError::Conflict(
+            "C'est votre dernière photo. Ajoutez-en une autre avant de retirer celle-ci.".into(),
+        ));
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -308,6 +308,9 @@ async fn compte(
 
     let token = body["tokens"]["access_token"].as_str().unwrap().to_owned();
     let id: uuid::Uuid = body["user"]["id"].as_str().unwrap().parse().unwrap();
+    // Ces comptes entrent dans des sélections, donc ce sont des profils
+    // terminés, photo comprise : la sélection n'en montre pas d'autres.
+    finish_onboarding(app, &token).await;
     let (latitude, longitude) = ou;
     let (status, _) = call(
         app,
