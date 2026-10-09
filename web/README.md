@@ -50,6 +50,44 @@ portage : `Renderer::new()` hydrate `<body>` alors que le corps pré-rendu vit
 dans `#root`, ce qui donnait une page qui s'affichait bien et ne répondait à
 rien.
 
+## Le mouvement
+
+L'accueil s'ouvre comme [zamocorp.com](https://zamocorp.com) : un rideau prune
+qui se lève, puis une scène épinglée que le défilement déroule — la marque se
+forme dans la poussière, une lueur la traverse en allumant les grains qu'elle
+touche, et le titre arrive une ligne après l'autre. Plus bas, une bande fait
+défiler les six principes, les cartes montent à leur place, un grain léger
+couvre la page, et les boutons de l'ouverture suivent la souris.
+
+**La technique est la leur, le poids non.** ZamoCorp joue son ouverture avec
+une séquence d'images AVIF pré-rendues et 54 Ko de GSAP et Lenis. Ici, la
+poussière est calculée à partir de la géométrie exacte de la marque — celle
+que `Scripts/check_mark.py` tient d'accord avec l'icône — et le tout pèse
+**8 Ko** gzippés : 4,4 de script, 3,5 de styles. Pas de Lenis : l'iPhone a
+déjà son inertie, et un défilement détourné est ce qu'un lecteur d'écran
+supporte le moins.
+
+Trois règles, parce que la page est hydratée par Yew :
+
+- `src/animations.js` ne crée, ne retire ni ne déplace **aucun nœud** de
+  `#root`. Il dessine dans une toile que le composant rend lui-même, et écrit
+  `--ouverture` et `--lueur` sur `<html>`, que Yew ne gère pas ;
+- il ne touche un élément de l'application qu'**après** l'hydratation ;
+- **au repos, la page est celle d'avant.** Sans script, ou avec « réduire
+  les animations », rien ne s'épingle, rien n'est transparent, la marque est
+  le SVG fixe. Le rideau est décidé par le script en ligne, avant le premier
+  pixel, et jamais si l'on a demandé moins de mouvement.
+
+Les révélations des cartes sont en CSS seul (`animation-timeline: view()`,
+Safari 26 et Chrome 115). Ailleurs, elles ne s'appliquent pas, et les cartes
+sont simplement là.
+
+`verifier-demarrage.mjs` vérifie les deux états : avec du mouvement,
+l'ouverture se déroule ; avec « réduire les animations », la page est
+complète et immobile. Le premier essai avait un script qui lisait ses
+constantes avant de les déclarer : la poussière ne partait jamais, et c'est
+le garde de mise en page qui l'a vu, à une lueur plantée hors de l'écran.
+
 ## Pourquoi le même dyno
 
 Un second dyno coûterait plus cher par mois que le premier, pour quelques

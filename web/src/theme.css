@@ -512,3 +512,389 @@ a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .pastille { transition: none; }
 }
+
+/* ========================================================================== *
+ *  Le mouvement                                                              *
+ *                                                                            *
+ *  Dans l'esprit de zamocorp.com : une ouverture épinglée que le défilement  *
+ *  déroule, une marque qui se forme dans la poussière, une lueur qui la      *
+ *  traverse, du grain, des boutons aimantés, une bande qui défile.           *
+ *                                                                            *
+ *  Trois états, et le premier est la référence :                             *
+ *                                                                            *
+ *  - **au repos** — sans script, ou avec « réduire les animations » — la     *
+ *    page est exactement celle d'avant : l'ouverture est une section         *
+ *    ordinaire, tout y est visible, la marque est le SVG fixe ;              *
+ *  - **animée** — `html.anime`, posé par `animations.js` — l'ouverture       *
+ *    s'épingle et se déroule ;                                               *
+ *  - **pilotée** — `--ouverture` et `--lueur`, de 0 à 1, posés sur `<html>`  *
+ *    à chaque image. Absentes, elles valent 1 : l'état final.                *
+ * ========================================================================== */
+
+:root {
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* Le retour d'un bouton aimanté. `linear()` dessine un rebond qu'aucune
+     courbe de Bézier ne sait faire ; là où il manque, la déclaration
+     précédente reste. */
+  --rebond: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --rebond: linear(0, 0.42 8%, 0.85 16%, 1.1 25%, 1.16 31%, 1.1 38%, 0.98 50%,
+      0.96 56%, 1.01 70%, 1.005 85%, 1);
+  --grain: 0.045;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --grain: 0.07;
+  }
+}
+
+:root[data-theme="dark"] {
+  --grain: 0.07;
+}
+
+/* ---- L'ouverture, au repos ------------------------------------------------ */
+
+.ouverture {
+  position: relative;
+}
+
+.ouverture__scene {
+  position: relative;
+  padding: 72px 0 64px;
+  /* La lueur traverse la scène de part en part : coupée ici, elle ne fait
+     jamais glisser la page. `clip` et non `hidden`, qui ferait de la scène
+     un conteneur de défilement et casserait l'épinglage. */
+  overflow-x: clip;
+}
+
+.ouverture__titre {
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+  margin: 20px 0 12px;
+}
+
+/* `inline-block` pour pouvoir glisser, et donc borné à la colonne : sans
+   ça, la ligne prend la largeur de son mot le plus long, et à 180 px
+   « phrases. » sortait de l'écran. `overflow-wrap` ne joue pas sur la
+   largeur minimale d'un bloc en ligne. */
+.ouverture__ligne {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.ouverture__accroche {
+  font-size: 1.15rem;
+  margin: 0 0 28px;
+}
+
+.ouverture__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ouverture__poussiere,
+.ouverture__lueur,
+.defiler {
+  display: none;
+}
+
+/* ---- L'ouverture, épinglée ------------------------------------------------ *
+ * Seulement sur un écran assez grand pour la tenir : plus petit, le texte    *
+ * déborderait de la scène et une partie n'apparaîtrait qu'à la fin de la     *
+ * course. La poussière n'a alors rien où se dessiner, et le texte reste      *
+ * à sa place.                                                                */
+
+@media (min-height: 560px) and (min-width: 300px) {
+  html.anime .ouverture {
+    --p: var(--ouverture, 1);
+    --l: var(--lueur, 1);
+    height: 250vh;
+    height: 250svh;
+  }
+
+  html.anime .ouverture__scene {
+    position: sticky;
+    top: 0;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 64px;
+  }
+
+  html.anime .ouverture__poussiere {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* La poussière remplace la marque fixe. */
+  html.anime .ouverture__marque {
+    display: none;
+  }
+
+  html.anime .ouverture__texte {
+    position: relative;
+  }
+
+  /* La seconde ligne du titre, puis l'accroche et les boutons. */
+  html.anime .ouverture__ligne--2 {
+    --r: clamp(0, (var(--p) - 0.26) / 0.14, 1);
+    opacity: var(--r);
+    transform: translateY(calc((1 - var(--r)) * 0.6em));
+  }
+
+  html.anime .ouverture__suite {
+    --r: clamp(0, (var(--p) - 0.5) / 0.16, 1);
+    opacity: var(--r);
+    transform: translateY(calc((1 - var(--r)) * 24px));
+  }
+
+  /* Un bouton atteint au clavier se montre, où qu'en soit le défilement :
+     un focus sur un élément transparent est un focus perdu. */
+  html.anime .ouverture__suite:focus-within {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* La lueur : un trait de lumière qui traverse la marque. */
+  html.anime .ouverture__lueur {
+    display: block;
+    position: absolute;
+    top: 8%;
+    height: 56%;
+    width: 2px;
+    border-radius: 2px;
+    background: linear-gradient(transparent, var(--blush) 30%, #fff 50%,
+        var(--blush) 70%, transparent);
+    box-shadow: 0 0 22px 5px color-mix(in srgb, var(--blush) 55%, transparent);
+    /* De bord à bord de la scène, et pas au-delà : un trait qui finirait sa
+       course hors de l'écran serait invisible, mais toujours là, et un
+       élément posé au-delà du bord est ce qui fait glisser une page. Il
+       s'allume et s'éteint aux bords plutôt que d'en sortir. */
+    left: calc(var(--l) * (100% - 2px));
+    opacity: clamp(0, min(var(--l), 1 - var(--l)) * 9, 1);
+    pointer-events: none;
+  }
+
+  /* L'invitation à défiler : une goutte qui tombe, et qui s'efface dès
+     qu'on a commencé. */
+  html.anime .defiler {
+    display: block;
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    width: 1px;
+    height: 34px;
+    overflow: hidden;
+    background: var(--hairline);
+    opacity: clamp(0, 1 - var(--p) * 10, 1);
+  }
+
+  html.anime .defiler i {
+    position: absolute;
+    inset: 0;
+    background: var(--plum-contrast);
+    transform-origin: top;
+    animation: goutte 2s var(--ease) infinite;
+  }
+}
+
+@keyframes goutte {
+  0% { transform: scaleY(0); }
+  50% { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(1); opacity: 0; }
+}
+
+/* La première ligne arrive d'elle-même, sans attendre le défilement. */
+html.anime .ouverture__ligne:first-child {
+  animation: entree 1s 0.15s var(--ease) both;
+}
+
+html.porte .ouverture__ligne:first-child {
+  animation-delay: 0.95s;
+}
+
+@keyframes entree {
+  from {
+    opacity: 0;
+    transform: translateY(0.5em);
+  }
+}
+
+/* ---- Le rideau ------------------------------------------------------------ *
+ * Une fois par session, la page s'ouvre derrière un rideau prune portant la  *
+ * marque. Un pseudo-élément, et non un nœud : rien à ajouter au DOM, donc    *
+ * rien que l'hydratation puisse trouver de trop. `html.porte` est posé par   *
+ * le script en ligne de `index.html`, avant le premier rendu — un rideau     *
+ * posé plus tard laisserait d'abord voir la page qu'il est censé cacher.     */
+
+html.porte body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background: var(--plum-deep)
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path fill='%23FFF7F4' fill-rule='evenodd' d='M23.5 14.5 a17.5 17.5 0 1 0 0 35 a17.5 17.5 0 1 0 0 -35 Z M30 16.8 a15.2 15.2 0 1 1 0 30.4 a15.2 15.2 0 1 1 0 -30.4 Z'/><path fill='%23FFF7F4' fill-rule='evenodd' d='M40.5 14.5 a17.5 17.5 0 1 1 0 35 a17.5 17.5 0 1 1 0 -35 Z M34 16.8 a15.2 15.2 0 1 0 0 30.4 a15.2 15.2 0 1 0 0 -30.4 Z'/></svg>")
+    center / 120px no-repeat;
+  animation: porte 0.9s 0.35s cubic-bezier(0.77, 0, 0.18, 1) forwards;
+}
+
+@keyframes porte {
+  from { clip-path: inset(0 0 0 0); }
+  to { clip-path: inset(0 0 100% 0); }
+}
+
+/* ---- Le grain ------------------------------------------------------------- *
+ * Un bruit qui bouge par saccades, sur toute la page. Par la position du     *
+ * fond et non par une translation : le calque ne sort jamais de l'écran,     *
+ * donc ne peut rien faire déborder.                                          */
+
+html.anime body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: var(--grain);
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  background-size: 180px;
+  animation: grain 0.9s steps(6, end) infinite;
+}
+
+@keyframes grain {
+  0% { background-position: 0 0; }
+  20% { background-position: -37px 21px; }
+  40% { background-position: 24px -41px; }
+  60% { background-position: -15px 48px; }
+  80% { background-position: 44px 13px; }
+  100% { background-position: 0 0; }
+}
+
+/* ---- Les aimants ---------------------------------------------------------- */
+
+.aimant {
+  transform: translate(var(--mx, 0px), var(--my, 0px));
+  transition: transform 0.9s var(--rebond);
+}
+
+.aimant:hover {
+  transition: transform 0.35s var(--ease);
+}
+
+/* ---- La bande ------------------------------------------------------------- */
+
+.bande {
+  overflow: hidden;
+  padding: 20px 0;
+  border-block: 1px solid var(--hairline);
+  background: var(--surface);
+}
+
+.bande__piste {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.bande__mot {
+  font-size: clamp(1.4rem, 5vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  padding-inline: 0.6em;
+}
+
+.bande__mot::after {
+  content: "";
+  display: inline-block;
+  width: 0.32em;
+  height: 0.32em;
+  margin-left: 1.2em;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--warm-gradient);
+}
+
+/* Au repos, une seule fois chaque principe, et le texte va à la ligne —
+   jusque dans les mots, s'il le faut : immobile, la bande n'a aucune raison
+   de couper quoi que ce soit. */
+html:not(.anime) .bande__mot:nth-child(n + 7) {
+  display: none;
+}
+
+html:not(.anime) .bande__mot {
+  overflow-wrap: anywhere;
+}
+
+html.anime .bande__piste {
+  flex-wrap: nowrap;
+  width: max-content;
+  animation: bande 42s linear infinite;
+}
+
+html.anime .bande__mot {
+  white-space: nowrap;
+}
+
+@keyframes bande {
+  to { transform: translateX(-50%); }
+}
+
+/* ---- Les cartes qui montent ----------------------------------------------- *
+ * Liées au défilement par le CSS seul, là où le navigateur le sait (Safari   *
+ * 26, Chrome 115). Ailleurs, rien ne s'applique : les cartes sont là, tout   *
+ * simplement, plutôt que cachées en attendant un script.                     */
+
+@supports (animation-timeline: view()) {
+  html.anime main .card,
+  html.anime main .eyebrow {
+    animation: monter linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 75%;
+  }
+
+  html.anime main .grid > :nth-child(3n + 2) {
+    animation-range: entry 8% entry 83%;
+  }
+
+  html.anime main .grid > :nth-child(3n + 3) {
+    animation-range: entry 16% entry 91%;
+  }
+}
+
+@keyframes monter {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.97);
+  }
+}
+
+/* ---- Moins de mouvement --------------------------------------------------- *
+ * `animations.js` ne pose pas `html.anime` dans ce cas, et le script en       *
+ * ligne ne pose pas `html.porte`. Ces règles-ci tiennent si l'un des deux     *
+ * venait à s'en passer.                                                       */
+
+@media (prefers-reduced-motion: reduce) {
+  html.porte body::before,
+  html.anime body::after {
+    display: none;
+  }
+
+  .aimant {
+    transform: none;
+    transition: none;
+  }
+
+  html.anime .bande__piste,
+  html.anime .ouverture__ligne:first-child,
+  html.anime main .card,
+  html.anime main .eyebrow,
+  html.anime .defiler i {
+    animation: none;
+  }
+}

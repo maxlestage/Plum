@@ -101,6 +101,59 @@ try {
     );
     dire(vu.plaintes.length === 0, `${chemin} : la console se tait`, vu.plaintes.join(" | "));
   }
+
+  // ---- 3. Le mouvement, et son absence -----------------------------------
+  //
+  // Avec du mouvement : le script de l'ouverture tourne, et le prouve en
+  // posant sa variable. C'est lui qui avait levé « Cannot access 'BOITE'
+  // before initialization » au premier essai — la console l'aurait dit, ceci
+  // dit en plus qu'il fait son travail.
+  //
+  // Sans : « réduire les animations » rend la page d'avant, entière et
+  // immobile — pas de rideau, pas d'ouverture épinglée, la marque fixe à sa
+  // place, et le titre, l'accroche et les boutons tous visibles d'emblée.
+  for (const mouvement of ["no-preference", "reduce"]) {
+    const contexte = await navigateur.newContext({
+      viewport: { width: 390, height: 844 },
+      reducedMotion: mouvement,
+    });
+    const page = await contexte.newPage();
+    const plaintes = [];
+    page.on("pageerror", (erreur) => plaintes.push(String(erreur).split("\n")[0]));
+    await page.goto(base + "/fr/", { waitUntil: "load" });
+    await page.waitForSelector("main h1", { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    const vu = await page.evaluate(() => {
+      const racine = document.documentElement;
+      const opacite = (selecteur) =>
+        [...document.querySelectorAll(selecteur)].map((e) => Number(getComputedStyle(e).opacity));
+      const marque = document.querySelector(".ouverture__marque");
+      return {
+        anime: racine.classList.contains("anime"),
+        rideau: racine.classList.contains("porte"),
+        ouverture: racine.style.getPropertyValue("--ouverture"),
+        marqueFixe: marque ? marque.checkVisibility() : false,
+        // Après l'entrée de la première ligne : rien ne doit rester à moitié.
+        suite: opacite(".ouverture__ligne--2, .ouverture__suite"),
+        hauteur: Math.round(document.querySelector(".ouverture").getBoundingClientRect().height),
+      };
+    });
+    if (mouvement === "no-preference") {
+      dire(
+        vu.anime && vu.ouverture !== "" && plaintes.length === 0,
+        "avec du mouvement, l'ouverture se déroule",
+        `anime=${vu.anime}, --ouverture=${vu.ouverture || "absente"}, ${vu.hauteur} px de course`,
+      );
+    } else {
+      dire(
+        !vu.anime && !vu.rideau && vu.marqueFixe && vu.suite.every((o) => o === 1),
+        "« réduire les animations » rend la page complète et immobile",
+        `anime=${vu.anime}, rideau=${vu.rideau}, marque fixe=${vu.marqueFixe}, ` +
+          `opacités=${vu.suite.join("/")}, ${vu.hauteur} px`,
+      );
+    }
+    await contexte.close();
+  }
 } finally {
   await navigateur.close();
   fermer();

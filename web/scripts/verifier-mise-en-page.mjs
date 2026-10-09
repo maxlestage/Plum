@@ -87,6 +87,19 @@ async function mesurer(page, vue) {
        * quelqu'un le voit.
        */
       if (element.checkVisibility && !element.checkVisibility()) continue;
+      /*
+       * Un débordement *voulu*, et déclaré comme tel : la piste d'une bande
+       * qui défile est plus large que l'écran par construction, dans un
+       * conteneur qui la coupe. Exemptée nommément, elle et ses enfants —
+       * et rien d'autre.
+       *
+       * Pas d'exemption générale pour « coupé par un ancêtre » : c'est
+       * précisément ainsi qu'un titre rogné par `overflow-x: clip` serait
+       * passé au travers, et c'est ce que ce garde a attrapé en premier
+       * quand l'ouverture s'est mise à bouger. La page elle-même reste
+       * mesurée plus bas, par `scrollWidth`.
+       */
+      if (element.closest("[data-defile-voulu]")) continue;
       const boite = element.getBoundingClientRect();
       if (boite.width === 0 && boite.height === 0) continue;
 
