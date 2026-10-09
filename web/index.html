@@ -62,6 +62,24 @@
       } catch (erreur) {
         /* Navigation privée : le thème automatique reste juste. */
       }
+      /*
+        Le rideau d'ouverture, une fois par session. Décidé ici, avant le
+        premier pixel, pour la même raison que le thème : posé plus tard par
+        un script différé, il laisserait d'abord voir la page qu'il est censé
+        découvrir. Jamais si la personne a demandé moins de mouvement.
+      */
+      try {
+        if (
+          !matchMedia("(prefers-reduced-motion: reduce)").matches &&
+          !sessionStorage.getItem("plum.rideau")
+        ) {
+          sessionStorage.setItem("plum.rideau", "1");
+          document.documentElement.classList.add("porte");
+        }
+      } catch (erreur) {
+        /* Sans stockage de session, pas de rideau : mieux vaut aucun qu'un à
+           chaque page. */
+      }
     </script>
     <!--
       Les fonctionnalités wasm que l'artefact exige, nommées une par une.
@@ -91,6 +109,12 @@
       data-wasm-opt-params="--enable-bulk-memory --enable-bulk-memory-opt --enable-sign-ext --enable-mutable-globals --enable-nontrapping-float-to-int --enable-reference-types --enable-multivalue"
     />
     <link data-trunk rel="css" href="src/theme.css" />
+    <!--
+      Le mouvement de la page d'accueil : la poussière, la lueur, les aimants.
+      Un module à part, chargé en différé, et indépendant du wasm : il démarre
+      sans attendre l'hydratation, et la page est complète sans lui.
+    -->
+    <script data-trunk src="src/animations.js" type="module"></script>
   </head>
   <body>
     <div id="root"></div>
