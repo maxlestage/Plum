@@ -17,28 +17,51 @@ pub fn Home() -> Html {
 
     html! {
         <>
-            <section class="section" style="padding-top:72px">
-                <div class="shell">
-                    <div class="prose">
-                        <PlumMark size={72} />
-                        <h1 style="font-size:clamp(2.2rem, 8vw, 3.4rem);margin:20px 0 12px">
-                            { copy.hero.headline_top.clone() }
-                            <br />
-                            { copy.hero.headline_bottom.clone() }
-                        </h1>
-                        <p class="muted" style="font-size:1.15rem;margin:0 0 28px">
-                            { copy.hero.tagline.clone() }
-                        </p>
-                        <div style="display:flex;flex-wrap:wrap;gap:12px">
-                            <a class="button" href="#availability">
-                                { copy.hero.availability_cta.clone() }
-                            </a>
-                            <Link<Route>
-                                classes="button button--quiet"
-                                to={Route::depuis(language, Page::Help)}
-                            >{ copy.hero.question_cta.clone() }</Link<Route>>
+            // L'ouverture : une scène épinglée que le défilement déroule. La
+            // marque s'y forme dans la poussière, une lueur la traverse, et le
+            // titre arrive une ligne après l'autre.
+            //
+            // Tout ce qui bouge est piloté depuis `animations.js` par deux
+            // variables posées sur `<html>`, et le CSS en tire l'état final
+            // quand elles manquent : sans script, ou avec « réduire les
+            // animations », la page est celle d'avant, complète et immobile.
+            //
+            // La toile est rendue ici, dans l'arbre, et non créée par le
+            // script : un nœud ajouté hors de l'arbre serait un écart que
+            // l'hydratation n'aurait pas produit.
+            <section class="ouverture" aria-labelledby="titre-accueil">
+                <div class="ouverture__scene">
+                    <canvas class="ouverture__poussiere" aria-hidden="true"></canvas>
+                    <div class="ouverture__lueur" aria-hidden="true"></div>
+                    <div class="shell ouverture__texte">
+                        <div class="prose">
+                            <div class="ouverture__marque">
+                                <PlumMark size={72} />
+                            </div>
+                            <h1 id="titre-accueil" class="ouverture__titre">
+                                <span class="ouverture__ligne">
+                                    { copy.hero.headline_top.clone() }
+                                </span>
+                                <br />
+                                <span class="ouverture__ligne ouverture__ligne--2">
+                                    { copy.hero.headline_bottom.clone() }
+                                </span>
+                            </h1>
+                            <p class="muted ouverture__suite ouverture__accroche">
+                                { copy.hero.tagline.clone() }
+                            </p>
+                            <div class="ouverture__suite ouverture__actions">
+                                <a class="button aimant" href="#availability">
+                                    { copy.hero.availability_cta.clone() }
+                                </a>
+                                <Link<Route>
+                                    classes="button button--quiet aimant"
+                                    to={Route::depuis(language, Page::Help)}
+                                >{ copy.hero.question_cta.clone() }</Link<Route>>
+                            </div>
                         </div>
                     </div>
+                    <div class="defiler" aria-hidden="true"><i></i></div>
                 </div>
             </section>
 
@@ -64,6 +87,21 @@ pub fn Home() -> Html {
                     </div>
                 </div>
             </section>
+
+            // La bande : les six principes en défilement continu. Décorative —
+            // les mêmes titres sont lus juste en dessous, dans leurs cartes —
+            // donc cachée aux lecteurs d'écran, qui les entendraient trois fois.
+            <div class="bande" aria-hidden="true">
+                <div class="bande__piste" data-defile-voulu="">
+                    { for (0..2).flat_map(|tour| {
+                        copy.principles.iter().enumerate().map(move |(rang, principe)| html! {
+                            <span key={format!("{tour}-{rang}")} class="bande__mot">
+                                { principe.title.clone() }
+                            </span>
+                        })
+                    }) }
+                </div>
+            </div>
 
             <section class="section">
                 <div class="shell">
