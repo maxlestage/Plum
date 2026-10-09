@@ -4,14 +4,16 @@
     python3 Scripts/check_mark.py
 
 Deux disques qui se chevauchent : chaque moitié est un grand disque dont on
-retire un petit disque décalé. La géométrie est écrite à cinq endroits, dans
-quatre langages, faute de pouvoir la partager :
+retire un petit disque décalé. La géométrie est écrite à sept endroits, dans
+cinq langages, faute de pouvoir la partager :
 
 - `Scripts/generate_appicon.py`  — l'icône d'application, qui fait foi ;
 - `Scripts/generate_favicons.py`, qui la recopie (`generate_ogimage.py`,
   lui, l'importe : il n'a rien à garder d'accord) ;
 - `web/public/favicon.svg` et `web/src/components/marque.rs`, en tracés SVG ;
-- `Plum/App/RootView.swift`, la marque dans l'application.
+- `Plum/App/RootView.swift`, la marque dans l'application ;
+- `web/src/animations.js`, la poussière qui la forme sur le site, et
+  `web/src/theme.css`, le rideau qui s'ouvre sur elle.
 
 Rien ne gardait leur accord. Celle de l'application avait dérivé jusqu'à ne
 plus être la marque du tout : un cœur sur un dégradé, c'est-à-dire le
@@ -63,6 +65,37 @@ def depuis_svg(chemin: Path) -> Marque:
     return tuple(cercles)  # type: ignore[return-value]
 
 
+def depuis_js(chemin: Path) -> Marque:
+    """`const GAUCHE = [[23.5, 32.0, 17.5], [30.0, 32.0, 15.2]];`, et `DROITE`."""
+    texte = chemin.read_text(encoding="utf-8")
+    moities = []
+    for nom in ("GAUCHE", "DROITE"):
+        motif = (
+            rf"const {nom}\s*=\s*\[\s*\[\s*{NOMBRE},\s*{NOMBRE},\s*{NOMBRE}\s*\]\s*,"
+            rf"\s*\[\s*{NOMBRE},\s*{NOMBRE},\s*{NOMBRE}\s*\]\s*\]"
+        )
+        trouve = re.search(motif, texte)
+        if trouve is None:
+            raise ValueError(f"{nom} introuvable")
+        v = [float(x) for x in trouve.groups()]
+        moities += [(v[0], v[1], v[2]), (v[3], v[4], v[5])]
+    return tuple(moities)  # type: ignore[return-value]
+
+
+def depuis_css(chemin: Path) -> Marque:
+    """Le SVG du rideau, en URI de données : les mêmes sous-tracés que le
+    favicon. Les commentaires `/* */` partent d'abord ; pas les `//`, que
+    l'adresse `http://www.w3.org` contient sur la même ligne que les tracés."""
+    texte = re.sub(r"/\*.*?\*/", " ", chemin.read_text(encoding="utf-8"), flags=re.S)
+    cercles = [
+        (float(x), float(y) + float(r), float(r))
+        for x, y, r in re.findall(rf"M\s*{NOMBRE}\s+{NOMBRE}\s+a\s*{NOMBRE}", texte)
+    ]
+    if len(cercles) != 4:
+        raise ValueError(f"attendu 4 sous-tracés, trouvé {len(cercles)}")
+    return tuple(cercles)  # type: ignore[return-value]
+
+
 def depuis_swift(chemin: Path) -> Marque:
     """`static let gaucheGrand = Disque(x: 23.5, y: 32.0, rayon: 17.5)`, etc."""
     texte = chemin.read_text(encoding="utf-8")
@@ -84,6 +117,9 @@ SOURCES = {
     "web/public/favicon.svg": depuis_svg,
     "web/src/components/marque.rs": depuis_svg,
     "Plum/App/RootView.swift": depuis_swift,
+    # La poussière de l'ouverture, et le rideau qui la précède.
+    "web/src/animations.js": depuis_js,
+    "web/src/theme.css": depuis_css,
 }
 REFERENCE = "Scripts/generate_appicon.py"
 
